@@ -1,4 +1,4 @@
-# [parrot](https://parrot-ai.vercel.app) v2.0.0
+# [parrot](https://parrot-nine.vercel.app) v1.1.0
 
 A next-generation AI voice assistant that combines cutting-edge technologies with a seamless user experience.
 
@@ -66,7 +66,7 @@ Deploy to Vercel with one click:
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fai-ng%2Fparrot)
 
-## Updates in v2.0.0
+## Updates in v1.1.0
 
 - 🎨 Completely redesigned UI with improved accessibility
 - 🔄 New streaming responses for faster interaction
