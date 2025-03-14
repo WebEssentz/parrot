@@ -1,4 +1,4 @@
-# parrot v2.0.0 Technical Documentation
+# parrot v1.1.0 Technical Documentation
 
 ## Overview
 parrot is a cutting-edge voice assistant that integrates real-time speech processing with advanced AI capabilities. Built on a modern tech stack, it leverages Groq for AI processing, Cartesia for voice enhancement, and state-of-the-art Voice Activity Detection (VAD) for speech recognition.
@@ -191,8 +191,8 @@ numThreads: isSafari ? 1 : 4
 
 ## Version Information
 
-- Current Version: 2.0.0
-- Last Updated: [Current Date]
+- Current Version: 1.1.0
+- Last Updated: 3/13/25
 - Dependencies:
   - @ricky0123/vad-react
   - @vercel/analytics
