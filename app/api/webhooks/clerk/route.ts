@@ -4,17 +4,17 @@ import { eq } from "drizzle-orm";
 
 export const POST = async (req: Request) => {
     const { data } = await req.json();
-    const emailAddress = data.email_addresses[0].email_address;
+    const emailAddress = data.email_addresses?.[0]?.email_address;
     const firstName = data.first_name;
     const lastName = data.last_name;
     const imageUrl = data.image_url;
     const clerkId = data.id;
-    const eventType = data.event_type
+    const eventType = data.event_type;
 
     try {
         if (eventType === 'user.deleted') {
             // Delete user
-            await db.delete().from(users).where(eq(users.clerkId, clerkId));
+            await db.deleteFrom(users).where(eq(users.clerkId, clerkId));
             return new Response('User successfully deleted', { status: 200 });
         } else if (eventType === 'user.updated') {
             // Check if user exists
