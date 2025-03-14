@@ -1,6 +1,6 @@
-# parrot v2.0.0: User Guide
+# parrot v1.1.0: User Guide
 
-## What's New in 2.0.0?
+## What's New in 1.1.0?
 
 ### Smart Features
 - **Intelligent Suggestions**: As you type, parrot suggests relevant completions
