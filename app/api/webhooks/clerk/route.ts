@@ -12,11 +12,7 @@ export const POST = async (req: Request) => {
     const eventType = data.event_type;
 
     try {
-        if (eventType === 'user.deleted') {
-            // Delete user - using correct delete() method
-            await db.delete().from(users).where(eq(users.clerkId, clerkId));
-            return new Response('User successfully deleted', { status: 200 });
-        } else if (eventType === 'user.updated') {
+         if (eventType === 'user.updated') {
             // Check if user exists
             const existingUsers = await db
                 .select()
