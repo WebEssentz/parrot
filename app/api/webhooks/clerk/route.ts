@@ -9,35 +9,44 @@ export const POST = async (req: Request) => {
     const lastName = data.last_name;
     const imageUrl = data.image_url;
     const clerkId = data.id;
+    const eventType = data.event_type
 
     try {
-        // Check if user exists
-        const existingUsers = await db
-            .select()
-            .from(users)
-            .where(eq(users.clerkId, clerkId));
+        if (eventType === 'user.deleted') {
+            // Delete user
+            await db.delete().from(users).where(eq(users.clerkId, clerkId));
+            return new Response('User successfully deleted', { status: 200 });
+        } else if (eventType === 'user.updated') {
+            // Check if user exists
+            const existingUsers = await db
+                .select()
+                .from(users)
+                .where(eq(users.clerkId, clerkId));
 
-        if (existingUsers.length === 0) {
-            // Create new user
-            await db.insert(users).values({
-                email: emailAddress,
-                name: `${firstName} ${lastName}`.trim(),
-                imageUrl: imageUrl ?? null,
-                clerkId: clerkId,
-            });
-        } else {
-            // Update existing user
-            await db
-                .update(users)
-                .set({
+            if (existingUsers.length === 0) {
+                // Create new user
+                await db.insert(users).values({
                     email: emailAddress,
                     name: `${firstName} ${lastName}`.trim(),
                     imageUrl: imageUrl ?? null,
-                })
-                .where(eq(users.clerkId, clerkId));
-        }
+                    clerkId: clerkId,
+                });
+            } else {
+                // Update existing user
+                await db
+                    .update(users)
+                    .set({
+                        email: emailAddress,
+                        name: `${firstName} ${lastName}`.trim(),
+                        imageUrl: imageUrl ?? null,
+                    })
+                    .where(eq(users.clerkId, clerkId));
+            }
 
-        return new Response('User successfully processed', { status: 200 });
+            return new Response('User successfully updated', { status: 200 });
+        } else {
+            return new Response('Event type not handled', { status: 400 });
+        }
     } catch (error) {
         console.error('Error processing webhook:', error);
         return new Response('Error processing webhook', { status: 500 });
