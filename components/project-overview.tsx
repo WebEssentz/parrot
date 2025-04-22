@@ -1,16 +1,8 @@
 import NextLink from "next/link";
 export const ProjectOverview = () => {
   return (
-    <div className="flex flex-col items-center justify-end">
-      <h1 className="text-3xl font-semibold mb-4">Vercel x Groq Chatbot</h1>
-      <p className="text-center">
-        This starter project uses <Link href="https://groq.com/">Groq</Link>{" "}
-        with the <Link href="https://sdk.vercel.ai/docs">AI SDK</Link> via the{" "}
-        <Link href="https://vercel.com/marketplace/groq">
-          Vercel Marketplace
-        </Link>
-        .
-      </p>
+    <div className="flex flex-col items-center justify-end pb-44 sm:pb-0">
+      <h1 className="text-3xl text-zinc-700 dark:text-zinc-300 font-semibold mb-4">What can I help with?</h1>
     </div>
   );
 };
