@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SignInButton, SignUpButton } from "./deploy-button";
 import { GroqIcon } from "./icons";
+import { ThemeToggle } from "./theme-toggle";
 
 export const Header = () => {
   return (
@@ -47,14 +48,10 @@ export const Header = () => {
                 />
               </svg>
             </div>
-            <div className="jsx-e3e12cc6f9ad5a71 flex flex-row items-center gap-4">
-              <Link className="flex flex-row items-end gap-2" target="_blank" href="https://groq.com">
-                <GroqIcon size={32} />
-              </Link>
-            </div>
           </span>
         </div>
-        <div className="flex flex-row items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
           <SignInButton />
           <SignUpButton />
         </div>

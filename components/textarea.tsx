@@ -23,9 +23,9 @@ export const Textarea = ({
   setSelectedModel,
 }: InputProps) => {
   return (
-    <div className="relative w-full pt-4">
+    <div className="relative w-full pt-4 dark:bg-background bg-white">
       <ShadcnTextarea
-        className="resize-none bg-secondary w-full rounded-2xl pr-12 pt-4 pb-16"
+        className="resize-none bg-secondary dark:bg-zinc-900 w-full rounded-2xl pr-12 pt-4 pb-16"
         value={input}
         autoFocus
         placeholder={"Say something..."}
