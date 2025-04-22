@@ -120,6 +120,9 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html, body {
+    transition: bg-background 0.1s, color 0.1s;
+  }
   body {
     @apply bg-background text-foreground;
   }

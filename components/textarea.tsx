@@ -76,9 +76,13 @@ export const Textarea = ({
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="absolute right-2 bottom-2 rounded-full p-2 bg-black hover:bg-zinc-800 disabled:bg-zinc-300 disabled:dark:bg-zinc-700 dark:disabled:opacity-80 disabled:cursor-not-allowed transition-colors"
+          className={`absolute right-2 bottom-2 rounded-full p-2
+            ${isLoading || !input.trim()
+              ? 'bg-zinc-300 dark:bg-zinc-800 dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
+              : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white'}
+            `}
         >
-          <ArrowUp className="h-4 w-4 text-white" />
+          <ArrowUp className="h-4 w-4 transition-colors duration-300" />
         </button>
       )}
     </div>
