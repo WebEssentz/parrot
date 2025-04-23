@@ -14,91 +14,134 @@ export const weatherTool = tool({
 
 export const fetchUrlTool = tool({
   description:
-    "Fetch and analyze a URL. Handles images, documents, and websites. Returns a summary, preview, or description depending on the content type. For images, returns a Markdown image preview. For restricted/login pages, returns a clear message.",
+    "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning by suggesting next links to follow if info is not found. Returns structured data, reasoning steps, and rich summaries for the AI to synthesize and present.",
   parameters: z.object({
     url: z.string().url().describe("The URL to fetch and analyze"),
+    referer: z.string().optional().describe("The referring page, for multi-step navigation"),
+    userIntent: z.string().optional().describe("The user's question or intent, for focused extraction"),
   }),
-  async execute({ url }) {
+  async execute({ url, referer, userIntent }) {
+    const start = Date.now();
+    const steps = [];
     try {
-      const res = await fetch(url, { method: 'GET' });
+      steps.push(`Step 1: Fetching ${url}`);
+      const res = await fetch(url, { method: 'GET', headers: referer ? { Referer: referer } : {} });
       const contentType = res.headers.get('content-type') || '';
       if (contentType.startsWith('image/')) {
-        // Return a Markdown image preview and a confident message
+        steps.push('Step 2: Detected image file. Returning Markdown preview.');
         return {
-          type: 'image',
-          url,
-          markdown: `![Image preview](${url})`,
-          description: `Here is the image you provided:`
+          type: 'image', url, markdown: `![Image preview](${url})`, description: `Here is the image you provided:`, steps, elapsed: Date.now() - start
         };
       } else if (contentType.includes('text/html')) {
         const html = await res.text();
-        // Extract meta tags
+        // Meta & OG
         const metaDescription = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
         const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
         const ogDescription = (html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-        // Extract headings
+        // Headings
         const headings = Array.from(html.matchAll(/<(h[1-3])[^>]*>(.*?)<\/\1>/gi)).map(m => ({ tag: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() })).slice(0, 10);
-        // Extract main text (remove scripts/styles)
+        // Navigation links
+        const navLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi))
+          .map(m => ({ href: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() }))
+          .filter(l => l.text && l.href && l.href.length < 128)
+          .slice(0, 20);
+        // Product cards (very basic: look for cards with price or product keywords)
+        const productCards = Array.from(html.matchAll(/<div[^>]*class=["'][^"']*(product|card|item|listing)[^"']*["'][^>]*>([\s\S]*?)(<\/div>)/gi))
+          .map(m => {
+            const block = m[2];
+            const name = (block.match(/<h[1-4][^>]*>(.*?)<\/h[1-4]>/i) || [])[1] || '';
+            const price = (block.match(/\$[0-9,.]+/) || [])[0] || '';
+            const features = Array.from(block.matchAll(/<li[^>]*>(.*?)<\/li>/gi)).map(x => x[1].replace(/<[^>]+>/g, '').trim());
+            const img = (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || '';
+            return { name, price, features, img };
+          }).filter(card => card.name || card.price || card.features.length > 0);
+        // Tables
+        const tables = Array.from(html.matchAll(/<table[\s\S]*?<\/table>/gi)).map(t => t[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 300));
+        // FAQs
+        const faqs = Array.from(html.matchAll(/<details[\s\S]*?<\/details>/gi)).map(f => f[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
+        // News/blogs
+        const newsSections = Array.from(html.matchAll(/<(section|div)[^>]+(news|blog|update)[^>]*>[\s\S]*?<\/(section|div)>/gi)).map(s => s[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 400));
+        // Main text
         const mainText = html
           .replace(/<script[\s\S]*?<\/script>/gi, '')
           .replace(/<style[\s\S]*?<\/style>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ');
-        // Detect login/restricted pages
-        const isLogin = /login|sign in|sign-in|authentication|password/i.test(html);
-        const titleMatch = html.match(/<title>(.*?)<\/title>/i);
-        const title = titleMatch ? titleMatch[1] : ogTitle || url;
+        // Site type
+        let siteType = 'general';
+        if (productCards.length > 2) siteType = 'e-commerce';
+        else if (newsSections.length > 0) siteType = 'news';
+        else if (faqs.length > 0) siteType = 'docs/faq';
+        // Reasoning steps
+        steps.push('Step 2: Extracted meta, headings, navigation, products, tables, FAQs, news/blogs.');
+        // Multi-step: suggest next links if user intent matches a product or section
+        let suggestedLinks: { href: string; text: string }[] = [];
+        if (userIntent) {
+          const lowerIntent = userIntent.toLowerCase();
+          suggestedLinks = navLinks.filter(l => lowerIntent.includes(l.text.toLowerCase()) || l.text.toLowerCase().includes(lowerIntent.split(' ')[0]));
+          if (suggestedLinks.length > 0) {
+            steps.push(`Step 3: Info not found on homepage. Suggesting navigation to: ${suggestedLinks.map(l => l.text).join(', ')}`);
+          }
+        }
+        // Article links extraction (anchor tags with hrefs to articles)
+        const articleLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi))
+          .map(m => {
+            const href = m[1];
+            const text = m[2].replace(/<[^>]+>/g, '').trim();
+            // Heuristic: likely an article if href contains '/article', '/news', '/story', or ends with .html/.htm
+            const isArticle = /\/article|\/news|\/story|\.html?$/.test(href);
+            return isArticle ? { href, text } : null;
+          })
+          .filter(Boolean)
+          .slice(0, 50) as { href: string; text: string }[];
         // Compose summary
         const summary = [
           metaDescription,
           ogTitle,
           ogDescription,
           ...headings.map(h => h.text),
+          ...productCards.map(c => `${c.name} ${c.price}`),
+          ...tables,
+          ...faqs,
+          ...newsSections,
           mainText.slice(0, 1000)
-        ].filter(Boolean).join(' | ').slice(0, 1200);
-        if (isLogin) {
-          return {
-            type: 'website',
-            url,
-            title,
-            restricted: true,
-            message: 'This page requires authentication. Only public information is shown below.',
-            metaDescription,
-            ogTitle,
-            ogDescription,
-            headings,
-            summary,
-            preview: mainText.slice(0, 500) + (mainText.length > 500 ? '...' : ''),
-          };
-        }
+        ].filter(Boolean).join(' | ').slice(0, 1500);
         return {
           type: 'website',
           url,
-          title,
-          restricted: false,
+          siteType,
+          title: ogTitle || (headings[0]?.text ?? url),
           metaDescription,
           ogTitle,
           ogDescription,
           headings,
+          navLinks,
+          productCards,
+          tables,
+          faqs,
+          newsSections,
           summary,
           preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''),
+          suggestedLinks,
+          articleLinks,
+          steps,
+          elapsed: Date.now() - start
         };
       } else if (contentType.includes('application/pdf')) {
+        steps.push('Step 2: Detected PDF document.');
         return {
-          type: 'document',
-          url,
-          description: 'PDF document. Download and view for details.',
+          type: 'document', url, description: 'PDF document. Download and view for details.', steps, elapsed: Date.now() - start
         };
       } else {
         const text = await res.text();
+        steps.push('Step 2: Fallback to plain text extraction.');
         return {
-          type: 'file',
-          url,
-          preview: text.slice(0, 500) + (text.length > 500 ? '...' : ''),
+          type: 'file', url, preview: text.slice(0, 500) + (text.length > 500 ? '...' : ''), steps, elapsed: Date.now() - start
         };
       }
     } catch (e) {
-      return { error: `Failed to fetch or analyze the URL: ${e}` };
+      steps.push(`Error: ${e}`);
+      return { error: `Failed to fetch or analyze the URL: ${e}`, steps };
     }
   },
 });
