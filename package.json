@@ -1,10 +1,10 @@
 {
-  "name": "ai-sdk-starter",
+  "name": "parrot",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "bun run build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },

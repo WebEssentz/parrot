@@ -23,9 +23,9 @@ export const Textarea = ({
   setSelectedModel,
 }: InputProps) => {
   return (
-    <div className="relative w-full pt-4 dark:bg-background bg-white">
+    <div className="relative w-full pt-4 bg-transparent dark:bg-transparent">
       <ShadcnTextarea
-        className="resize-none bg-secondary dark:bg-zinc-900 w-full rounded-2xl pr-12 pt-4 pb-16"
+        className="resize-none bg-transparent dark:bg-transparent w-full rounded-2xl pr-12 pt-4 pb-16"
         value={input}
         autoFocus
         placeholder={"Say something..."}
@@ -51,10 +51,10 @@ export const Textarea = ({
         <button
           type="button"
           onClick={stop}
-          className="cursor-pointer absolute right-2 bottom-2 rounded-full p-2 bg-black hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
+          className="cursor-pointer absolute right-2 bottom-2 rounded-full p-2 bg-black dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
         >
           <div className="animate-spin h-4 w-4">
-            <svg className="h-4 w-4 text-white" viewBox="0 0 24 24">
+            <svg className="h-4 w-4 text-white dark:text-black" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
@@ -78,7 +78,7 @@ export const Textarea = ({
           disabled={isLoading || !input.trim()}
           className={`absolute right-2 bottom-2 rounded-full p-2
             ${isLoading || !input.trim()
-              ? 'bg-zinc-300 dark:bg-zinc-800 dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
+              ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
               : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white'}
             `}
         >

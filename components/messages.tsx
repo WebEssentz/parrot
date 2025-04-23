@@ -14,8 +14,14 @@ export const Messages = ({
   const [containerRef, endRef] = useScrollToBottom();
   return (
     <div
-      className="flex-1 h-full space-y-4 overflow-y-auto py-8"
+      className="flex-1 max-w-full py-8"
       ref={containerRef}
+      style={{
+        overflowY: typeof window !== 'undefined' && window.innerWidth < 640 ? 'visible' : 'auto',
+        WebkitOverflowScrolling: 'touch',
+        overflowX: 'hidden',
+        scrollbarWidth: typeof window !== 'undefined' && window.innerWidth < 640 ? 'none' : 'thin',
+      }}
     >
       <div className="max-w-xl mx-auto pt-8">
         {messages.map((m, i) => (
