@@ -6,21 +6,27 @@ export const Messages = ({
   messages,
   isLoading,
   status,
+  mobileInputHeight = 72, // default mobile input height in px
 }: {
   messages: TMessage[];
   isLoading: boolean;
   status: "error" | "submitted" | "streaming" | "ready";
+  mobileInputHeight?: number;
 }) => {
   const [containerRef, endRef] = useScrollToBottom();
+
   return (
     <div
-      className="flex-1 max-w-full py-8"
       ref={containerRef}
+      className="
+        flex-1 overflow-y-auto max-w-full py-8
+        scrollbar-thin
+      "
       style={{
-        overflowY: typeof window !== 'undefined' && window.innerWidth < 640 ? 'visible' : 'auto',
-        WebkitOverflowScrolling: 'touch',
-        overflowX: 'hidden',
-        scrollbarWidth: typeof window !== 'undefined' && window.innerWidth < 640 ? 'none' : 'thin',
+        WebkitOverflowScrolling: "touch",
+        overflowX: "hidden",
+        // Always add enough bottom padding so messages never go under the fixed input
+        paddingBottom: `${mobileInputHeight + 32}px`, // 32px for extra margin (adjust as needed)
       }}
     >
       <div className="max-w-xl mx-auto pt-8">
@@ -33,7 +39,7 @@ export const Messages = ({
             status={status}
           />
         ))}
-        <div className="h-1" ref={endRef} />
+        <div ref={endRef} />
       </div>
     </div>
   );

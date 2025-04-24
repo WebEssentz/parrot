@@ -39,9 +39,24 @@ export default function Chat() {
       ) : (
         <Messages messages={messages} isLoading={isLoading} status={status} />
       )}
+      {/* Mobile: input below messages, scrolls with content */}
+      <div className="block sm:hidden w-full max-w-xl mx-auto px-4 pb-4">
+        <form onSubmit={handleSubmit} className="pb-8 bg-background dark:bg-background w-full max-w-xl mx-auto px-4 sm:px-0 fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto sm:left-auto sm:right-auto">
+          <Textarea
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
+            handleInputChange={handleInputChange}
+            input={input}
+            isLoading={isLoading}
+            status={status}
+            stop={stop}
+          />
+        </form>
+      </div>
+      {/* Desktop: input fixed at bottom */}
       <form
         onSubmit={handleSubmit}
-        className="pb-8 bg-background dark:bg-background w-full max-w-xl mx-auto px-4 sm:px-0 fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto sm:left-auto sm:right-auto"
+        className="hidden sm:block pb-8 bg-background dark:bg-background w-full max-w-xl mx-auto px-0 fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto sm:left-auto sm:right-auto"
       >
         <Textarea
           selectedModel={selectedModel}
