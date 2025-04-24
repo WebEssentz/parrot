@@ -18,16 +18,7 @@ export const Messages = ({
   return (
     <div
       ref={containerRef}
-      className="
-        flex-1 overflow-y-auto max-w-full py-8
-        scrollbar-thin
-      "
-      style={{
-        WebkitOverflowScrolling: "touch",
-        overflowX: "hidden",
-        // Add a bit more bottom padding on mobile to move messages slightly up from the form
-        paddingBottom: typeof window !== "undefined" && window.innerWidth < 640 ? `${mobileInputHeight + 48}px` : `${mobileInputHeight + 32}px`,
-      }}
+      className="flex-1 overflow-y-auto max-w-full py-8 scrollbar-thin pb-[120px] sm:pb-[80px]"
     >
       <div className="max-w-xl mx-auto pt-8">
         {messages.map((m, i) => (
