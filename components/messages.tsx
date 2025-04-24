@@ -6,7 +6,6 @@ export const Messages = ({
   messages,
   isLoading,
   status,
-  mobileInputHeight = 72, // default mobile input height in px
 }: {
   messages: TMessage[];
   isLoading: boolean;
