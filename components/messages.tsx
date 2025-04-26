@@ -19,7 +19,7 @@ export const Messages = ({
       ref={containerRef}
       className="flex-1 overflow-y-auto max-w-full py-8 scrollbar-thin pb-[120px] sm:pb-[80px]"
     >
-      <div className="max-w-xl mx-auto pt-8">
+      <div className="w-full px-0 sm:max-w-3xl sm:mx-auto pt-8">
         {messages.map((m, i) => (
           <Message
             key={i}

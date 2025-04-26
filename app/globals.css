@@ -127,3 +127,39 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Minimal scrollbar for chat/code blocks */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120,120,120,0.25);
+  border-radius: 8px;
+  transition: background 0.3s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120,120,120,0.45);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120,120,120,0.25) transparent;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Fade effect when scrolling (for overlay scrollbars) */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120,120,120,0.18) transparent;
+}
+.scrollbar-thin:hover, .scrollbar-thin:active, .scrollbar-thin:focus, .scrollbar-thin:focus-within {
+  scrollbar-color: rgba(120,120,120,0.35) transparent;
+}

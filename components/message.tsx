@@ -125,105 +125,140 @@ const PurePreviewMessage = ({
   status: "error" | "submitted" | "streaming" | "ready";
   isLatestMessage: boolean;
 }) => {
+  // Responsive: mobile-first, enterprise-grade assistant message layout
+  // On mobile, assistant icon above message bubble, left-aligned, max-w-[80vw]
+  // On desktop, keep current layout
+  const isAssistant = message.role === "assistant";
   return (
     <AnimatePresence key={message.id}>
       <motion.div
-        className="w-full mx-auto px-4 group/message"
+        className="w-full mx-auto px-2 sm:px-4 group/message sm:max-w-4xl"
         initial={{ y: 5, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         key={`message-${message.id}`}
         data-role={message.role}
       >
+        {/* Mobile: assistant icon above message bubble, left-aligned */}
         <div
           className={cn(
-            "flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl",
-            "group-data-[role=user]/message:w-fit",
+            isAssistant
+              ? "flex w-full flex-col sm:flex-row items-start"
+              : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit",
           )}
         >
-          {message.role === "assistant" && (
-            <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background">
-              <div className="">
+          {isAssistant && (
+            <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
+              <div>
                 <SparklesIcon size={14} />
               </div>
             </div>
           )}
 
-          <div className="flex flex-col w-full space-y-4">
-            {message.parts?.map((part, i) => {
-              switch (part.type) {
-                case "text":
-                  return (
-                    <motion.div
-                      initial={{ y: 5, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      key={`message-${message.id}-part-${i}`}
-                      className="flex flex-row gap-2 items-start w-full pb-4"
-                    >
-                      <div
-                        className={cn("flex flex-col gap-4", {
-                          "bg-secondary text-secondary-foreground px-3 py-2 rounded-tl-xl rounded-tr-xl rounded-bl-xl":
-                            message.role === "user",
-                        })}
-                      >
-                        <Markdown>{part.text}</Markdown>
-                      </div>
-                    </motion.div>
-                  );
-                case "tool-invocation":
-                  const { toolName, state } = part.toolInvocation;
-
-                  return (
-                    <motion.div
-                      initial={{ y: 5, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      key={`message-${message.id}-part-${i}`}
-                      className="flex flex-col gap-2 p-2 mb-3 text-sm bg-zinc-50 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800"
-                    >
-                      <div className="flex-1 flex items-center justify-center">
-                        <div className="flex items-center justify-center w-8 h-8 bg-zinc-50 dark:bg-zinc-800 rounded-full">
-                          <PocketKnife className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium flex items-baseline gap-2">
-                            {state === "call" ? "Calling" : "Called"}{" "}
-                            <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md">
-                              {toolName}
-                            </span>
+          {isAssistant ? (
+            <div
+              className="w-full"
+              style={{ marginLeft: 0, paddingLeft: 0 }}
+            >
+              <div className="flex flex-col space-y-4" style={{ alignItems: 'flex-start' }}>
+                {message.parts?.map((part, i) => {
+                  switch (part.type) {
+                    case "text":
+                      return (
+                        <motion.div
+                          initial={{ y: 5, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          key={`message-${message.id}-part-${i}`}
+                          className="flex flex-row items-start w-full pb-4"
+                        >
+                          <div
+                            className="flex flex-col gap-4 px-4 py-2"
+                            style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
+                          >
+                            <Markdown>{part.text}</Markdown>
                           </div>
+                        </motion.div>
+                      );
+                    case "tool-invocation":
+                      const { toolName, state } = part.toolInvocation;
+
+                      return (
+                        <motion.div
+                          initial={{ y: 5, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          key={`message-${message.id}-part-${i}`}
+                          className="flex flex-col gap-2 p-2 mb-3 text-sm bg-zinc-50 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800"
+                        >
+                          <div className="flex-1 flex items-center justify-center">
+                            <div className="flex items-center justify-center w-8 h-8 bg-zinc-50 dark:bg-zinc-800 rounded-full">
+                              <PocketKnife className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium flex items-baseline gap-2">
+                                {state === "call" ? "Calling" : "Called"}{" "}
+                                <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md">
+                                  {toolName}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="w-5 h-5 flex items-center justify-center">
+                              {state === "call" ? (
+                                isLatestMessage && status !== "ready" ? (
+                                  <Loader2 className="animate-spin h-4 w-4 text-zinc-500" />
+                                ) : (
+                                  <StopCircle className="h-4 w-4 text-red-500" />
+                                )
+                              ) : state === "result" ? (
+                                <CheckCircle size={14} className="text-green-600" />
+                              ) : null}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    case "reasoning":
+                      return (
+                        <ReasoningMessagePart
+                          key={`message-${message.id}-${i}`}
+                          // @ts-expect-error part
+                          part={part}
+                          isReasoning={
+                            (message.parts &&
+                              status === "streaming" &&
+                              i === message.parts.length - 1) ??
+                            false
+                          }
+                        />
+                      );
+                    default:
+                      return null;
+                  }
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col w-full space-y-4">
+              {message.parts?.map((part, i) => {
+                switch (part.type) {
+                  case "text":
+                    return (
+                      <motion.div
+                        initial={{ y: 5, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        key={`message-${message.id}-part-${i}`}
+                        className="flex flex-row items-start w-full pb-4"
+                      >
+                        <div
+                          className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 rounded-xl w-full sm:max-w-2xl shadow"
+                        >
+                          <Markdown>{part.text}</Markdown>
                         </div>
-                        <div className="w-5 h-5 flex items-center justify-center">
-                          {state === "call" ? (
-                            isLatestMessage && status !== "ready" ? (
-                              <Loader2 className="animate-spin h-4 w-4 text-zinc-500" />
-                            ) : (
-                              <StopCircle className="h-4 w-4 text-red-500" />
-                            )
-                          ) : state === "result" ? (
-                            <CheckCircle size={14} className="text-green-600" />
-                          ) : null}
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                case "reasoning":
-                  return (
-                    <ReasoningMessagePart
-                      key={`message-${message.id}-${i}`}
-                      // @ts-expect-error part
-                      part={part}
-                      isReasoning={
-                        (message.parts &&
-                          status === "streaming" &&
-                          i === message.parts.length - 1) ??
-                        false
-                      }
-                    />
-                  );
-                default:
-                  return null;
-              }
-            })}
-          </div>
+                      </motion.div>
+                    );
+                  default:
+                    return null;
+                }
+              })}
+            </div>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>
