@@ -145,3 +145,125 @@ export const fetchUrlTool = tool({
     }
   },
 });
+
+
+// export const fetchUrlTool = tool({
+//   description:
+//     "Enterprise-grade: Deeply fetch and analyze a URL. Follows related links using a queue to gather more information. Extracts product cards, prices, features, navigation, tables, FAQs, news/blogs, and classifies site type. Returns structured data, steps, and summaries.",
+//   parameters: z.object({
+//     url: z.string().url().describe("The URL to fetch and analyze"),
+//     referer: z.string().optional().describe("The referring page, for multi-step navigation"),
+//     userIntent: z.string().optional().describe("The user's question or intent, for focused extraction"),
+//     maxDepth: z.number().optional().default(2).describe("How deep to crawl (default 2)"),
+//     maxPages: z.number().optional().default(5).describe("How many pages maximum to fetch (default 5)"),
+//   }),
+//   async execute({ url, referer, userIntent, maxDepth = 2, maxPages = 5 }) {
+//     const start = Date.now();
+//     const steps: string[] = [];
+//     const visited = new Set<string>();
+//     const queue: { url: string; depth: number }[] = [{ url, depth: 0 }];
+//     const results: any[] = [];
+
+//     async function fetchAndExtract(targetUrl: string, depth: number): Promise<any> {
+//       try {
+//         const res = await fetch(targetUrl, { method: 'GET', headers: referer ? { Referer: referer } : {} });
+//         const contentType = res.headers.get('content-type') || '';
+
+//         if (contentType.startsWith('image/') || contentType.includes('application/pdf')) {
+//           return { url: targetUrl, type: 'file', note: 'Image or document skipped.' };
+//         } else if (contentType.includes('text/html')) {
+//           const html = await res.text();
+
+//           const metaDescription = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
+//           const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
+//           const ogDescription = (html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
+
+//           const headings = Array.from(html.matchAll(/<(h[1-3])[^>]*>(.*?)<\/\1>/gi)).map(m => ({ tag: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() }));
+
+//           const navLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi))
+//             .map(m => ({ href: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() }))
+//             .filter(l => l.text && l.href && l.href.length < 128);
+
+//           const productCards = Array.from(html.matchAll(/<div[^>]*class=["'][^"']*(product|card|item|listing)[^"']*["'][^>]*>([\s\S]*?)(<\/div>)/gi))
+//             .map(m => {
+//               const block = m[2];
+//               const name = (block.match(/<h[1-4][^>]*>(.*?)<\/h[1-4]>/i) || [])[1] || '';
+//               const price = (block.match(/\$[0-9,.]+/) || [])[0] || '';
+//               const features = Array.from(block.matchAll(/<li[^>]*>(.*?)<\/li>/gi)).map(x => x[1].replace(/<[^>]+>/g, '').trim());
+//               const img = (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || '';
+//               return { name, price, features, img };
+//             }).filter(card => card.name || card.price || card.features.length > 0);
+
+//           const mainText = html.replace(/<script[\s\S]*?<\/script>/gi, '')
+//                                .replace(/<style[\s\S]*?<\/style>/gi, '')
+//                                .replace(/<[^>]+>/g, ' ')
+//                                .replace(/\s+/g, ' ')
+//                                .trim();
+
+//           let siteType = 'general';
+//           if (productCards.length > 2) siteType = 'e-commerce';
+//           else if (html.includes('news') || html.includes('blog')) siteType = 'news';
+
+//           const summary = [metaDescription, ogTitle, ogDescription, ...headings.map(h => h.text), ...productCards.map(c => `${c.name} ${c.price}`)]
+//             .filter(Boolean).join(' | ').slice(0, 1500);
+
+//           // Discover new links based on userIntent
+//           let newLinks: string[] = [];
+//           if (userIntent) {
+//             const lowerIntent = userIntent.toLowerCase();
+//             newLinks = navLinks
+//               .filter(l => l.text.toLowerCase().includes(lowerIntent) || lowerIntent.includes(l.text.toLowerCase()))
+//               .map(l => new URL(l.href, targetUrl).href);
+//           } else {
+//             newLinks = navLinks.map(l => new URL(l.href, targetUrl).href);
+//           }
+
+//           return {
+//             url: targetUrl,
+//             siteType,
+//             title: ogTitle || headings[0]?.text || targetUrl,
+//             metaDescription,
+//             ogTitle,
+//             ogDescription,
+//             headings,
+//             navLinks,
+//             productCards,
+//             summary,
+//             preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''),
+//             foundLinks: newLinks,
+//             steps: [`Fetched ${targetUrl} (depth ${depth})`],
+//           };
+//         }
+//         return { url: targetUrl, type: 'unknown', note: 'Non-HTML content skipped.' };
+//       } catch (e) {
+//         return { url: targetUrl, error: `Failed: ${e}` };
+//       }
+//     }
+
+//     while (queue.length > 0 && results.length < maxPages) {
+//       const { url: currentUrl, depth } = queue.shift()!;
+//       if (visited.has(currentUrl) || depth > maxDepth) continue;
+//       visited.add(currentUrl);
+
+//       const result = await fetchAndExtract(currentUrl, depth);
+//       results.push(result);
+//       steps.push(...(result.steps || []));
+
+//       if (result.foundLinks) {
+//         for (const link of result.foundLinks) {
+//           if (!visited.has(link) && queue.length + results.length < maxPages) {
+//             queue.push({ url: link, depth: depth + 1 });
+//           }
+//         }
+//       }
+//     }
+
+//     return {
+//       initialUrl: url,
+//       crawledPages: results.length,
+//       results,
+//       steps,
+//       elapsed: Date.now() - start,
+//     };
+//   },
+// });
