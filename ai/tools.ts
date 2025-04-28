@@ -1,5 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { google } from '@ai-sdk/google'; // Import the Google provider
+import { generateText } from 'ai'; // Import generateText
 
 export const weatherTool = tool({
   description: "Get the weather in a location",
@@ -146,6 +148,56 @@ export const fetchUrlTool = tool({
   },
 });
 
+
+// --- NEW Google Search Tool ---
+export const googleSearchTool = tool({
+  description: "Search the web using Google Search Grounding for up-to-date information, current events, or general knowledge questions.",
+  parameters: z.object({
+    query: z.string().describe("The search query to look up on the web"),
+  }),
+  execute: async ({ query }) => {
+    console.log(`googleSearchTool: Executing search for query: "${query}"`);
+    try {
+      // Use a model that supports search grounding, like gemini-1.5-flash
+      // Enable search grounding via model options
+      const modelInstance = google('gemini-2.5-pro-exp-03-25', { // Use 'latest' or a specific version
+          useSearchGrounding: true,
+      });
+
+      const { text, sources, providerMetadata } = await generateText({
+          model: modelInstance,
+          prompt: query,
+      });
+
+      // Extract relevant metadata if needed (optional)
+      // Types can be imported for better safety: import { GoogleGenerativeAIProviderMetadata } from '@ai-sdk/google';
+      const metadata = providerMetadata?.google as any | undefined; // Cast for easier access, be mindful of potential undefined
+      const webSearchQueries = metadata?.groundingMetadata?.webSearchQueries ?? [];
+      const safetyRatings = metadata?.safetyRatings ?? []; // Example of accessing safety ratings
+
+      console.log(`googleSearchTool: Search successful for query: "${query}". Found ${sources?.length ?? 0} sources.`);
+
+      // Return the grounded response and sources
+      return {
+          query,
+          groundedResponse: text,
+          sources: sources ?? [], // Ensure sources is always an array
+          webSearchQueries, // Include the queries Google used
+          // safetyRatings, // Optionally include safety ratings if useful downstream
+      };
+    } catch (error: any) {
+        console.error(`googleSearchTool Error searching for "${query}":`, error);
+        return {
+          query,
+          error: `Failed to execute Google search: ${error.message || error}`,
+          groundedResponse: null,
+          sources: [],
+          webSearchQueries: [],
+        };
+    }
+  },
+});
+// --- End of NEW Google Search Tool ---
 
 // export const fetchUrlTool = tool({
 //   description:
