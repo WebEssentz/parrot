@@ -353,7 +353,7 @@ export const googleSearchTool = tool({
     try {
       // Use a model that supports search grounding, like gemini-1.5-flash
       // Enable search grounding via model options
-      const modelInstance = google('gemini-1.5-pro-latest', { // Switch back to stable model if needed
+      const modelInstance = google('gemini-2.5-pro-exp-03-25', { // Switch back to stable model if needed
           useSearchGrounding: true,
       });
 

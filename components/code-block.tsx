@@ -226,7 +226,7 @@ export function CodeBlock({
             <div className="flex items-center gap-2 relative min-w-[40px]">
               {/* Kebab icon (desktop default, animates out) */}
               <button
-                className={`transition-all duration-200 ease-in-out absolute right-0 top-0 z-10 bg-zinc-100 dark:bg-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-600 flex items-center p-1 rounded ${showActions ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 pointer-events-auto scale-100'}`}
+                className={`transition-all duration-200 ease-in-out absolute right-0 top-0 mt-1 z-10 bg-zinc-100 dark:bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-600 flex items-center p-1 rounded ${showActions ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 pointer-events-auto scale-100'}`}
                 aria-label="Show code actions"
                 type="button"
                 tabIndex={showActions ? -1 : 0}
@@ -291,14 +291,21 @@ export function CodeBlock({
           </div>
           {/* Code block body */}
           {!collapsed && (
-            <div className={`${styles.codeBlockScroll} ${THEMES[themeIndex].name === "Solarized Light" ? "bg-white dark:bg-zinc-900 rounded-b-xl" : "bg-white dark:bg-zinc-900 rounded-b-xl"}`}>
+            <div
+              className={
+                styles.codeBlockScroll +
+                (theme === "light"
+                  ? " bg-white rounded-b-xl"
+                  : " bg-black rounded-b-xl")
+              }
+            >
               <div className="w-full px-0 sm:px-4 py-2 sm:py-4">
                 <div className={styles.codeBlockContent}>
                   <SyntaxHighlighter
                     language={detectedLanguage}
                     style={THEMES[themeIndex].value}
                     customStyle={{
-                      backgroundColor: theme === "light" ? "#fff" : "#18181b",
+                      backgroundColor: theme === "light" ? "#fff" : "transparent",
                       margin: 0,
                       padding: 0,
                       borderRadius: 0,

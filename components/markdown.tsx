@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'; // Assuming you have cn utility
 
 const components: Partial<Components> = {
     // --- Code Block Handling (Keep As Is) ---
-code(props) {
+    code(props) {
         const { children, className, node, ...rest } = props;
         const match = /language-(\w+)/.exec(className || '');
 
@@ -75,13 +75,48 @@ code(props) {
     ),
 
     // --- Heading Styling (Keep As Is or Adjust) ---
-    h1: ({ node, children, ...props }) => (<h1 className="text-2xl font-semibold mb-2 mt-4 pb-1" {...props}>{children}</h1>), // Adjusted styles
-    h2: ({ node, children, ...props }) => (<h2 className="text-xl font-semibold mb-2 mt-3 pb-1" {...props}>{children}</h2>), // Adjusted styles
-    h3: ({ node, children, ...props }) => (<h3 className="text-lg font-semibold mb-1 mt-3" {...props}>{children}</h3>), // Adjusted styles
-    h4: ({ node, children, ...props }) => (<h4 className="text-base font-semibold mb-1 mt-2" {...props}>{children}</h4>),
-    h5: ({ node, children, ...props }) => (<h5 className="text-sm font-semibold mt-2 mb-1" {...props}>{children}</h5>),
-    h6: ({ node, children, ...props }) => (<h6 className="text-xs font-semibold mt-2 mb-1 text-zinc-600 dark:text-zinc-400" {...props}>{children}</h6>),
-
+    h1: ({ node, children, ...props }) => {
+     return (
+       <h1 className="text-3xl font-semibold mt-6 mb-2" {...props}>
+         {children}
+       </h1>
+     );
+   },
+   h2: ({ node, children, ...props }) => {
+     return (
+       <h2 className="text-2xl font-semibold mt-6 mb-2" {...props}>
+         {children}
+       </h2>
+     );
+   },
+   h3: ({ node, children, ...props }) => {
+     return (
+       <h3 className="text-xl font-semibold mt-6 mb-2" {...props}>
+         {children}
+       </h3>
+     );
+   },
+   h4: ({ node, children, ...props }) => {
+     return (
+       <h4 className="text-lg font-semibold mt-6 mb-2" {...props}>
+         {children}
+       </h4>
+     );
+   },
+   h5: ({ node, children, ...props }) => {
+     return (
+       <h5 className="text-base font-semibold mt-6 mb-2" {...props}>
+         {children}
+       </h5>
+     );
+   },
+   h6: ({ node, children, ...props }) => {
+     return (
+       <h6 className="text-sm font-semibold mt-6 mb-2" {...props}>
+         {children}
+       </h6>
+     );
+   },
     // --- UPDATED Table Styling ---
     table: ({ node, children, ...props }) => (
         // Responsive container for horizontal scrolling

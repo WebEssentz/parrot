@@ -146,6 +146,17 @@ body {
   max-width: 100%;
 }
 
+/* PauseIcon spinner animation */
+.pause-spinner {
+  transform-origin: 50% 50%;
+  animation: pause-spin 1s linear infinite;
+}
+@keyframes pause-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -1,6 +1,39 @@
-import Link from "next/link";
+// PauseIcon: Circle with animated spinner and pause square (stoppable)
 import * as React from "react";
 import type { SVGProps } from "react";
+
+export const PauseIcon = ({ size = 32, className = "", ...props }: { size?: number; className?: string } & SVGProps<SVGSVGElement>) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    {...props}
+  >
+    <circle
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="2"
+      fill="none"
+      strokeDasharray="62.832"
+      strokeDashoffset="15.708"
+      className="pause-spinner"
+    />
+    <rect
+      x="7"
+      y="7"
+      width="10"
+      height="10"
+      fill="currentColor"
+      className="pause-stop"
+    />
+  </svg>
+);
+import Link from "next/link";
 
 export const VercelIcon = ({ size = 17 }) => {
   return (
