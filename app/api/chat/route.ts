@@ -117,6 +117,7 @@ export async function POST(req: Request) {
             - Summarize the "groundedResponse" concisely.
             - **CRITICAL FOR SOURCES:** If the tool provides sources in the \`sources\` array:
                 1.  **DO NOT display the sources directly in your main text response.**
+                2. ** THE SOURCES MUST BE AT THE END OF YOUR RESPONSE TEXT.
                 2.  **INSTEAD, at the very end of your response text, add the following structure:**
                     \`\`\`
                     <!-- PARROT_SOURCES_START -->
