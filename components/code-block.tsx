@@ -280,7 +280,6 @@ export function CodeBlock({
                   <SyntaxHighlighter
                     language={detectedLanguage}
                     style={THEMES[themeIndex].value}
-                    showLineNumbers
                     customStyle={{
                       backgroundColor: theme === "light" ? "#fff" : "#18181b",
                       margin: 0,

@@ -1,105 +1,104 @@
 import Link from 'next/link';
 import React, { memo } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import remarkGfm from 'remark-gfm'; // Keep GFM for table support
 import { CodeBlock } from './code-block';
+import { cn } from '@/lib/utils'; // Assuming you have cn utility
 
 const components: Partial<Components> = {
-  code: ({node, inline = false, className = '', children, ...props}: any) => (
-    <CodeBlock
-      node={node}
-      inline={inline}
-      className={className || ''}
-      children={children}
-      {...props}
-    />
-  ),
-  pre: ({ children }) => <>{children}</>,
-  ol: ({ node, children, ...props }) => {
-    return (
-      <ol className="list-decimal list-outside ml-4" {...props}>
-        {children}
-      </ol>
-    );
-  },
-  li: ({ node, children, ...props }) => {
-    return (
-      <li className="py-1" {...props}>
-        {children}
-      </li>
-    );
-  },
-  ul: ({ node, children, ...props }) => {
-    return (
-      <ul className="list-decimal list-outside ml-4" {...props}>
-        {children}
-      </ul>
-    );
-  },
-  strong: ({ node, children, ...props }) => {
-    return (
-      <span className="font-semibold" {...props}>
-        {children}
-      </span>
-    );
-  },
-  a: ({ node, children, ...props }) => {
-    return (
-      // @ts-expect-error
-      <Link
-        className="text-blue-500 hover:underline"
-        target="_blank"
-        rel="noreferrer"
+    // --- Code Block Handling (Keep As Is) ---
+    code: ({ node, inline = false, className = '', children, ...props }: any) => (
+        <CodeBlock
+        node={node}
+        inline={inline}
+        className={className || ''}
+        children={children}
         {...props}
-      >
+        />
+    ),
+    pre: ({ children }) => <>{children}</>, // Keep pre wrapper simple
+
+    // --- List Styling (Keep As Is or Adjust if needed) ---
+    ol: ({ node, children, ...props }) => (
+        <ol className="list-decimal list-outside ml-6 space-y-1" {...props}>{children}</ol> // Adjusted spacing/margin
+    ),
+    ul: ({ node, children, ...props }) => (
+        <ul className="list-disc list-outside ml-6 space-y-1" {...props}>{children}</ul> // Adjusted spacing/margin
+    ),
+    li: ({ node, children, ...props }) => (
+        <li className="pl-1" {...props}>{children}</li> // Slight padding adjustment
+    ),
+
+    // --- Text Styling (Keep As Is) ---
+    strong: ({ node, children, ...props }) => (
+        <span className="font-semibold" {...props}>{children}</span>
+    ),
+    em: ({ node, children, ...props }) => (
+        <span className="italic" {...props}>{children}</span>
+    ),
+    a: ({ node, children, ...props }) => (
+        // @ts-expect-error
+        <Link className="text-blue-600 hover:underline dark:text-blue-400" target="_blank" rel="noreferrer" {...props}>
         {children}
-      </Link>
-    );
-  },
-  h1: ({ node, children, ...props }) => {
-    return (
-      <h1 className="text-3xl font-semibold mb-1 -mt-0 md:-mt-2" {...props}>
-        {children}
-      </h1>
-    );
-  },
-  h2: ({ node, children, ...props }) => {
-    return (
-      <h2 className="text-2xl font-semibold mb-1 -mt-0 md:-mt-2" {...props}>
-        {children}
-      </h2>
-    );
-  },
-  h3: ({ node, children, ...props }) => {
-    return (
-      <h3 className="text-xl font-semibold mb-1 -mt-0 md:-mt-2" {...props}>
-        {children}
-      </h3>
-    );
-  },
-  h4: ({ node, children, ...props }) => {
-    return (
-      <h4 className="text-lg font-semibold mb-1 -mt-0 md:-mt-2" {...props}>
-        {children}
-      </h4>
-    );
-  },
-  h5: ({ node, children, ...props }) => {
-    return (
-      <h5 className="text-base font-semibold mt-6 mb-2" {...props}>
-        {children}
-      </h5>
-    );
-  },
-  h6: ({ node, children, ...props }) => {
-    return (
-      <h6 className="text-sm font-semibold mt-6 mb-2" {...props}>
-        {children}
-      </h6>
-    );
-  },
+        </Link>
+    ),
+
+    // --- Heading Styling (Keep As Is or Adjust) ---
+    h1: ({ node, children, ...props }) => (<h1 className="text-2xl font-semibold mb-2 mt-4 border-b pb-1" {...props}>{children}</h1>), // Adjusted styles
+    h2: ({ node, children, ...props }) => (<h2 className="text-xl font-semibold mb-2 mt-3 border-b pb-1" {...props}>{children}</h2>), // Adjusted styles
+    h3: ({ node, children, ...props }) => (<h3 className="text-lg font-semibold mb-1 mt-3" {...props}>{children}</h3>), // Adjusted styles
+    h4: ({ node, children, ...props }) => (<h4 className="text-base font-semibold mb-1 mt-2" {...props}>{children}</h4>),
+    h5: ({ node, children, ...props }) => (<h5 className="text-sm font-semibold mt-2 mb-1" {...props}>{children}</h5>),
+    h6: ({ node, children, ...props }) => (<h6 className="text-xs font-semibold mt-2 mb-1 text-zinc-600 dark:text-zinc-400" {...props}>{children}</h6>),
+
+    // --- UPDATED Table Styling ---
+    table: ({ node, children, ...props }) => (
+        // Responsive container for horizontal scrolling
+        <div className="my-4 w-full overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700/80">
+            <table className="w-full text-sm text-left table-auto" {...props}>
+                {children}
+            </table>
+        </div>
+    ),
+    thead: ({ node, children, ...props }) => (
+        // Use a subtle background for the header
+        <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300" {...props}>
+            {children}
+        </thead>
+    ),
+    tbody: ({ node, children, ...props }) => (
+        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700/80" {...props}>
+            {children}
+        </tbody>
+    ),
+    tr: ({ node, children, ...props }) => (
+        // Optional: Add hover effect
+        <tr className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors" {...props}>
+            {children}
+        </tr>
+    ),
+    th: ({ node, children, ...props }) => (
+        // Header cell styling: padding, alignment, font weight
+        <th
+        className="px-4 py-2 font-semibold text-left whitespace-nowrap" // Added whitespace-nowrap
+        {...props}
+        >
+            {children}
+        </th>
+    ),
+    td: ({ node, children, ...props }) => (
+        // Data cell styling: padding, alignment
+        <td
+        className="px-4 py-2 align-top" // Use align-top if content wraps
+        {...props}
+        >
+            {/* Apply word break within the cell if needed */}
+             <div className="overflow-wrap-break-word break-words">{children}</div>
+        </td>
+    ),
 };
 
+// --- Keep the rest of the component as is ---
 const remarkPlugins = [remarkGfm];
 
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {
@@ -112,5 +111,5 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
 
 export const Markdown = memo(
   NonMemoizedMarkdown,
-  (prevProps, nextProps) => prevProps.children === nextProps.children,
+  (prevProps, nextProps) => prevProps.children === nextProps.children
 );

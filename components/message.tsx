@@ -527,10 +527,12 @@ const PurePreviewMessage = ({
                           className="flex flex-row items-start w-full pb-4"
                         >
                           <div
-                            className="flex flex-col gap-4 px-4 py-2"
-                            style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
+                            className="flex flex-col gap-4 px-4 py-2 overflow-x-hidden"
+                            style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none', maxWidth: '100%', width: '100%' }}
                           >
-                            <Markdown>{part.text}</Markdown>
+                            <div className="markdown-body" style={{width: '100%', maxWidth: '100%', overflowX: 'hidden', wordBreak: 'break-word'}}>
+                              <Markdown>{part.text}</Markdown>
+                            </div>
                           </div>
                         </motion.div>
                       );
@@ -604,8 +606,11 @@ const PurePreviewMessage = ({
                       >
                         <div
                           className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 rounded-xl w-full sm:max-w-2xl shadow"
+                          style={{maxWidth: '100%', width: '100%', boxSizing: 'border-box', overflowX: 'auto'}}
                         >
-                          <Markdown>{part.text}</Markdown>
+                          <div className="markdown-body" style={{wordBreak: 'break-word'}}>
+                            <Markdown>{part.text}</Markdown>
+                          </div>
                         </div>
                       </motion.div>
                     );

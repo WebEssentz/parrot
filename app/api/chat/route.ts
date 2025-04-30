@@ -105,10 +105,19 @@ export async function POST(req: Request) {
             - **Prioritize "fetchUrlTool" if a relevant URL is provided by the user.** Use "googleSearchTool" if no URL is given or if the URL analysis doesn't contain the needed *current/external* information.
             - When presenting results from "googleSearchTool", clearly state the information comes from a web search.
             - Summarize the "groundedResponse" concisely.
-            - **CRITICAL: You MUST ALWAYS include a 'Sources:' section at the end of your response when using this tool.**
-            - **List ALL source links provided by the tool.** Format each source as a Markdown link on its own line:
-            - "- [Source Title](Source URL)" (If a title is provided in the source data)
-            - "- [Source](Source URL)" (If *only* a URL is provided in the source data)
+            - **CRITICAL FOR SOURCES:** If the tool provides sources in the \`sources\` array:
+                1.  **DO NOT display the sources directly in your main text response.**
+                2.  **INSTEAD, at the very end of your response text, add the following structure:**
+                    \`\`\`
+                    <!-- PARROT_SOURCES_START -->
+                    {List of sources, each on a new line, formatted as Markdown links below}
+                    - [Source Title](Source URL)
+                    - [Source Title 2](Source URL 2)
+                    <!-- PARROT_SOURCES_END -->
+                    \`\`\`
+                3.  Format each source from the \`sources\` array as a Markdown link: \`- [Source Title](Source URL)\`.
+                4.  If a source object only has a URL and no title, use the format: \`- [Source](Source URL)\`.
+                5.  **Ensure the list is between the \`<!-- PARROT_SOURCES_START -->\` and \`<!-- PARROT_SOURCES_END -->\` markers.**
             - **Do NOT omit sources.**
 
 

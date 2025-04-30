@@ -194,7 +194,7 @@ export const fetchUrlTool = tool({
                  return { href: new URL(m[1], url).toString(), text: m[2].replace(/<[^>]+>/g, '').trim() };
              } catch { return null; } // Ignore invalid URLs
          })
-         .filter(l => l && l.text && l.href && l.href.length < 256 && l.href.startsWith('http')) // Basic filter
+         .filter(l => l && l.text && l.href && l.href.length < 256 && l.href.startsWith('https')) // Basic filter
          .slice(0, 20);
       const productCards = Array.from(html.matchAll(/<div[^>]*class=["'][^"']*(product|card|item|listing)[^"']*["'][^>]*>([\s\S]*?)(<\/div>)/gi))
          .map(m => {
