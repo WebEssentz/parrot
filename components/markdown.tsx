@@ -167,10 +167,22 @@ const components: Partial<Components> = {
 // --- Keep the rest of the component as is ---
 const remarkPlugins = [remarkGfm];
 
+
+// Utility: Remove sources block from markdown string (between <!-- PARROT_SOURCES_START --> and <!-- PARROT_SOURCES_END -->)
+function stripSourcesBlock(markdown: string): string {
+  const start = markdown.indexOf("<!-- PARROT_SOURCES_START -->");
+  const end = markdown.indexOf("<!-- PARROT_SOURCES_END -->");
+  if (start === -1 || end === -1 || end < start) return markdown;
+  // Remove the block including the markers
+  return markdown.slice(0, start) + markdown.slice(end + '<!-- PARROT_SOURCES_END -->'.length);
+}
+
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {
+  // Remove sources block before rendering
+  const clean = typeof children === 'string' ? stripSourcesBlock(children) : children;
   return (
     <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
-      {children}
+      {clean}
     </ReactMarkdown>
   );
 };

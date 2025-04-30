@@ -1,3 +1,4 @@
+
 // DO NOT COPY THE STYLES, CAUSE THE CODE IS FAULTY, JUST THE FUNCTIONALITY OF THE COPY, NOT EVEN THE RENDERING :"use client";
 
 // import type { Message as TMessage } from "ai";
@@ -356,6 +357,7 @@
 
 "use client";
 
+import { Modal } from "./ui/modal";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useState } from "react";
@@ -383,6 +385,22 @@ interface ReasoningPart {
 interface ReasoningMessagePartProps {
   part: ReasoningPart;
   isReasoning: boolean;
+}
+
+// Utility: Extract sources from markdown string (between <!-- PARROT_SOURCES_START --> and <!-- PARROT_SOURCES_END -->)
+export function extractSourcesFromText(text: string): { title: string; url: string }[] {
+  const sources: { title: string; url: string }[] = [];
+  const start = text.indexOf("<!-- PARROT_SOURCES_START -->");
+  const end = text.indexOf("<!-- PARROT_SOURCES_END -->");
+  if (start === -1 || end === -1 || end < start) return sources;
+  const block = text.slice(start, end);
+  // Match - [Title](URL)
+  const regex = /- \[(.*?)\]\((.*?)\)/g;
+  let match;
+  while ((match = regex.exec(block))) {
+    sources.push({ title: match[1] || "Source", url: match[2] });
+  }
+  return sources;
 }
 
 export function ReasoningMessagePart({
@@ -481,6 +499,10 @@ const PurePreviewMessage = ({
   status: "error" | "submitted" | "streaming" | "ready";
   isLatestMessage: boolean;
 }) => {
+  // Extract sources from all text parts
+  const allText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
+  const sources = extractSourcesFromText(allText);
+  const [showSources, setShowSources] = useState(false);
   // Responsive: mobile-first, enterprise-grade assistant message layout
   // On mobile, assistant icon above message bubble, left-aligned, max-w-[80vw]
   // On desktop, keep current layout
@@ -494,6 +516,55 @@ const PurePreviewMessage = ({
         key={`message-${message.id}`}
         data-role={message.role}
       >
+        {/* Sources Button */}
+        {isAssistant && sources.length > 0 && (
+          <div className="flex justify-end mb-1">
+            <button
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm"
+              onClick={() => setShowSources(true)}
+              type="button"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.333A6.667 6.667 0 1 0 8 14.667 6.667 6.667 0 0 0 8 1.333Zm0 12A5.333 5.333 0 1 1 8 2.667a5.333 5.333 0 0 1 0 10.666Zm.667-8H7.333v3.334l2.834 1.7.666-1.1-2.166-1.3V5.333Z" fill="currentColor"/></svg>
+              Sources ({sources.length})
+            </button>
+          </div>
+        )}
+
+        {/* Sources Modal */}
+        <Modal open={showSources} onClose={() => setShowSources(false)}>
+          <div className="p-4 max-h-[70vh] w-full min-w-[260px] flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-semibold text-lg">Sources</div>
+              <button onClick={() => setShowSources(false)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white p-1 rounded transition-colors" aria-label="Close sources modal">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[55vh] pr-1">
+              {sources.map((src, i) => {
+                let icon = <img src="/globe.svg" alt="site" className="w-5 h-5 mr-2 inline-block align-middle" />;
+                try {
+                  const u = new URL(src.url);
+                  if (u.protocol === "file:") icon = <img src="/file.svg" alt="file" className="w-5 h-5 mr-2 inline-block align-middle" />;
+                  else if (u.protocol === "window:") icon = <img src="/window.svg" alt="window" className="w-5 h-5 mr-2 inline-block align-middle" />;
+                } catch {}
+                return (
+                  <a
+                    key={src.url + i}
+                    href={src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-2 py-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-1"
+                  >
+                    {icon}
+                    <span className="font-medium text-zinc-800 dark:text-zinc-100 truncate max-w-[180px]">{src.title}</span>
+                    <span className="text-xs text-zinc-500 truncate max-w-[120px]">{src.url}</span>
+                  </a>
+                );
+              })}
+              {sources.length === 0 && <div className="text-zinc-500 text-sm">No sources found.</div>}
+            </div>
+          </div>
+        </Modal>
         {/* Mobile: assistant icon above message bubble, left-aligned */}
         <div
           className={cn(

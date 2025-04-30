@@ -1,8 +1,3 @@
-// Utility: Format a value as inline code (ChatGPT style)
-export function formatInlineCode(value: string): string {
-  // Escape backticks and wrap in single backticks
-  return `\`${value.replace(/`/g, '\u0060')}\``;
-}
 import { tool } from "ai";
 import { z } from "zod";
 import { google } from '@ai-sdk/google'; // Import the Google provider
@@ -41,6 +36,11 @@ function generateMarkdownBarChart(
   return chart;
 }
 
+// Utility: Format a value as inline code (ChatGPT style)
+export function formatInlineCode(value: string): string {
+  // Escape backticks and wrap in single backticks
+  return `\`${value.replace(/`/g, '\u0060')}\``;
+}
 // --- Helper Function for Basic Table Parsing (Simplified Regex Approach) ---
 // WARNING: Regex for HTML is fragile. A proper parser is more robust.
 // This handles simple tables without nested tables or complex structures.
@@ -391,6 +391,8 @@ export const googleSearchTool = tool({
   },
 });
 // --- End of NEW Google Search Tool ---
+
+
 
 // export const fetchUrlTool = tool({
 //   description:
