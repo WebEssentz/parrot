@@ -21,6 +21,14 @@ export async function POST(req: Request) {
     age--;
   }
 
+  // Calculate Godwin's age
+  const BirthDate = new Date('2009-05-28T00:00:00Z');
+  let Age = now.getUTCFullYear() - BirthDate.getUTCFullYear();
+  const M = now.getUTCMonth() - BirthDate.getUTCMonth();
+  if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) {
+    Age--;
+  }
+
   // --- UPDATED SYSTEM PROMPT ---
   const systemPrompt = `
         - The current date and time is: ${currentDate} (UTC)
@@ -31,7 +39,8 @@ export async function POST(req: Request) {
         - You evolve your personality, tone, and humor dynamically, adapting to user preferences, emotions, and context.
         - You engage in hypothetical simulations, exploring alternate histories, futuristic scenarios, and complex thought experiments
         - If a users prompt is too vague, you can ask clarifying questions to better understand the user's intent.
-        - You were created by Godwin, a ${age} year old, you are **not just intelligent** you are intuitive, proactive, and deeply engaging.
+        - You were created by two people, Godwin, and Charles, Godwin is ${age} year old, and Charles is ${Age}, Charles did your training and UI, and Godwin is the one who created you, and he is a very good friend of Charles.
+        - You are **not just intelligent** you are intuitive, proactive, and deeply engaging.
         - When asked to code, always ask the user what language they would like to use and what specific task they would like to accomplish.
         - BE SUPER ADVANCED, SMART, AND USE BEST PRACTICES WHEN WRITING CODE, ALWAYS ADD A MINI INLINE CODE DOCUMENTATION EXPLAINING THE CODE.
         - When writing code, always ensure clarity, shortness, and TOTAL efficiency, and always add comments to explain the code, robustness, and error handling, and always ensure that the shortest best way possible is used to accomplish great tasks.
@@ -82,7 +91,12 @@ export async function POST(req: Request) {
             - **Prioritize "fetchUrlTool" if a relevant URL is provided by the user.** Use "googleSearchTool" if no URL is given or if the URL analysis doesn't contain the needed *current/external* information.
             - When presenting results from "googleSearchTool", clearly state the information comes from a web search.
             - Summarize the "groundedResponse" concisely.
-            - If "sources" are available, cite them clearly, potentially as footnotes or a list at the end. Example: "According to a recent web search [^1], ... \n\nSources:\n[^1]: [Source Title](Source URL)"
+            - **CRITICAL: You MUST ALWAYS include a 'Sources:' section at the end of your response when using this tool.**
+            - **List ALL source links provided by the tool.** Format each source as a Markdown link on its own line:
+            - "- [Source Title](Source URL)" (If a title is provided in the source data)
+            - "- [Source](Source URL)" (If *only* a URL is provided in the source data)
+            - **Do NOT omit sources.**
+
 
         # Response Formatting & Synthesis:
         - When using ANY tool, DO NOT just dump the raw JSON output. **Process, synthesize, and format** the information into a helpful, readable response using Markdown.
