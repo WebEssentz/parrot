@@ -1,3 +1,8 @@
+// Utility: Format a value as inline code (ChatGPT style)
+export function formatInlineCode(value: string): string {
+  // Escape backticks and wrap in single backticks
+  return `\`${value.replace(/`/g, '\u0060')}\``;
+}
 import { tool } from "ai";
 import { z } from "zod";
 import { google } from '@ai-sdk/google'; // Import the Google provider

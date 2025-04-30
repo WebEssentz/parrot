@@ -7,15 +7,46 @@ import { cn } from '@/lib/utils'; // Assuming you have cn utility
 
 const components: Partial<Components> = {
     // --- Code Block Handling (Keep As Is) ---
-    code: ({ node, inline = false, className = '', children, ...props }: any) => (
-        <CodeBlock
-        node={node}
-        inline={inline}
-        className={className || ''}
-        children={children}
-        {...props}
-        />
-    ),
+code(props) {
+        const { children, className, node, ...rest } = props;
+        const match = /language-(\w+)/.exec(className || '');
+
+        // Determine if it's inline code or a block
+        // Inline code from single backticks typically doesn't have a language class
+        // and its parent node in the AST is not 'pre'.
+        const isInline = !match && node?.position?.start?.line === node?.position?.end?.line;
+        // More robust check: does it have a language class OR is its parent <pre>?
+        // react-markdown might not expose parent easily, rely on className or inline heuristic.
+        // Let's stick to the className check as the primary indicator for block code.
+
+        if (!isInline && match) {
+            // It's a fenced code block, render the CodeBlock component
+            return (
+                <CodeBlock
+                    node={node}
+                    inline={false} // NO LONGER NEEDED - CodeBlock only handles blocks
+                    className={className || ''}
+                    {...rest} // Pass other props like style if needed
+                >
+                    {String(children).replace(/\n$/, '')}
+                </CodeBlock>
+            );
+        } else {
+            // It's inline code, render a styled <code> tag directly
+            return (
+                <code
+                    className={cn(
+                        // Base styling for inline code (ChatGPT-like)
+                        "relative rounded bg-zinc-200/50 dark:bg-zinc-700/50 px-[0.4em] py-[0.2em] font-mono text-[0.9em]", // Adjusted sizes slightly
+                        className // Allow additional classes if needed, though unlikely for inline
+                    )}
+                    {...rest}
+                >
+                    {children}
+                </code>
+            );
+        }
+    },
     pre: ({ children }) => <>{children}</>, // Keep pre wrapper simple
 
     // --- List Styling (Keep As Is or Adjust if needed) ---
@@ -44,8 +75,8 @@ const components: Partial<Components> = {
     ),
 
     // --- Heading Styling (Keep As Is or Adjust) ---
-    h1: ({ node, children, ...props }) => (<h1 className="text-2xl font-semibold mb-2 mt-4 border-b pb-1" {...props}>{children}</h1>), // Adjusted styles
-    h2: ({ node, children, ...props }) => (<h2 className="text-xl font-semibold mb-2 mt-3 border-b pb-1" {...props}>{children}</h2>), // Adjusted styles
+    h1: ({ node, children, ...props }) => (<h1 className="text-2xl font-semibold mb-2 mt-4 pb-1" {...props}>{children}</h1>), // Adjusted styles
+    h2: ({ node, children, ...props }) => (<h2 className="text-xl font-semibold mb-2 mt-3 pb-1" {...props}>{children}</h2>), // Adjusted styles
     h3: ({ node, children, ...props }) => (<h3 className="text-lg font-semibold mb-1 mt-3" {...props}>{children}</h3>), // Adjusted styles
     h4: ({ node, children, ...props }) => (<h4 className="text-base font-semibold mb-1 mt-2" {...props}>{children}</h4>),
     h5: ({ node, children, ...props }) => (<h5 className="text-sm font-semibold mt-2 mb-1" {...props}>{children}</h5>),

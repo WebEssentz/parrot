@@ -151,7 +151,7 @@ export function CodeBlock({
     ruby: "rb",
     php: "php",
     sql: "sql",
-    plaintext: "txt",
+    text: "txt",
   };
 
   // Download code as file
@@ -167,7 +167,24 @@ export function CodeBlock({
     document.body.removeChild(link);
   };
 
-  if (!inline) {
+  if (inline) {
+    // --- Inline Code Styling (Verified ChatGPT Style) ---
+    // Use <code> tag for semantic correctness. Apply Tailwind classes.
+    return (
+      <code
+        className={
+          // Use text-sm or text-xs depending on your base font size
+          // bg-zinc-100/70 dark:bg-zinc-800/70 provides a slightly transparent bg
+          "relative rounded bg-zinc-100 dark:bg-zinc-800 px-[0.4em] py-[0.2em] font-mono text-sm text-zinc-900 dark:text-zinc-100 break-words"
+        }
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  } else {
+    // --- Block Code Rendering (Keep As Is from previous update) ---
+    // This part renders the fenced code blocks ```like this```
     return (
       <TooltipProvider>
         <div className={`not-prose relative flex flex-col my-4 group/codeblock ${styles.codeBlockOuter}`}>
@@ -196,7 +213,7 @@ export function CodeBlock({
             <div className="flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-xs bg-zinc-200 dark:bg-zinc-800 px-2 py-0.5 rounded font-mono text-zinc-600 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700 cursor-pointer">
+                  <span className="text-xs px-2 py-0.5 rounded font-mono text-zinc-600 dark:text-zinc-300 cursor-pointer">
                     {detectedLanguage}
                   </span>
                 </TooltipTrigger>
@@ -309,33 +326,6 @@ export function CodeBlock({
           )}
         </div>
       </TooltipProvider>
-    );
-  } else {
-    // Custom style for inline code (enterprise style)
-    let functionName = '';
-    let codeContent = String(children);
-    // Heuristic: if code is like 'functionName: ...' or 'functionName()', extract function name
-    const fnMatch = codeContent.match(/^(\w+)\s*[:(]/);
-    if (fnMatch) {
-      functionName = fnMatch[1];
-    }
-    return (
-      <span
-        className={
-          `inline-flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-mono text-zinc-700 dark:text-zinc-200` +
-          (functionName ? ' pl-2 pr-2' : '')
-        }
-        style={{ fontSize: 13, lineHeight: 1.6 }}
-        {...props}
-      >
-        {functionName && (
-          <span className="mr-1 px-1 py-0.5 rounded bg-zinc-200 dark:bg-zinc-700 text-emerald-700 dark:text-emerald-300 font-semibold text-[11px] border border-zinc-300 dark:border-zinc-600">
-            {functionName}
-          </span>
-        )}
-        {/* No line numbers for inline code */}
-        <code className="bg-transparent p-0 m-0 text-xs font-mono">{functionName && fnMatch ? codeContent.replace(fnMatch[0], '').trim() : codeContent}</code>
-      </span>
     );
   }
 }
