@@ -271,7 +271,7 @@ const PurePreviewMessage = ({
           )}
         >
           {/* Desktop: Copy icon left of AI icon, animates in on hover (fade in on hover, hidden otherwise) */}
-          {isAssistant && !isMobile && (
+          {isAssistant && !isMobile && status === "ready" && (
             <motion.div
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
@@ -385,7 +385,7 @@ const PurePreviewMessage = ({
                 })}
               </div>
               {/* Mobile: Copy icon always at the bottom, after the message bubble */}
-              {isMobile && isAssistant && (
+              {isMobile && isAssistant && status === "ready" && (
                 <div className="relative w-full -mt-2">
                   <div className="flex absolute left-0 right-0 justify-start z-10">
                     <div className="flex items-center gap-1 p-1 select-none -mt-3 pointer-events-auto">

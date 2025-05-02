@@ -1,6 +1,7 @@
-import { model, modelID } from "@/ai/providers"; // Assuming this path is correct
+import { defaultModel, model, modelID } from "@/ai/providers"; // Assuming this path is correct
 import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
 import { streamText, UIMessage } from "ai";
+import { SEARCH_MODE } from "@/components/ui/textarea";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -8,8 +9,8 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   const {
     messages,
-    selectedModel,
-  }: { messages: UIMessage[]; selectedModel: modelID } = await req.json();
+selectedModel,
+  }: { messages: UIMessage[]; selectedModel: string } = await req.json();
 
   const now = new Date();
   const currentDate = now.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -89,6 +90,28 @@ export async function POST(req: Request) {
         # Tool Usage Guidelines:
         - **weatherTool**: Use ONLY when the user explicitly asks about the weather.
         - **fetchUrlTool**:
+       - **googleSearchTool**:
+    - **CRITICAL SEARCH MODE:** If the Search button is active in the UI (meaning the frontend sent \`${SEARCH_MODE}\` as the selected model), you MUST call the \`googleSearchTool\` for *any* user input, regardless of the prompt content or intent. (Backend logic enforces this, prompt is for reinforcement).
+    - Otherwise (when Search Mode is OFF): Use for questions requiring **up-to-date information**, current events, breaking news, or general knowledge questions not specific to a URL provided by the user.
+            - Use if the user asks a question that your internal knowledge might not cover accurately (e.g., "Who won the F1 race yesterday?", "What are the latest AI developments this week?").
+            - **Prioritize "fetchUrlTool" if a relevant URL is provided by the user.** Use "googleSearchTool" if no URL is given or if the URL analysis doesn't contain the needed *current/external* information.
+            - When presenting results from "googleSearchTool", clearly state the information comes from a web search.
+            - Summarize the "groundedResponse" concisely.
+            - **CRITICAL FOR SOURCES:** If the tool provides sources in the "sources" array:
+                1.  **DO NOT display the sources directly in your main text response.**
+                2. ** THE SOURCES MUST BE AT THE END OF YOUR RESPONSE TEXT.
+                2.  **INSTEAD, at the very end of your response text, add the following structure:**
+                    \`\`\`
+                    <!-- PARROT_SOURCES_START -->
+                    {List of sources, each on a new line, formatted as Markdown links below}
+                    - [Source Title](Source URL)
+                    - [Source Title 2](Source URL 2)
+                    <!-- PARROT_SOURCES_END -->
+                    \`\`\`
+                3.  Format each source from the \`sources\` array as a Markdown link: \`- [Source Title](Source URL)\`.
+                4.  If a source object only has a URL and no title, use the format: \`- [Source](Source URL)\`.
+                5.  **Ensure the list is between the \`<!-- PARROT_SOURCES_START -->\` and \`<!-- PARROT_SOURCES_END -->\` markers.**
+            - **Do NOT omit sources.**
             - Use when the user provides a specific URL to analyze OR asks to analyze data/tables at a URL.
             - Analyze websites, summarize content, extract key information (products, FAQs, etc.). 
             - **Crucially, it now also extracts HTML table data into the 'extractedTables' field.**
@@ -147,21 +170,30 @@ export async function POST(req: Request) {
     `;
   // --- END OF UPDATED SYSTEM PROMPT ---
 
+  // If SEARCH_MODE is active, always call googleSearchTool for any user input
+  const isSearchModeActive = selectedModel === SEARCH_MODE;
+
+  // Determine the actual model to use
+  const actualModelId = isSearchModeActive ? defaultModel : (selectedModel as modelID);
+  const languageModel = model.languageModel(actualModelId); // Ensure you get a LanguageModel instance
 
   const result = streamText({
-    model: model.languageModel(selectedModel), // Use the selected model from request
-    system: systemPrompt, // Pass the updated system prompt
+    model: selectedModel === SEARCH_MODE ? model.languageModel(defaultModel) : model.languageModel(selectedModel as modelID),
+    system: systemPrompt,
     messages,
     tools: {
       getWeather: weatherTool,
       fetchUrl: fetchUrlTool,
-      googleSearch: googleSearchTool, // Add the new googleSearchTool here
+      googleSearch: googleSearchTool,
     },
-    experimental_telemetry: {
-      isEnabled: true,
-    },
-    toolCallStreaming: true
+    toolCallStreaming: true,
+    experimental_telemetry: { isEnabled: true },
+...(selectedModel === SEARCH_MODE && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
+// OR if your specific setup uses forceTool:
+// ...(selectedModel === SEARCH_MODE && { forceTool: "googleSearch" }),
   });
+
+  console.log(`API Request: Search Mode Active = ${isSearchModeActive}, Using Model = ${actualModelId}, Forcing Tool = ${isSearchModeActive ? 'googleSearch' : 'None'}`);
 
   return result.toDataStreamResponse({
     sendReasoning: true,

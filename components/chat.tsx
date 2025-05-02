@@ -1,19 +1,20 @@
 "use client";
 
-import { defaultModel, modelID } from "@/ai/providers";
+ import { defaultModel } from "@/ai/providers";
+import { SEARCH_MODE } from "@/components/ui/textarea";
 import { useChat } from "@ai-sdk/react";
 import { useState } from "react";
-import { Textarea } from "./textarea";
+import { Textarea } from "./textarea"; // Assuming textarea.tsx is correct
 import { ProjectOverview } from "./project-overview";
-import { Messages } from "./messages";
+import { Messages } from "./messages"; // Assuming messages.tsx has the max-w and py adjustments
 import { Header } from "./header";
 import { toast } from "sonner";
 
 export default function Chat() {
-  const [selectedModel, setSelectedModel] = useState<modelID>(defaultModel);
+  const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
   const { messages, input, handleInputChange, handleSubmit, status, stop } =
     useChat({
-      maxSteps: 5,
+      maxSteps: 5, // Or your desired limit
       body: {
         selectedModel,
       },
@@ -21,7 +22,7 @@ export default function Chat() {
         toast.error(
           error.message.length > 0
             ? error.message
-            : "An error occured, please try again later.",
+            : "An error occurred, please try again later.",
           { position: "top-center", richColors: true },
         );
       },
@@ -29,53 +30,55 @@ export default function Chat() {
 
   const isLoading = status === "streaming" || status === "submitted";
 
+  // Estimate height needed for the input area for padding-bottom on scroll content
+  // Adjust this based on your Textarea height + container padding + disclaimer height
+  // Example: 4rem (textarea) + 1.5rem (container p) + 1rem (disclaimer) + buffer = ~7rem
+  const inputAreaPaddingBottomClass = "pb-28 sm:pb-32"; // Start with this, adjust if needed
+
   return (
-    <>
-      <div className="h-dvh flex flex-col justify-center w-full max-w-full mx-auto pt-10 px-0 sm:px-0 box-border">
-        <Header />
+    // Main container: Full height, flex column. Relative for fixed children.
+    <div className="relative flex flex-col h-dvh w-full max-w-full bg-background dark:bg-background">
+      <Header />
+
+      {/* Middle scrolling content area */}
+      {/* ADD PADDING BOTTOM: Account for the fixed input area */}
+      <div className={`flex-1 overflow-y-auto w-full ${inputAreaPaddingBottomClass} pt-8 sm:pt-12`}>
         {messages.length === 0 ? (
-          <div className="max-w-xl mx-auto w-full">
-            <ProjectOverview />
+          // Center ProjectOverview when no messages
+          <div className="flex h-full items-center justify-center">
+            <div className="max-w-xl w-full px-4">
+                <ProjectOverview />
+            </div>
           </div>
         ) : (
+          // Messages list container (styling inside Messages.tsx)
           <Messages messages={messages} isLoading={isLoading} status={status} />
         )}
-        {/* Mobile: input below messages, scrolls with content */}
-        <div className="block sm:hidden w-full max-w-xl mx-auto px-4 pb-4">
-          <form onSubmit={handleSubmit} className="pb-8 bg-background dark:bg-background w-full max-w-xl mx-auto px-4 sm:px-0 fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto sm:left-auto sm:right-auto">
-            <Textarea
-              selectedModel={selectedModel}
-              setSelectedModel={setSelectedModel}
-              handleInputChange={handleInputChange}
-              input={input}
-              isLoading={isLoading}
-              status={status}
-              stop={stop}
-            />
-          </form>
-        </div>
-        {/* Desktop: input fixed at bottom */}
-        <form
-          onSubmit={handleSubmit}
-          className="hidden sm:block pb-8 bg-background dark:bg-background w-full max-w-2xl mx-auto px-0 fixed bottom-0 left-0 right-0 sm:static sm:bottom-auto sm:left-auto sm:right-auto"
-        >
-          <Textarea
-            selectedModel={selectedModel}
-            setSelectedModel={setSelectedModel}
-            handleInputChange={handleInputChange}
-            input={input}
-            isLoading={isLoading}
-            status={status}
-            stop={stop}
-          />
-        </form>
       </div>
-      {/* Bottom-centered disclaimer overlay */}
-      <div className="fixed left-0 right-0 bottom-2 z-50 flex justify-center pointer-events-none select-none">
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 text-center dark:bg-background/80px-3 py-1">
-          Parrot is powered by AI. Double check response.
-        </div>
+
+      {/* Input form area + Disclaimer: FIXED at the bottom */}
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background">
+         {/* Inner container for padding and centering */}
+         {/* Add padding-bottom here to create space *below* the textarea */}
+         <div className="w-full px-2 sm:px-4 pt-3 pb-4 sm:pb-5"> {/* Added pt-3, pb-4/5 */}
+             {/* Form remains centered */}
+            <form
+                onSubmit={handleSubmit}
+                // Use appropriate max-width for your design
+                className="w-full max-w-2xl mx-auto bg-background" // e.g., max-w-2xl, 3xl, or 4xl
+            >
+                <Textarea
+                    selectedModel={selectedModel}
+                    setSelectedModel={setSelectedModel}
+                    handleInputChange={handleInputChange}
+                    input={input}
+                  isLoading={isLoading}
+                    status={status}
+                    stop={stop}
+                />
+            </form>
+         </div>
       </div>
-    </>
+    </div>
   );
 }

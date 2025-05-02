@@ -1,8 +1,7 @@
-import { modelID} from "@/ai/providers";
-import { Textarea as ShadcnTextarea, ReasonButton } from "@/components/ui/textarea";
+import { Textarea as ShadcnTextarea, ReasonButton, SearchButton } from "@/components/ui/textarea";
 import { ArrowUp } from "lucide-react";
 import { PauseIcon } from "./icons";
-import { ModelPicker } from "./model-picker";
+import React from "react";
 
 interface InputProps {
   input: string;
@@ -10,8 +9,8 @@ interface InputProps {
   isLoading: boolean;
   status: string;
   stop: () => void;
-  selectedModel: modelID;
-  setSelectedModel: (model: modelID) => void;
+  selectedModel: string; // modelID or SEARCH_MODE
+  setSelectedModel: (model: string) => void;
 }
 
 export const Textarea = ({
@@ -23,6 +22,14 @@ export const Textarea = ({
   selectedModel,
   setSelectedModel,
 }: InputProps) => {
+  // Responsive: icon-only on mobile/tablet (<1024px), icon+text on desktop (>=1024px)
+  const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
+  React.useEffect(() => {
+    const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   return (
     <div className="relative w-full pt-4 bg-transparent dark:bg-transparent">
       {/* Model name display commented out for now */}
@@ -50,7 +57,24 @@ export const Textarea = ({
         }}
       />
       
-      <ReasonButton selectedModel={selectedModel} setSelectedModel={setSelectedModel} />
+      {/* Action buttons row (mobile/tablet: icons only, desktop: show text) */}
+      <div
+        data-testid="composer-footer-actions"
+        className={`max-xs:gap-1 flex items-center gap-2 overflow-x-auto [scrollbar-width:none] mt-2 absolute bottom-2 z-20 ${isMobileOrTablet ? 'left-2' : 'left-0'}`}
+        style={{marginRight: 102}}
+      >
+        {/* Search Button: icon only on mobile/tablet, icon+text on desktop */}
+        {/* Insert SearchButton before ReasonButton */}
+        <SearchButton
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+        />
+        <ReasonButton
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          hideTextOnMobile
+        />
+      </div>
 
       {status === "streaming" ? (
         <button
