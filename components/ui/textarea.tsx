@@ -47,9 +47,9 @@ export function SearchButton({
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Restore toggle UI: lit state and model selection
+  // Lit state is user-controlled: stays on until user disables
   const handleClick = () => {
-    if (!isSearching) {
+    if (!lit) {
       setSelectedModel(SEARCH_MODE); // Activate search mode
       setLit(true); // UI: show lit
     } else {
