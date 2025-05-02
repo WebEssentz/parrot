@@ -146,6 +146,10 @@ export function ReasonButton({
     }
   };
 
+  React.useEffect(() => {
+      setLit(selectedModel === REASON_MODEL);
+  }, [selectedModel]);
+
     // Show icon-only on mobile/tablet (<1024px), icon+text on desktop (>=1024px)
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
   React.useEffect(() => {
