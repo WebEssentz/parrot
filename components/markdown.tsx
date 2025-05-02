@@ -164,7 +164,6 @@ const components: Partial<Components> = {
     ),
 };
 
-// --- Keep the rest of the component as is ---
 const remarkPlugins = [remarkGfm];
 
 

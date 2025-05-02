@@ -107,9 +107,9 @@ export function CodeBlock({
   if (!detectedLanguage) {
     try {
       const result = hljs.highlightAuto(codeString);
-      detectedLanguage = result.language || "plaintext";
+      detectedLanguage = result.language || "text";
     } catch {
-      detectedLanguage = "plaintext";
+      detectedLanguage = "text";
     }
   }
 
@@ -236,14 +236,14 @@ export function CodeBlock({
               </button>
               {/* Action icons (Copy, Download, Collapse/Expand) */}
               <div
-                className={`flex items-center gap-2 transition-all duration-200 ease-in-out ${showActions ? 'opacity-100 scale-100' : 'opacity-0 pointer-events-none scale-90'} bg-zinc-100 dark:bg-zinc-700 rounded p-1`}
+                className={`flex items-center gap-2 transition-all duration-200 ease-in-out ${showActions ? 'opacity-100 scale-100' : 'opacity-0 pointer-events-none scale-90'} bg-zinc-100 dark:bg-transparent rounded p-1`}
                 style={{ position: 'relative', zIndex: 20 }}
               >
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       onClick={handleCopy}
-                      className="flex items-center gap-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-600"
+                      className="flex items-center gap-1 p-1 rounded cursor-pointer"
                       aria-label="Copy code"
                       type="button"
                     >
@@ -259,7 +259,7 @@ export function CodeBlock({
                   <TooltipTrigger asChild>
                     <button
                       onClick={handleDownload}
-                      className="flex items-center gap-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-600"
+                      className="flex items-center gap-1 p-1 rounded cursor-pointer"
                       aria-label="Download code"
                       type="button"
                     >
@@ -275,7 +275,7 @@ export function CodeBlock({
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => setCollapsed((c) => !c)}
-                      className="flex items-center gap-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-600"
+                      className="flex items-center gap-1 p-1 rounded cursor-pointer"
                       aria-label={collapsed ? 'Expand code' : 'Collapse code'}
                       type="button"
                     >
@@ -300,31 +300,33 @@ export function CodeBlock({
               }
             >
               <div className="w-full px-0 sm:px-4 py-2 sm:py-4">
-                <div className={styles.codeBlockContent}>
-                  <SyntaxHighlighter
-                    language={detectedLanguage}
-                    style={THEMES[themeIndex].value}
-                    customStyle={{
-                      backgroundColor: theme === "light" ? "#fff" : "transparent",
-                      margin: 0,
-                      padding: 0,
-                      borderRadius: 0,
-                      fontSize: 14,
-                      width: '100%',
-                      minWidth: 0,
-                      overflowX: 'auto',
-                      boxSizing: 'border-box',
-                      wordBreak: 'break-all',
-                      whiteSpace: 'pre',
-                    }}
-                    codeTagProps={{
-                      className: "whitespace-pre break-words font-mono w-full min-w-0",
-                    }}
-                    {...props}
-                  >
-                    {codeString}
-                  </SyntaxHighlighter>
-                </div>
+            <div className={styles.codeBlockContent}>
+              <SyntaxHighlighter
+                language={detectedLanguage}
+                style={THEMES[themeIndex].value}
+                customStyle={{
+                  backgroundColor: theme === "light" ? "#fff" : "transparent",
+                  margin: 0,
+                  padding: 0,
+                  borderRadius: 0,
+                  fontSize: 14,
+                  width: '100%',
+                  minWidth: 0,
+                  overflowX: 'auto',
+                  boxSizing: 'border-box',
+                  wordBreak: 'break-all',
+                  whiteSpace: 'pre',
+                  // Force full transparency in dark mode
+                  ...(theme !== "light" ? { background: 'transparent', backgroundColor: 'transparent' } : {})
+                }}
+                codeTagProps={{
+                  className: "whitespace-pre break-words font-mono w-full min-w-0",
+                }}
+                {...props}
+              >
+                {codeString}
+              </SyntaxHighlighter>
+            </div>
               </div>
             </div>
           )}
