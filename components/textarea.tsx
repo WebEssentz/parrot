@@ -1,5 +1,5 @@
-import { modelID, MODEL_DISPLAY_NAMES } from "@/ai/providers";
-import { Textarea as ShadcnTextarea } from "@/components/ui/textarea";
+import { modelID} from "@/ai/providers";
+import { Textarea as ShadcnTextarea, ReasonButton } from "@/components/ui/textarea";
 import { ArrowUp } from "lucide-react";
 import { PauseIcon } from "./icons";
 import { ModelPicker } from "./model-picker";
@@ -25,9 +25,12 @@ export const Textarea = ({
 }: InputProps) => {
   return (
     <div className="relative w-full pt-4 bg-transparent dark:bg-transparent">
+      {/* Model name display commented out for now */}
+      {/*
       <div className="absolute left-2 top-2 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md max-w-[60vw] truncate">
         {MODEL_DISPLAY_NAMES[selectedModel] || selectedModel}
       </div>
+      */}
       <ShadcnTextarea
         className="resize-none bg-transparent dark:bg-transparent w-full rounded-2xl pr-12 pt-4 pb-16"
         value={input}
@@ -46,10 +49,8 @@ export const Textarea = ({
           }
         }}
       />
-      <ModelPicker
-        setSelectedModel={setSelectedModel}
-        selectedModel={selectedModel}
-      />
+      
+      <ReasonButton selectedModel={selectedModel} setSelectedModel={setSelectedModel} />
 
       {status === "streaming" ? (
         <button
