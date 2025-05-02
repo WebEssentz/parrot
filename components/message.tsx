@@ -3,7 +3,8 @@
 import { Modal } from "./ui/modal";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "motion/react";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState, useRef } from "react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import equal from "fast-deep-equal";
 
 import { Markdown } from "./markdown";
@@ -18,6 +19,47 @@ import {
   StopCircle,
 } from "lucide-react";
 import { SpinnerIcon } from "./icons";
+
+// Copy icon SVG as a React component
+const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-[2] size-4" {...props}>
+    <rect x="3" y="8" width="13" height="13" rx="4" stroke="currentColor"></rect>
+    <path fillRule="evenodd" clipRule="evenodd" d="M13 2.00004L12.8842 2.00002C12.0666 1.99982 11.5094 1.99968 11.0246 2.09611C9.92585 2.31466 8.95982 2.88816 8.25008 3.69274C7.90896 4.07944 7.62676 4.51983 7.41722 5.00004H9.76392C10.189 4.52493 10.7628 4.18736 11.4147 4.05768C11.6802 4.00488 12.0228 4.00004 13 4.00004H14.6C15.7366 4.00004 16.5289 4.00081 17.1458 4.05121C17.7509 4.10066 18.0986 4.19283 18.362 4.32702C18.9265 4.61464 19.3854 5.07358 19.673 5.63807C19.8072 5.90142 19.8994 6.24911 19.9488 6.85428C19.9992 7.47112 20 8.26343 20 9.40004V11C20 11.9773 19.9952 12.3199 19.9424 12.5853C19.8127 13.2373 19.4748 13.8114 19 14.2361V16.5829C20.4795 15.9374 21.5804 14.602 21.9039 12.9755C22.0004 12.4907 22.0002 11.9334 22 11.1158L22 11V9.40004V9.35725C22 8.27346 22 7.3993 21.9422 6.69141C21.8826 5.96256 21.7568 5.32238 21.455 4.73008C20.9757 3.78927 20.2108 3.02437 19.27 2.545C18.6777 2.24322 18.0375 2.1174 17.3086 2.05785C16.6007 2.00002 15.7266 2.00003 14.6428 2.00004L14.6 2.00004H13Z" fill="currentColor"></path>
+  </svg>
+);
+
+const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-[2] size-4" {...props}>
+    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+// Utility to detect mobile
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return isMobile;
+}
+
+// Utility to copy text to clipboard
+function copyToClipboard(text: string) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+  } else {
+    // fallback
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  }
+}
 
 interface ReasoningPart {
   type: "reasoning";
@@ -146,10 +188,22 @@ const PurePreviewMessage = ({
   const allText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
   const sources = extractSourcesFromText(allText);
   const [showSources, setShowSources] = useState(false);
-  // Responsive: mobile-first, enterprise-grade assistant message layout
-  // On mobile, assistant icon above message bubble, left-aligned, max-w-[80vw]
-  // On desktop, keep current layout
   const isAssistant = message.role === "assistant";
+  const isMobile = useIsMobile();
+  const [copied, setCopied] = useState(false);
+  const copyTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Get the full AI message text (all text parts, sources block stripped)
+  const aiMessageText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
+
+  const handleCopy = () => {
+    copyToClipboard(aiMessageText);
+    setCopied(true);
+    if (copyTimeout.current) clearTimeout(copyTimeout.current);
+    copyTimeout.current = setTimeout(() => setCopied(false), 1000);
+  };
+
+  useEffect(() => () => { if (copyTimeout.current) clearTimeout(copyTimeout.current); }, []);
   return (
     <AnimatePresence key={message.id}>
       <motion.div
@@ -216,6 +270,33 @@ const PurePreviewMessage = ({
               : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit",
           )}
         >
+          {/* Desktop: Copy icon left of AI icon, animates in on hover (fade in on hover, hidden otherwise) */}
+          {isAssistant && !isMobile && (
+            <motion.div
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: 0.2 }}
+              className="mr-2 flex items-center"
+              style={{ pointerEvents: 'none' }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Copy message"
+                    className="rounded-full p-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 opacity-0 group-hover/message:opacity-100 focus:opacity-100 cursor-pointer"
+                    style={{ color: '#828282', pointerEvents: 'auto', transition: 'opacity 0.2s' }}
+                    onClick={handleCopy}
+                  >
+                    {copied ? <CheckIcon style={{ color: '#828282', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: '#828282', transition: 'all 0.2s' }} />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+              </Tooltip>
+            </motion.div>
+          )}
+          {/* AI icon */}
           {isAssistant && (
             <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
               <div>
@@ -303,6 +384,25 @@ const PurePreviewMessage = ({
                   }
                 })}
               </div>
+              {/* Mobile: Copy icon always at the bottom, after the message bubble */}
+              {isMobile && isAssistant && (
+                <div className="relative w-full -mt-2">
+                  <div className="flex absolute left-0 right-0 justify-start z-10">
+                    <div className="flex items-center gap-1 p-1 select-none -mt-3 pointer-events-auto">
+                      <button
+                        type="button"
+                        aria-label="Copy message"
+                        className="text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center"
+                        style={{ color: '#828282', background: 'transparent' }}
+                        onClick={handleCopy}
+                      >
+                        {copied ? <CheckIcon style={{ color: '#828282', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: '#828282', transition: 'all 0.2s' }} />}
+                      </button>
+                      {/* Future action buttons can be added here as more icons */}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col w-full space-y-4">
