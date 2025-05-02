@@ -30,12 +30,15 @@ export default function Chat() {
       },
     });
 
-  // Custom handleSubmit: reset model to default if SEARCH_MODE was used
+
+  // When search is selected, force search for this POST, then revert to default model immediately after
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     if (selectedModel === SEARCH_MODE) {
-      setSelectedModel(defaultModel);
+      baseHandleSubmit(e); // POST with search model
+      setSelectedModel(defaultModel); // Immediately revert to default for next input
+    } else {
+      baseHandleSubmit(e); // POST with current model
     }
-    baseHandleSubmit(e);
   };
 
   const isLoading = status === "streaming" || status === "submitted";
@@ -82,7 +85,7 @@ export default function Chat() {
                     setSelectedModel={setSelectedModel}
                     handleInputChange={handleInputChange}
                     input={input}
-                  isLoading={isLoading}
+                    isLoading={isLoading}
                     status={status}
                     stop={stop}
                 />

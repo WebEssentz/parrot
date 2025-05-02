@@ -47,19 +47,16 @@ export function SearchButton({
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Lit state is user-controlled: stays on until user disables
   const handleClick = () => {
-    if (!lit) {
-      setSelectedModel(SEARCH_MODE); // Activate search mode
-      setLit(true); // UI: show lit
+    if (!isSearching) {
+        setSelectedModel(SEARCH_MODE); // Activate search mode
+        setLit(true); // Keep visual indicator if desired
     } else {
-      setSelectedModel(defaultModel); // Deactivate search, return to default
-      setLit(false); // UI: unlit
+        // IMPORTANT: Fall back to the *actual* default model ID here
+        setSelectedModel(defaultModel); // Deactivate search, return to default
+        setLit(false);
     }
   };
-
-  // Only update lit when user toggles, not when model changes externally
-  
   return (
     <Tooltip>
       <TooltipTrigger asChild>

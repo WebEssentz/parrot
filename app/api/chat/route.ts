@@ -9,7 +9,7 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   const {
     messages,
-selectedModel,
+    selectedModel,
   }: { messages: UIMessage[]; selectedModel: string } = await req.json();
 
   const now = new Date();
@@ -92,7 +92,7 @@ selectedModel,
         - **fetchUrlTool**:
        - **googleSearchTool**:
     **googleSearchTool**:
-            - **CRITICAL SEARCH MODE:** If the frontend sent \`${SEARCH_MODE}\` for this message, you MUST call \`googleSearchTool\`. (Backend logic enforces this). The frontend will automatically reset after this call completes.
+            - **CRITICAL SEARCH MODE:** If the frontend sent \`${SEARCH_MODE}\` for this message, you MUST call \`googleSearchTool\` for the user's query, even if you know the answer from your training data or memory. You are not allowed to answer from your own knowledge; you must always perform a fresh web search and use only the search results to answer. Do not use your own knowledge or reasoning. (Backend logic enforces this). The frontend will automatically reset after this call completes.
     - Otherwise (when Search Mode is OFF): Use for questions requiring **up-to-date information**, current events, breaking news, or general knowledge questions not specific to a URL provided by the user.
             - Use if the user asks a question that your internal knowledge might not cover accurately (e.g., "Who won the F1 race yesterday?", "What are the latest AI developments this week?").
             - **Prioritize "fetchUrlTool" if a relevant URL is provided by the user.** Use "googleSearchTool" if no URL is given or if the URL analysis doesn't contain the needed *current/external* information.
@@ -172,23 +172,23 @@ selectedModel,
   // --- END OF UPDATED SYSTEM PROMPT ---
 
   // Only force googleSearchTool if the *current* POST's selectedModel is SEARCH_MODE
-const isSearchModeActive = selectedModel === SEARCH_MODE;
-const actualModelId = isSearchModeActive ? defaultModel : (selectedModel as modelID);
-const languageModel = model.languageModel(actualModelId);
+  const isSearchModeActive = selectedModel === SEARCH_MODE;
+  const actualModelId = isSearchModeActive ? defaultModel : (selectedModel as modelID);
+  const languageModel = model.languageModel(actualModelId);
 
-const result = streamText({
-  model: languageModel,
-  system: systemPrompt,
-  messages,
-  tools: {
-    getWeather: weatherTool,
-    fetchUrl: fetchUrlTool,
-    googleSearch: googleSearchTool,
-  },
-  toolCallStreaming: true,
-  experimental_telemetry: { isEnabled: true },
-  ...(isSearchModeActive && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
-});
+  const result = streamText({
+    model: languageModel,
+    system: systemPrompt,
+    messages,
+    tools: {
+      getWeather: weatherTool,
+      fetchUrl: fetchUrlTool,
+      googleSearch: googleSearchTool,
+    },
+    toolCallStreaming: true,
+    experimental_telemetry: { isEnabled: true },
+    ...(isSearchModeActive && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
+  });
 
   console.log(`API Request: Search Mode Active = ${isSearchModeActive}, Using Model = ${actualModelId}, Forcing Tool = ${isSearchModeActive ? 'googleSearch' : 'None'}`);
 
@@ -198,7 +198,7 @@ const result = streamText({
       if (error instanceof Error) {
         // Check for Google-specific errors if needed, e.g., API key issues
         if (error.message.includes("API key not valid")) {
-             return "Invalid Google API Key detected. Please check configuration.";
+          return "Invalid Google API Key detected. Please check configuration.";
         }
         if (error.message.includes("Rate limit")) {
           return "Rate limit exceeded. Please try again later.";
