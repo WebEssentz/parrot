@@ -5,12 +5,13 @@ import React from "react";
 
 interface InputProps {
   input: string;
-  handleInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  // Use correct event type for textarea, not input
+  handleInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   isLoading: boolean;
-  status: string;
+  status: 'idle' | 'submitted' | 'streaming' | 'error' | string; // Use specific statuses if known
   stop: () => void;
-  selectedModel: string; // modelID or SEARCH_MODE
-  setSelectedModel: (model: string) => void;
+  selectedModel: string; // Can be modelID or SEARCH_MODE
+  setSelectedModel: (model: string) => void; // Can set modelID or SEARCH_MODE
 }
 
 export const Textarea = ({
@@ -30,6 +31,7 @@ export const Textarea = ({
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
+
   return (
     <div className="relative w-full pt-4 bg-transparent dark:bg-transparent">
       {/* Model name display commented out for now */}
@@ -43,7 +45,6 @@ export const Textarea = ({
         value={input}
         autoFocus
         placeholder={"Ask Parrot..."}
-        // @ts-expect-error err
         onChange={handleInputChange}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {

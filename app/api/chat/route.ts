@@ -178,7 +178,7 @@ selectedModel,
   const languageModel = model.languageModel(actualModelId); // Ensure you get a LanguageModel instance
 
   const result = streamText({
-    model: selectedModel === SEARCH_MODE ? model.languageModel(defaultModel) : model.languageModel(selectedModel as modelID),
+    model: selectedModel === SEARCH_MODE ? languageModel : model.languageModel(selectedModel as modelID),
     system: systemPrompt,
     messages,
     tools: {
