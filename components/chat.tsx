@@ -18,6 +18,12 @@ export default function Chat() {
       body: {
         selectedModel,
       },
+      onFinish: () => {
+        // If we just did a search, reset to default model after POST completes
+        if (selectedModel === SEARCH_MODE) {
+          setSelectedModel(defaultModel);
+        }
+      },
       onError: (error) => {
         toast.error(
           error.message.length > 0

@@ -47,16 +47,20 @@ export function SearchButton({
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Only set SEARCH_MODE on click, do not toggle back to default here
   const handleClick = () => {
     if (!isSearching) {
-        setSelectedModel(SEARCH_MODE); // Activate search mode
-        setLit(true); // Keep visual indicator if desired
-    } else {
-        // IMPORTANT: Fall back to the *actual* default model ID here
-        setSelectedModel(defaultModel); // Deactivate search, return to default
-        setLit(false);
+      setSelectedModel(SEARCH_MODE);
+      setLit(true);
     }
+    // Do not reset to default here; parent will handle after POST
   };
+
+  // Keep track of the visual 'lit' state if model changes externally
+  React.useEffect(() => {
+      setLit(selectedModel === SEARCH_MODE);
+  }, [selectedModel]);
+  
   return (
     <Tooltip>
       <TooltipTrigger asChild>

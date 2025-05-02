@@ -91,7 +91,8 @@ selectedModel,
         - **weatherTool**: Use ONLY when the user explicitly asks about the weather.
         - **fetchUrlTool**:
        - **googleSearchTool**:
-    - **CRITICAL SEARCH MODE:** If the Search button is active in the UI (meaning the frontend sent \`${SEARCH_MODE}\` as the selected model), you MUST call the \`googleSearchTool\` for *any* user input, regardless of the prompt content or intent. (Backend logic enforces this, prompt is for reinforcement).
+    **googleSearchTool**:
+            - **CRITICAL SEARCH MODE:** If the frontend sent \`${SEARCH_MODE}\` for this message, you MUST call \`googleSearchTool\`. (Backend logic enforces this). The frontend will automatically reset after this call completes.
     - Otherwise (when Search Mode is OFF): Use for questions requiring **up-to-date information**, current events, breaking news, or general knowledge questions not specific to a URL provided by the user.
             - Use if the user asks a question that your internal knowledge might not cover accurately (e.g., "Who won the F1 race yesterday?", "What are the latest AI developments this week?").
             - **Prioritize "fetchUrlTool" if a relevant URL is provided by the user.** Use "googleSearchTool" if no URL is given or if the URL analysis doesn't contain the needed *current/external* information.
@@ -173,12 +174,12 @@ selectedModel,
   // If SEARCH_MODE is active, always call googleSearchTool for any user input
   const isSearchModeActive = selectedModel === SEARCH_MODE;
 
-  // Determine the actual model to use
+  // Determine the actual base model to use for processing
   const actualModelId = isSearchModeActive ? defaultModel : (selectedModel as modelID);
-  const languageModel = model.languageModel(actualModelId); // Ensure you get a LanguageModel instance
+  const languageModel = model.languageModel(actualModelId);
 
   const result = streamText({
-    model: selectedModel === SEARCH_MODE ? languageModel : model.languageModel(selectedModel as modelID),
+    model: languageModel,
     system: systemPrompt,
     messages,
     tools: {
@@ -188,7 +189,7 @@ selectedModel,
     },
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
-...(selectedModel === SEARCH_MODE && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
+...(isSearchModeActive && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
 // OR if your specific setup uses forceTool:
 // ...(selectedModel === SEARCH_MODE && { forceTool: "googleSearch" }),
   });
