@@ -171,28 +171,24 @@ selectedModel,
     `;
   // --- END OF UPDATED SYSTEM PROMPT ---
 
-  // If SEARCH_MODE is active, always call googleSearchTool for any user input
-  const isSearchModeActive = selectedModel === SEARCH_MODE;
+  // Only force googleSearchTool if the *current* POST's selectedModel is SEARCH_MODE
+const isSearchModeActive = selectedModel === SEARCH_MODE;
+const actualModelId = isSearchModeActive ? defaultModel : (selectedModel as modelID);
+const languageModel = model.languageModel(actualModelId);
 
-  // Determine the actual base model to use for processing
-  const actualModelId = isSearchModeActive ? defaultModel : (selectedModel as modelID);
-  const languageModel = model.languageModel(actualModelId);
-
-  const result = streamText({
-    model: languageModel,
-    system: systemPrompt,
-    messages,
-    tools: {
-      getWeather: weatherTool,
-      fetchUrl: fetchUrlTool,
-      googleSearch: googleSearchTool,
-    },
-    toolCallStreaming: true,
-    experimental_telemetry: { isEnabled: true },
-...(isSearchModeActive && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
-// OR if your specific setup uses forceTool:
-// ...(selectedModel === SEARCH_MODE && { forceTool: "googleSearch" }),
-  });
+const result = streamText({
+  model: languageModel,
+  system: systemPrompt,
+  messages,
+  tools: {
+    getWeather: weatherTool,
+    fetchUrl: fetchUrlTool,
+    googleSearch: googleSearchTool,
+  },
+  toolCallStreaming: true,
+  experimental_telemetry: { isEnabled: true },
+  ...(isSearchModeActive && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
+});
 
   console.log(`API Request: Search Mode Active = ${isSearchModeActive}, Using Model = ${actualModelId}, Forcing Tool = ${isSearchModeActive ? 'googleSearch' : 'None'}`);
 

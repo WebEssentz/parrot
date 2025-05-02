@@ -12,17 +12,13 @@ import { toast } from "sonner";
 
 export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
-  const { messages, input, handleInputChange, handleSubmit, status, stop } =
+
+  // Custom handleSubmit: reset model to default if SEARCH_MODE was used
+  const { messages, input, handleInputChange, handleSubmit: baseHandleSubmit, status, stop } =
     useChat({
       maxSteps: 5, // Or your desired limit
       body: {
         selectedModel,
-      },
-      onFinish: () => {
-        // If we just did a search, reset to default model after POST completes
-        if (selectedModel === SEARCH_MODE) {
-          setSelectedModel(defaultModel);
-        }
       },
       onError: (error) => {
         toast.error(
@@ -33,6 +29,14 @@ export default function Chat() {
         );
       },
     });
+
+  // Custom handleSubmit: reset model to default if SEARCH_MODE was used
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (selectedModel === SEARCH_MODE) {
+      setSelectedModel(defaultModel);
+    }
+    baseHandleSubmit(e);
+  };
 
   const isLoading = status === "streaming" || status === "submitted";
 
