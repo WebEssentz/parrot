@@ -13,31 +13,39 @@ import { toast } from "sonner";
 export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
 
-  // Custom handleSubmit: reset model to default if SEARCH_MODE was used
-  const { messages, input, handleInputChange, handleSubmit: baseHandleSubmit, status, stop } =
-    useChat({
-      maxSteps: 5, // Or your desired limit
-      body: {
-        selectedModel,
-      },
-      onError: (error) => {
-        toast.error(
-          error.message.length > 0
-            ? error.message
-            : "An error occurred, please try again later.",
-          { position: "top-center", richColors: true },
-        );
-      },
-    });
+  // UseChat with onFinish to reset model after POST completes (no race condition)
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit: baseHandleSubmit,
+    status,
+    stop
+  } = useChat({
+    maxSteps: 5,
+    body: { selectedModel },
+    onFinish: () => {
+      if (selectedModel === SEARCH_MODE) {
+        setSelectedModel(defaultModel);
+      }
+    },
+    onError: (error) => {
+      toast.error(
+        error.message.length > 0
+          ? error.message
+          : "An error occurred, please try again later.",
+        { position: "top-center", richColors: true },
+      );
+    },
+  });
 
 
-  // When search is selected, force search for this POST, then revert to default model immediately after
+  // Always POST with the current selectedModel, then immediately reset to default if SEARCH_MODE
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (selectedModel === SEARCH_MODE) {
-      baseHandleSubmit(e); // POST with search model
-      setSelectedModel(defaultModel); // Immediately revert to default for next input
-    } else {
-      baseHandleSubmit(e); // POST with current model
+    const modelForThisPost = selectedModel;
+    baseHandleSubmit(e);
+    if (modelForThisPost === SEARCH_MODE) {
+      setSelectedModel(defaultModel);
     }
   };
 
