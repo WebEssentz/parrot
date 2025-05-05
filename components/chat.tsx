@@ -135,24 +135,31 @@ export default function Chat() {
 
 
   // Always POST with the current selectedModel, then immediately reset to default if SEARCH_MODE
+
+
+
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); 
-     const currentInput = input; // Capture input before clearing
-       const modelForThisRequest = selectedModel; // Capture model before potential reset
+    e.preventDefault();
+    const currentInput = input;
+    const modelForThisRequest = selectedModel;
 
-       // Append the user message immediately for better UX
-       append({ role: 'user', content: currentInput });
+    // Append the user message immediately for better UX
+    append({ role: 'user', content: currentInput });
 
-       // **Important:** We no longer call baseHandleSubmit directly from form onSubmit
-       // `append` handles sending the message with the current hook state's body.
-       // The `body: { selectedModel }` in `useChat` options ensures the correct model is sent.
+    // Clear the input after sending
+    handleInputChange({
+      target: { value: '' },
+      currentTarget: { value: '' },
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      nativeEvent: {},
+    } as unknown as React.ChangeEvent<HTMLTextAreaElement>);
 
-       // Reset model immediately if it was SEARCH_MODE
-       if (modelForThisRequest === SEARCH_MODE) {
-         console.log("Search mode detected, resetting model selection post-submit.");
-         setSelectedModel(defaultModel);
-       }
-
+    // Reset model immediately if it was SEARCH_MODE
+    if (modelForThisRequest === SEARCH_MODE) {
+      setSelectedModel(defaultModel);
+    }
   };
 
   const isLoading = status === "streaming" || status === "submitted";
