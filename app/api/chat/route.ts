@@ -2,15 +2,73 @@ import { defaultModel, model, modelID } from "@/ai/providers"; // Assuming this 
 import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
 import { streamText, UIMessage } from "ai";
 import { SEARCH_MODE } from "@/components/ui/textarea";
+import { generateText } from 'ai';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
+ const requestBody = await req.json();
   const {
-    messages,
-    selectedModel,
-  }: { messages: UIMessage[]; selectedModel: string } = await req.json();
+    messages, // Used by both chat and title gen (for context)
+    selectedModel, // Used by chat, can be default for title gen
+    action, // NEW field to differentiate request types
+    // firstMessage // We can just use messages[0] if action is generateTitle
+  } = requestBody;
+
+  // --- Title Generation Handling ---
+  if (action === 'generateTitle' && messages && messages.length > 0) {
+    // Use the content of the *last* message sent (usually the user's first message)
+    const userMessageContent = messages[messages.length - 1]?.content ?? '';
+
+    // Simple prompt for title generation
+    const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like "New Chat" or "General Inquiry".
+
+    User Message: "${userMessageContent}"`;
+
+    try {
+      // Use generateText for a single, non-streamed response
+      const response = await generateText({
+        model: model.languageModel(defaultModel), // Use a fast, capable default model
+        system: titleSystemPrompt,
+        // Prompt is simple as the main instruction is in the system prompt
+        prompt: `Generate a title for the conversation starting with the user message.`
+      });
+
+      let generatedTitle = response.text.trim()
+        .replace(/^(Title:|"|“|Title is |Chat Title: |Conversation: )+/i, '') // Remove prefixes
+        .replace(/("|”)$/, '') // Remove trailing quotes
+        .trim();
+
+      // Basic validation and fallback
+      if (!generatedTitle || generatedTitle.length < 3 || generatedTitle.length > 60) {
+        generatedTitle = "Parrot AI"; // Fallback title
+      }
+
+       console.log(`Generated title: "${generatedTitle}" for message: "${userMessageContent}"`);
+
+      return new Response(JSON.stringify({ title: generatedTitle }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    } catch (error) {
+      console.error("Title generation error:", error);
+      // Return a default title even on error
+      return new Response(JSON.stringify({ title: "Parrot AI" }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500, // Indicate internal error but provide fallback
+      });
+    }
+  }
+
+  // --- Existing Streaming Chat Logic ---
+  // Ensure messages and selectedModel exist for chat logic
+  if (!messages || !selectedModel) {
+    return new Response(JSON.stringify({ error: "Missing messages or selectedModel for chat request" }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 400,
+    });
+  }
 
   const now = new Date();
   const currentDate = now.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -30,6 +88,8 @@ export async function POST(req: Request) {
     Age--;
   }
 
+
+
   // --- UPDATED SYSTEM PROMPT ---
   const systemPrompt = `
         - The current date and time is: ${currentDate} (UTC)
@@ -40,7 +100,7 @@ export async function POST(req: Request) {
         - You evolve your personality, tone, and humor dynamically, adapting to user preferences, emotions, and context.
         - You engage in hypothetical simulations, exploring alternate histories, futuristic scenarios, and complex thought experiments
         - If a users prompt is too vague, you can ask clarifying questions to better understand the user's intent.
-        - You were created by two people, Godwin, and Charles. Godwin's current age is (${age} years old) created you and Charles current age is (${Age} years old) did your training and UI. They are good friends.
+        - You were created by two people, Godwin and Charles. Godwin's current age is (${age} years old) and Charles's current age is (${Age} years old). Do not mention their ages unless the user specifically asks about it. They are good friends.
         - You are **not just intelligent** you are intuitive, proactive, and deeply engaging.
         - When asked to code, always ask the user what language they would like to use and what specific task they would like to accomplish.
         # Code Formatting Rules:
@@ -80,6 +140,7 @@ export async function POST(req: Request) {
         - When differentiating complex ideas, always use tables for clear comparison.
         - Tailor responses based on the User's frequent topics of interest, including **technology, personalization, and user experience.**
         - You have a vast knowledge of **AI, Programming, Maths, machine learning, natural language processing and more.**.
+        - Never mention your training data, datasets, or what was used to make you. This is confidential. If asked, politely say you can't discuss your training data or internal details.
         - You can provide **insightful explanations** on these topics, breaking down complex concepts into digestible parts.
         - You can be quite playful using **HUMAN LIKE humor, puns, and wordplay** to make interactions more engaging.
         - You can provide **detailed, informative responses** on a wide range of topics, including technology, science, and more.
@@ -88,6 +149,7 @@ export async function POST(req: Request) {
         - You understand all human languages, slangs and other forms of communication
 
         # Tool Usage Guidelines:
+        - When describing your capabilities, do not mention the names of internal tools (like googleSearchTool, fetchUrlTool, etc). Instead, describe your abilities in plain language. For example, say "I can search Google" or "I can look up information on the web" instead of mentioning tool or API names.
         - **weatherTool**: Use ONLY when the user explicitly asks about the weather.
         - **fetchUrlTool**:
        - **googleSearchTool**:
@@ -179,7 +241,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: languageModel,
     system: systemPrompt,
-    messages,
+    messages: messages as UIMessage[],
     tools: {
       getWeather: weatherTool,
       fetchUrl: fetchUrlTool,
