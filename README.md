@@ -1,9 +1,20 @@
-<a href="https://ai-sdk-starter-groq.vercel.app">
-  <h1 align="center">Vercel x Groq Chatbot</h1>
-</a>
+
+<h1 align="center">🦜 Parrot AI Chatbot</h1>
 
 <p align="center">
-  An open-source AI chatbot app template built with Next.js, the AI SDK by Vercel, and Groq.
+  Parrot is an open-source, privacy-focused AI chatbot built with Next.js, the Vercel AI SDK, and Groq—customized for a modern, delightful, and transparent chat experience.
+
+---
+
+## 🚀 Major 2025 Updates
+
+- **One-Shot Search Mode:** When the Search button is selected, the next message always uses real-time web search, then reverts to the default model. No more infinite search loops.
+- **Privacy & Transparency:** Parrot never mentions its training data, internal tools, or the ages of its creators unless specifically asked. Capabilities are described in plain language (e.g., "I can search Google").
+- **Modern UI:** The header now displays "Parrot" in a semibold, modern font on desktop, and the original icon on mobile/tablet. The search button's lit state is user-controlled and visually consistent. The textarea input is cleared after sending a message.
+- **Robust Model Handling:** Improved code structure for model selection and POST handling to avoid race conditions and ensure correct model usage.
+- **Responsive Design:** Enhanced experience for both desktop and mobile users.
+
+See [CHANGELOG.md](./CHANGELOG.md) for details.
 </p>
 
 <p align="center">
@@ -16,11 +27,14 @@
 
 ## Features
 
-- Streaming text responses powered by the [AI SDK by Vercel](https://sdk.vercel.ai/docs), allowing multiple AI providers to be used interchangeably with just a few lines of code.
-- Built-in tool integration for extending AI capabilities (demonstrated with a weather tool example).
-- Reasoning model support.
-- [shadcn/ui](https://ui.shadcn.com/) components for a modern, responsive UI powered by [Tailwind CSS](https://tailwindcss.com).
-- Built with the latest [Next.js](https://nextjs.org) App Router.
+- Real-time, one-shot search mode for up-to-date answers from the web
+- Privacy-first: never reveals training data, internal tools, or creator details unless asked
+- Modern, branded UI with responsive design and smooth chat experience
+- Streaming text responses powered by the [AI SDK by Vercel](https://sdk.vercel.ai/docs), supporting multiple AI providers
+- Built-in tool integration for extending AI capabilities (weather, web search, and more)
+- Reasoning model support
+- [shadcn/ui](https://ui.shadcn.com/) components for a modern, responsive UI powered by [Tailwind CSS](https://tailwindcss.com)
+- Built with the latest [Next.js](https://nextjs.org) App Router
 
 ## Deploy Your Own
 
@@ -78,6 +92,6 @@ You can deploy your own version to Vercel by clicking the button below:
 
 ## Authors
 
-This repository is maintained by the [Vercel](https://vercel.com) team and community contributors.
+Parrot AI is maintained by Godwin, Charles, and the open-source community.
 
 Contributions are welcome! Feel free to open issues or submit pull requests to enhance functionality or fix bugs.
