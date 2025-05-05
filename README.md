@@ -92,6 +92,10 @@ You can deploy your own version to Vercel by clicking the button below:
 
 ## Authors
 
-Parrot AI is maintained by Godwin, Charles, and the open-source community.
+Parrot AI is maintained by:
+
+- Godwin (Lead Developer)
+- Charles (UI/UX & Training)
+- The open-source community
 
 Contributions are welcome! Feel free to open issues or submit pull requests to enhance functionality or fix bugs.
