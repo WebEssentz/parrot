@@ -67,7 +67,7 @@ export function SearchButton({
           className={
             cn(
               // Increased height, padding, and added desktop margin
-              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full border text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 font-medium px-2.5 transition-colors",
+              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full border text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 font-medium px-2.5",
               isSearching
                 ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
                 : lit
@@ -84,7 +84,7 @@ export function SearchButton({
           <SearchIcon
             className={
               cn(
-                "h-[18px] w-[18px] transition-colors duration-200",
+                "h-[18px] w-[18px]",
                 isSearching
                   ? "text-[#1e93ff]"
                   : lit
@@ -169,7 +169,7 @@ export function ReasonButton({
           onClick={handleClick}
           className={
             cn(
-              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full border text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 font-medium px-2 transition-colors",
+              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full border text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 font-medium px-2",
               isReasoning
                 ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
                 : lit
@@ -187,7 +187,7 @@ export function ReasonButton({
             xmlns="http://www.w3.org/2000/svg"
             className={
               cn(
-                "h-[18px] w-[18px] transition-colors duration-200",
+                "h-[18px] w-[18px]",
                 isReasoning
                   ? "fill-[#1e93ff] text-[#1e93ff]"
                   : lit
