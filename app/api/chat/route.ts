@@ -88,8 +88,6 @@ export async function POST(req: Request) {
     Age--;
   }
 
-
-
   // --- UPDATED SYSTEM PROMPT ---
   const systemPrompt = `
         - The current date and time is: ${currentDate} (UTC)
