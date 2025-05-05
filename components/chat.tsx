@@ -11,38 +11,6 @@ import { Header } from "./header";
 import React from "react";
 import { toast } from "sonner";
 
-// --- Typewriter Effect Helper ---
-// Stores the interval ID globally within the module scope or use a ref in the component
-let typewriterInterval: NodeJS.Timeout | null = null;
-
-function startTypewriterEffect(title: string, speed: number = 50) { // speed in ms
-  // Clear any existing typewriter effect
-  if (typewriterInterval) {
-    clearInterval(typewriterInterval);
-    typewriterInterval = null;
-  }
-
-  let index = 0;
-  // Initial partial title might be useful (e.g., show "Generating...")
-  // document.title = "Generating..."; // Optional: Initial state
-
-  typewriterInterval = setInterval(() => {
-    if (index < title.length) {
-      index++;
-      document.title = title.substring(0, index); // Update title progressively
-    } else {
-      clearInterval(typewriterInterval!); // Clear interval when done
-      typewriterInterval = null;
-       document.title = title; // Ensure final title is set correctly
-       // Optional: Add a blinking cursor effect for a moment
-       // setTimeout(() => { document.title = title.endsWith('_') ? title.slice(0, -1) : title; }, 500);
-    }
-  }, speed);
-}
-// --- End Typewriter Helper ---
-
-
-
 // Helper function to generate title
 async function generateAndSetTitle(firstUserMessageContent: string) {
   try {
@@ -135,10 +103,6 @@ export default function Chat() {
 
 
   // Always POST with the current selectedModel, then immediately reset to default if SEARCH_MODE
-
-
-
-
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const currentInput = input;
