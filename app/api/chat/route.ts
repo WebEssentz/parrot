@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const userMessageContent = messages[messages.length - 1]?.content ?? '';
 
     // Simple prompt for title generation
-    const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like "New Chat" or "General Inquiry".
+    const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like "New Chat".
 
     User Message: "${userMessageContent}"`;
 
