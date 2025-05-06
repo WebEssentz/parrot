@@ -63,7 +63,7 @@ export const Textarea = ({
       {/* Action buttons row (mobile/tablet: icons only, desktop: show text) */}
       <div
         data-testid="composer-footer-actions"
-        className={`max-xs:gap-1 flex items-center gap-2 overflow-x-auto [scrollbar-width:none] mt-2 absolute bottom-2 z-20 ${isMobileOrTablet ? 'left-2' : 'left-0'}`}
+        className={`max-xs:gap-1 flex items-center gap-2 overflow-x-auto [scrollbar-width:none] mt-2 absolute bottom-2 z-20 ${isMobileOrTablet ? 'left-0' : 'left-0'}`}
         style={{marginRight: 102}}
       >
         {/* New Attach Button */}
