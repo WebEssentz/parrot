@@ -416,51 +416,55 @@ const PurePreviewMessage = ({
             <div className="flex flex-col w-full space-y-4">
               {message.parts?.map((part, i) => {
                 switch (part.type) {
-                   case "text":
-    const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-    // This is the flag that determines if we should use the StreamingTextRenderer
-    const isLatestActivelyStreamingTextPart =
-      isAssistant &&
-      status === "streaming" && // The overall stream is active (or this message's specific stream status)
-      isLatestMessage &&        // This is the last message in the chat
-      isEffectivelyLastPart;    // This is the current text part being streamed
+                  case "text":
+                    const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
+                    // This is the flag that determines if we should use the StreamingTextRenderer
+                    const isLatestActivelyStreamingTextPart =
+                      isAssistant &&
+                      status === "streaming" && // The overall stream is active (or this message's specific stream status)
+                      isLatestMessage &&        // This is the last message in the chat
+                      isEffectivelyLastPart;    // This is the current text part being streamed
 
-    return (
-      <motion.div
-        initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
-        animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
-        transition={{ duration: 0.2 }}
-        key={`message-${message.id}-part-${i}`}
-        className="flex flex-row items-start w-full pb-4"
-      >
-        <div
-          className="flex flex-col gap-4 px-4 py-2 w-full" // Added w-full for consistency
-          style={{
-            marginLeft: 0,
-            alignItems: 'flex-start',
-            background: 'none',
-            border: 'none',
-            boxShadow: 'none',
-          }}
-        >
-          {isLatestActivelyStreamingTextPart ? (
-            <StreamingTextRenderer
-              fullText={part.text}
-              wordSpeed={50} // Adjust speed: 30-75ms is a good range. Lower is faster.
-              asMarkdown={false} // CRITICAL: Keep false for performance during active streaming
-              className="w-full"
-              // onComplete={() => console.log("Typewriter completed for this chunk/message")}
-            />
-          ) : (
-            // Render full Markdown for:
-            // - User messages
-            // - Assistant messages that are not the latest actively streaming part
-            // - The final "ready" state of any assistant message part
-            <Markdown>{part.text}</Markdown>
-          )}
-        </div>
-      </motion.div>
-    );
+                    return (
+                      <motion.div
+                        initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
+                        animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
+                        transition={{ duration: 0.2 }}
+                        key={`message-${message.id}-part-${i}`}
+                        className="flex flex-row items-start w-full pb-4"
+                      >
+                        <div
+                          className="flex flex-col gap-4 px-4 py-2 w-full" // Added w-full for consistency
+                          style={{
+                            marginLeft: 0,
+                            alignItems: 'flex-start',
+                            background: 'none',
+                            border: 'none',
+                            boxShadow: 'none',
+                          }}
+                        >
+                          {isLatestActivelyStreamingTextPart ? (
+                            <StreamingTextRenderer
+                              fullText={part.text}
+                              wordSpeed={50} // Adjust speed: 30-75ms is a good range. Lower is faster.
+                              asMarkdown={false} // CRITICAL: Keep false for performance during active streaming
+                              className="w-full"
+                            // onComplete={() => console.log("Typewriter completed for this chunk/message")}
+                            />
+                          ) : (
+                            // Render full Markdown for:
+                            // - User messages
+                            // - Assistant messages that are not the latest actively streaming part
+                            // - The final "ready" state of any assistant message part
+                            <div
+                              className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 rounded-xl w-full sm:max-w-2xl shadow"
+                            >
+                              <Markdown>{part.text}</Markdown>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
                   default:
                     return null;
                 }
