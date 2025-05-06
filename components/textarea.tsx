@@ -43,7 +43,7 @@ export const Textarea = ({
       </div>
       */}
       <ShadcnTextarea
-        className="resize-none bg-transparent dark:bg-transparent w-full rounded-2xl pr-12 pt-4 pb-16"
+        className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-4 pb-16 text-lg md:text-lg font-normal border-2 border-zinc-200 dark:border-zinc-700 shadow-lg min-h-[64px] placeholder:text-lg md:placeholder:text-lg"
         value={input}
         autoFocus
         placeholder={"Ask Parrot..."}
