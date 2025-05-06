@@ -29,7 +29,12 @@ export function useScrollToBottom(): [
       if (isUserNearBottom || force) {
         // Use requestAnimationFrame for smoother scroll during streaming
         requestAnimationFrame(() => {
+          // First, try smooth scroll
           end.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          // Then, after a short delay, force an instant scroll to guarantee bottom
+          setTimeout(() => {
+            end.scrollIntoView({ behavior: 'auto', block: 'end' });
+          }, 60); // 1-2 frames later
         });
       }
     };

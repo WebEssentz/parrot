@@ -67,7 +67,7 @@ export function SearchButton({
           className={
             cn(
               // Increased height, padding, and added desktop margin
-              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 font-medium px-2.5",
+              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5",
               isSearching
                 ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
                 : lit
@@ -125,7 +125,7 @@ export function AttachButton({
           type="button"
           onClick={onClick}
           className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-9 ml-2 rounded-full  text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 font-medium px-2.5", // Consistent padding with SearchButton
+            "inline-flex items-center cursor-pointer justify-center h-9 ml-2 rounded-full  text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5", // Consistent padding with SearchButton
             "hover:bg-zinc-100 dark:hover:bg-zinc-800" // Standard hover state
           )}
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }} // Consistent minWidth
@@ -215,7 +215,7 @@ export function ReasonButton({
           onClick={handleClick}
           className={
             cn(
-              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full  text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 font-medium px-2",
+              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full  text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2",
               isReasoning
                 ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
                 : lit
