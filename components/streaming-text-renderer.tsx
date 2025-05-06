@@ -1,155 +1,124 @@
 // components/streaming-text-renderer.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { Markdown } from './markdown';
+import { Markdown } from './markdown'; // Assuming your Markdown.tsx path
 
 interface StreamingTextRendererProps {
   fullText: string;
-  wordSpeed?: number;
-  asMarkdown?: boolean;
+  wordSpeed?: number; // Milliseconds per word/token
+  asMarkdown?: boolean; // If true, renders displayedText through Markdown component (can be slow)
   className?: string;
-  onComplete?: () => void;
+  onComplete?: () => void; // Callback when typing is complete for the current fullText
 }
 
+// Helper to split text into words and preserve spaces/newlines between them
 const splitIntoWordsAndSeparators = (text: string): string[] => {
   if (!text) return [];
-  return text.match(/\S+|\s+/g) || [];
+  return text.match(/\S+|\s+/g) || []; // Matches sequences of non-whitespace (words) or whitespace (separators)
 };
 
 export const StreamingTextRenderer: React.FC<StreamingTextRendererProps> = ({
   fullText,
-  wordSpeed = 50, // Adjusted default speed
+  wordSpeed = 50, // Default speed: 50ms per word/token (adjust as needed)
   asMarkdown = false,
   className,
   onComplete,
 }) => {
   const [displayedText, setDisplayedText] = useState('');
-  const allWordsRef = useRef<string[]>([]); // All words received so far
-  const currentIndexRef = useRef(0); // Index of the next word to display
+  const allTargetWordsRef = useRef<string[]>([]);
+  const currentWordIndexRef = useRef(0);
   const animationFrameIdRef = useRef<number | null>(null);
   const lastUpdateTimeRef = useRef(0);
 
   useEffect(() => {
-    // Update the target words whenever fullText changes
-    allWordsRef.current = splitIntoWordsAndSeparators(fullText);
+    const newTargetWords = splitIntoWordsAndSeparators(fullText);
 
-    const animate = (timestamp: number) => {
-      if (currentIndexRef.current >= allWordsRef.current.length) {
-        // Typing complete for all currently known words
-        setDisplayedText(allWordsRef.current.join('')); // Ensure final sync
+    // --- Handle Resets or Drastic Changes in fullText ---
+    if (fullText === '') {
+      allTargetWordsRef.current = [];
+      currentWordIndexRef.current = 0;
+      setDisplayedText('');
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
+      return; // Early exit for empty fullText
+    }
+
+    // Check if a reset is needed (e.g., fullText became shorter or diverged significantly)
+    // A simple way: if the current displayed text is not a prefix of the new fullText (considering word boundaries)
+    const currentDisplayedWords = displayedText === '' ? [] : allTargetWordsRef.current.slice(0, currentWordIndexRef.current);
+
+    let commonPrefixLength = 0;
+    while(
+        commonPrefixLength < currentDisplayedWords.length &&
+        commonPrefixLength < newTargetWords.length &&
+        currentDisplayedWords[commonPrefixLength] === newTargetWords[commonPrefixLength]
+    ){
+        commonPrefixLength++;
+    }
+
+    // If the stream seems to have reset or current animation is significantly behind
+    if (currentWordIndexRef.current > newTargetWords.length || currentWordIndexRef.current > commonPrefixLength) {
+        currentWordIndexRef.current = commonPrefixLength; // Reset to the common part
+        setDisplayedText(newTargetWords.slice(0, commonPrefixLength).join(''));
+        if (animationFrameIdRef.current) {
+            cancelAnimationFrame(animationFrameIdRef.current);
+            animationFrameIdRef.current = null; // Allow animation to restart
+        }
+    }
+    
+    allTargetWordsRef.current = newTargetWords;
+
+
+    // --- Animation Logic ---
+    const typeWord = (timestamp: number) => {
+      // Check if animation should stop (all target words displayed)
+      if (currentWordIndexRef.current >= allTargetWordsRef.current.length) {
+        // Ensure final text is exactly fullText in case of trailing spaces not forming a "word"
+        if (displayedText !== fullText) {
+           setDisplayedText(fullText);
+        }
         if (onComplete) onComplete();
         animationFrameIdRef.current = null;
         return;
       }
 
       if (timestamp - lastUpdateTimeRef.current >= wordSpeed) {
-        currentIndexRef.current += 1;
-        const wordsToDisplay = allWordsRef.current.slice(0, currentIndexRef.current);
-        setDisplayedText(wordsToDisplay.join(''));
+        currentWordIndexRef.current += 1;
+        const wordsToShow = allTargetWordsRef.current.slice(0, currentWordIndexRef.current);
+        setDisplayedText(wordsToShow.join(''));
         lastUpdateTimeRef.current = timestamp;
       }
 
-      // Continue animation if there are more words to type
-      if (currentIndexRef.current < allWordsRef.current.length) {
-        animationFrameIdRef.current = requestAnimationFrame(animate);
+      // Request next frame if there are still words to type
+      if (currentWordIndexRef.current < allTargetWordsRef.current.length) {
+        animationFrameIdRef.current = requestAnimationFrame(typeWord);
       } else {
-        // Just finished typing all known words
-        setDisplayedText(allWordsRef.current.join('')); // Ensure final sync
+        // Typing just completed in this frame, ensure final sync
+        if (displayedText !== fullText) setDisplayedText(fullText);
         if (onComplete) onComplete();
         animationFrameIdRef.current = null;
       }
     };
 
-    // If there are new words to type and animation is not already running
-    if (currentIndexRef.current < allWordsRef.current.length && !animationFrameIdRef.current) {
-      lastUpdateTimeRef.current = performance.now(); // Reset time for the first word of a new batch
-      animationFrameIdRef.current = requestAnimationFrame(animate);
-    } else if (currentIndexRef.current >= allWordsRef.current.length && displayedText !== fullText) {
-      // If typing was "done" but fullText updated (e.g. trailing space, or a quick full update)
-      setDisplayedText(fullText); // Ensure final sync
+    // --- Start or Continue Animation ---
+    // If there are more words to display than currently shown, and no animation is running
+    if (currentWordIndexRef.current < allTargetWordsRef.current.length && !animationFrameIdRef.current) {
+      lastUpdateTimeRef.current = performance.now(); // Reset time for the new segment of animation
+      animationFrameIdRef.current = requestAnimationFrame(typeWord);
+    } else if (currentWordIndexRef.current >= allTargetWordsRef.current.length && displayedText !== fullText) {
+      // If animation was "done" but fullText has a slight difference (e.g. final punctuation/space)
+      setDisplayedText(fullText);
     }
 
+    // Cleanup animation frame on unmount or before effect re-runs
     return () => {
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
         animationFrameIdRef.current = null;
       }
     };
-  }, [fullText, wordSpeed, onComplete, displayedText]); // displayedText in deps to help sync if animation finishes but fullText changes slightly
-
-  // This effect handles cases where fullText might be reset or change in a way
-  // that requires resetting the currentIndexRef.
-  useEffect(() => {
-    // If fullText is empty, reset everything
-    if (fullText === '') {
-      setDisplayedText('');
-      currentIndexRef.current = 0;
-      allWordsRef.current = [];
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current);
-        animationFrameIdRef.current = null;
-      }
-      return;
-    }
-
-    // A simple heuristic: if the displayed text is longer than the new fullText,
-    // or if the beginning of displayedText doesn't match fullText, consider it a reset.
-    // This helps if the stream restarts or changes dramatically.
-    if (displayedText.length > fullText.length || !fullText.startsWith(displayedText.substring(0, Math.min(displayedText.length, 10) ))) {
-        // If displayed text is somehow ahead or completely different, reset animation
-        const currentWordsInDisplayed = splitIntoWordsAndSeparators(displayedText);
-        const newWordsInFullText = splitIntoWordsAndSeparators(fullText);
-
-        // Find how many leading words match
-        let matchingWords = 0;
-        while(
-            matchingWords < currentWordsInDisplayed.length &&
-            matchingWords < newWordsInFullText.length &&
-            currentWordsInDisplayed[matchingWords] === newWordsInFullText[matchingWords]
-        ) {
-            matchingWords++;
-        }
-        currentIndexRef.current = matchingWords; // Start animation from the first differing word
-        setDisplayedText(newWordsInFullText.slice(0, matchingWords).join(''));
-
-        // Restart animation if needed
-        if (animationFrameIdRef.current) {
-            cancelAnimationFrame(animationFrameIdRef.current);
-            animationFrameIdRef.current = null;
-        }
-        if (currentIndexRef.current < newWordsInFullText.length) {
-            lastUpdateTimeRef.current = performance.now();
-            // Define animate here or bring it into this scope
-            const animate = (timestamp: number) => {
-                if (currentIndexRef.current >= newWordsInFullText.length) {
-                    setDisplayedText(newWordsInFullText.join(''));
-                    if (onComplete) onComplete();
-                    animationFrameIdRef.current = null;
-                    return;
-                }
-
-                if (timestamp - lastUpdateTimeRef.current >= wordSpeed) {
-                    currentIndexRef.current += 1;
-                    const wordsToDisplay = newWordsInFullText.slice(0, currentIndexRef.current);
-                    setDisplayedText(wordsToDisplay.join(''));
-                    lastUpdateTimeRef.current = timestamp;
-                }
-
-                if (currentIndexRef.current < newWordsInFullText.length) {
-                    animationFrameIdRef.current = requestAnimationFrame(animate);
-                } else {
-                    setDisplayedText(newWordsInFullText.join(''));
-                    if (onComplete) onComplete();
-                    animationFrameIdRef.current = null;
-                }
-            };
-            animationFrameIdRef.current = requestAnimationFrame(animate);
-        }
-    }
-  // 'animate' isn't a stable function, so we can't put it in dependencies.
-  // This effect mostly cares about fullText and displayedText for reset logic.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullText, displayedText]);
-
+  }, [fullText, wordSpeed, onComplete, displayedText]); // displayedText is in dependency array to help re-evaluate reset logic.
 
   const content = asMarkdown ? <Markdown>{displayedText}</Markdown> : displayedText;
 
