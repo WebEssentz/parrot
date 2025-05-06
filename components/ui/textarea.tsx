@@ -144,7 +144,7 @@ export function AttachButton({
         </button>
       </TooltipTrigger>
       <TooltipContent side={isMobileOrTablet ? "top" : "bottom"} className="select-none">
-        Attach file
+        Upload files and more
       </TooltipContent>
     </Tooltip>
   );
