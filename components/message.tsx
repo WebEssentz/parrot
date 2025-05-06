@@ -19,6 +19,7 @@ import {
   StopCircle,
 } from "lucide-react";
 import { SpinnerIcon } from "./icons";
+import { StreamingTextRenderer } from "./streaming-text-renderer";
 
 // Copy icon SVG as a React component
 const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -221,7 +222,7 @@ const PurePreviewMessage = ({
               onClick={() => setShowSources(true)}
               type="button"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.333A6.667 6.667 0 1 0 8 14.667 6.667 6.667 0 0 0 8 1.333Zm0 12A5.333 5.333 0 1 1 8 2.667a5.333 5.333 0 0 1 0 10.666Zm.667-8H7.333v3.334l2.834 1.7.666-1.1-2.166-1.3V5.333Z" fill="currentColor"/></svg>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.333A6.667 6.667 0 1 0 8 14.667 6.667 6.667 0 0 0 8 1.333Zm0 12A5.333 5.333 0 1 1 8 2.667a5.333 5.333 0 0 1 0 10.666Zm.667-8H7.333v3.334l2.834 1.7.666-1.1-2.166-1.3V5.333Z" fill="currentColor" /></svg>
               Sources ({sources.length})
             </button>
           </div>
@@ -233,7 +234,7 @@ const PurePreviewMessage = ({
             <div className="flex items-center justify-between mb-3">
               <div className="font-semibold text-lg">Sources</div>
               <button onClick={() => setShowSources(false)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white p-1 rounded transition-colors" aria-label="Close sources modal">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
               </button>
             </div>
             <div className="overflow-y-auto max-h-[55vh] pr-1">
@@ -243,7 +244,7 @@ const PurePreviewMessage = ({
                   const u = new URL(src.url);
                   if (u.protocol === "file:") icon = <img src="/file.svg" alt="file" className="w-5 h-5 mr-2 inline-block align-middle" />;
                   else if (u.protocol === "window:") icon = <img src="/window.svg" alt="window" className="w-5 h-5 mr-2 inline-block align-middle" />;
-                } catch {}
+                } catch { }
                 return (
                   <a
                     key={src.url + i}
@@ -313,11 +314,18 @@ const PurePreviewMessage = ({
               <div className="flex flex-col space-y-4" style={{ alignItems: 'flex-start' }}>
                 {message.parts?.map((part, i) => {
                   switch (part.type) {
+                    // Inside PurePreviewMessage, when rendering a 'text' part:
                     case "text":
+                      const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
+                      // status here is the per-message status passed correctly
+                      const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
+
                       return (
                         <motion.div
-                          initial={{ y: 5, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
+                          initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }}
+                          animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }}
+                          // exit={{ opacity: 0 }} // Keep if needed
+                          transition={{ duration: 0.2 }}
                           key={`message-${message.id}-part-${i}`}
                           className="flex flex-row items-start w-full pb-4"
                         >
@@ -325,7 +333,7 @@ const PurePreviewMessage = ({
                             className="flex flex-col gap-4 px-4 py-2"
                             style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
                           >
-                            <Markdown>{part.text}</Markdown>
+                            <Markdown>{part.text}</Markdown> {/* Investigate this component's performance */}
                           </div>
                         </motion.div>
                       );
@@ -408,21 +416,51 @@ const PurePreviewMessage = ({
             <div className="flex flex-col w-full space-y-4">
               {message.parts?.map((part, i) => {
                 switch (part.type) {
-                  case "text":
-                    return (
-                      <motion.div
-                        initial={{ y: 5, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        key={`message-${message.id}-part-${i}`}
-                        className="flex flex-row items-start w-full pb-4"
-                      >
-                        <div
-                          className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 rounded-xl w-full sm:max-w-2xl shadow"
-                        >
-                          <Markdown>{part.text}</Markdown>
-                        </div>
-                      </motion.div>
-                    );
+                   case "text":
+      const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
+      // IMPORTANT: `status` and `isLatestMessage` props must be correctly passed to PurePreviewMessage
+      // and `status` should reflect the status of THIS message if possible, or overall stream status for the last AI message.
+      const isLatestActivelyStreamingTextPart =
+        isAssistant &&
+        status === "streaming" && // The overall stream is active
+        isLatestMessage &&        // This is the last message in the chat
+        isEffectivelyLastPart;    // This is the last part of this specific message
+
+      return (
+        <motion.div
+          initial={{ y: 5, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          key={`message-${message.id}-part-${i}`}
+          className="flex flex-row items-start w-full pb-4"
+        >
+          <div
+            className="flex flex-col gap-4 px-4 py-2 w-full" // Added w-full here
+            style={{
+              marginLeft: 0,
+              alignItems: 'flex-start',
+              background: 'none',
+              border: 'none',
+              boxShadow: 'none',
+            }}
+          >
+            {isLatestActivelyStreamingTextPart ? (
+              <StreamingTextRenderer
+                fullText={part.text}
+                wordSpeed={75} // Adjust speed (ms per word). Lower is faster.
+                asMarkdown={false} // IMPORTANT: Keep false for performance during active streaming
+                className="w-full" // Ensure it takes available width
+                // onComplete={() => console.log("Typewriter finished for this chunk")}
+              />
+            ) : (
+               <div
+                 className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 rounded-xl w-full sm:max-w-2xl shadow"
+                >      
+                <Markdown>{part.text}</Markdown>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      );
                   default:
                     return null;
                 }
@@ -435,12 +473,13 @@ const PurePreviewMessage = ({
   );
 };
 
+// Message.tsx (memo comparison)
 export const Message = memo(PurePreviewMessage, (prevProps, nextProps) => {
   if (prevProps.status !== nextProps.status) return false;
-  if (prevProps.message.annotations !== nextProps.message.annotations)
-    return false;
-  // if (prevProps.message.content !== nextProps.message.content) return false;
+  if (prevProps.isLoading !== nextProps.isLoading) return false; // Add this
+  if (prevProps.isLatestMessage !== nextProps.isLatestMessage) return false; // Add this
+  if (prevProps.message.annotations !== nextProps.message.annotations) return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
-
+  // if (prevProps.message.id !== nextProps.message.id) return false; // Key change handles this
   return true;
 });

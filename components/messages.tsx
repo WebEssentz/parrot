@@ -3,37 +3,53 @@ import type { Message as TMessage } from "ai";
 import { Message } from "./message";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 
+// Messages.tsx
 export const Messages = ({
   messages,
-  isLoading,
-  status,
+  isLoading: isOverallLoading, // Renamed for clarity
+  status: overallStatus,     // Renamed for clarity
 }: {
   messages: TMessage[];
   isLoading: boolean;
   status: "error" | "submitted" | "streaming" | "ready";
-  mobileInputHeight?: number; // Keep if used elsewhere
+  mobileInputHeight?: number;
 }) => {
   const [containerRef, endRef] = useScrollToBottom();
 
   return (
-    <div
-      ref={containerRef}
-      // Increased vertical padding slightly, adjust pb-[value] if input area overlaps too much
-      className="flex-1 overflow-y-auto max-w-full py-8 sm:py-10 scrollbar-thin pb-[120px] sm:pb-[80px]"
-    >
-      {/* Increased max-width from sm:max-w-3xl (or 4xl) to sm:max-w-4xl or 5xl */}
-      {/* Let's try 4xl first, adjust to 5xl if you want even wider */}
-      <div className="w-full px-2 sm:px-4 sm:max-w-4xl mx-auto pt-8"> {/* Adjust max-width here */}
-        {messages.map((m, i) => (
-          <Message
-            key={m.id} // Use message id for key
-            isLatestMessage={i === messages.length - 1}
-            isLoading={isLoading}
-            message={m}
-            status={status}
-          />
-        ))}
-        <div ref={endRef} />
+    <div className="relative flex-1">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto max-w-full py-8 sm:py-10 scrollbar-thin pb-[120px] sm:pb-[80px]"
+      >
+        <div className="w-full px-2 sm:px-4 sm:max-w-4xl mx-auto pt-8">
+          {messages.map((m, i) => {
+            const isLatest = i === messages.length - 1;
+            let messageStatus: "error" | "submitted" | "streaming" | "ready" = "ready";
+            let messageIsLoading = false;
+
+            if (m.role === 'assistant' && isLatest) {
+              messageStatus = overallStatus; // The last AI message reflects the overall stream status
+              messageIsLoading = isOverallLoading || overallStatus === 'streaming' || overallStatus === 'submitted';
+            } else if (m.role === 'user') {
+              // User messages are generally 'ready' once displayed
+              messageStatus = 'ready';
+              messageIsLoading = false;
+            }
+            // Potentially handle m.error to set status to 'error'
+
+            return (
+              <Message
+                key={m.id}
+                isLatestMessage={isLatest}
+                isLoading={messageIsLoading}
+                message={m}
+                status={messageStatus}
+              />
+            );
+          })}
+          <div ref={endRef} />
+        </div>
       </div>
     </div>
   );

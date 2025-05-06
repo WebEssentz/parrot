@@ -176,7 +176,6 @@ export { Textarea } // This is the ShadcnTextarea, re-exported
 export function ReasonButton({
   selectedModel,
   setSelectedModel,
-  hideTextOnMobile = false, // Prop exists, though text visibility is also handled by isMobileOrTablet
 }: {
   selectedModel: string;
   setSelectedModel: (model: string) => void;
