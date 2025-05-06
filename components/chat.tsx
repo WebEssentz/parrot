@@ -35,9 +35,18 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
 }
 
 
+
 export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
   const titleGeneratedRef = React.useRef(false);
+  // Desktop-only terms message
+  const [isDesktop, setIsDesktop] = React.useState(false);
+  React.useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const {
     messages,
@@ -125,6 +134,31 @@ export default function Chat() {
 
       <div className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background">
         <div className="w-full px-2 sm:px-4 pt-2 pb-3 sm:pb-4"> {/* Adjusted padding */}
+          {/* Desktop-only Terms and Policies message, only show if no messages yet */}
+          {isDesktop && messages.length === 0 && (
+            <div className="w-full max-w-3xl mx-auto mb-2 flex justify-center">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400 select-none">
+                By messaging Parrot, you agree to our{' '}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+                >
+                  Terms
+                </a>
+                {' '}and{' '}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+                >
+                  Privacy Policy
+                </a>.
+              </span>
+            </div>
+          )}
           <form
             onSubmit={handleSubmit} // Use the custom handleSubmit
             className="w-full max-w-3xl mx-auto" // Increased max-width for a wider sleek look
