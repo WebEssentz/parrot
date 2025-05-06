@@ -1,4 +1,4 @@
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton } from "@/components/ui/textarea";
+import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton } from "@/components/ui/textarea"; // Added AttachButton
 import { ArrowUp } from "lucide-react";
 import { PauseIcon } from "./icons";
 import React from "react";
@@ -32,6 +32,8 @@ export const Textarea = ({
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  
+
   return (
     <div className="relative w-full pt-4 bg-transparent dark:bg-transparent">
       {/* Model name display commented out for now */}
@@ -64,8 +66,10 @@ export const Textarea = ({
         className={`max-xs:gap-1 flex items-center gap-2 overflow-x-auto [scrollbar-width:none] mt-2 absolute bottom-2 z-20 ${isMobileOrTablet ? 'left-2' : 'left-0'}`}
         style={{marginRight: 102}}
       >
+        {/* New Attach Button */}
+        <AttachButton onClick={() => console.log("Attach button clicked")} />
+        
         {/* Search Button: icon only on mobile/tablet, icon+text on desktop */}
-        {/* Insert SearchButton before ReasonButton */}
         <SearchButton
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
@@ -73,7 +77,7 @@ export const Textarea = ({
         <ReasonButton
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
-          hideTextOnMobile
+          hideTextOnMobile // This prop is part of ReasonButton's definition
         />
       </div>
 

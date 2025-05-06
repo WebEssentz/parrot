@@ -3,7 +3,7 @@ import type { modelID } from "@/ai/providers";
 import { defaultModel } from "@/ai/providers";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils"
-
+import { Paperclip } from "lucide-react"; // Import Paperclip icon for AttachButton
 
 // Custom Search SVG icon
 function SearchIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement>) {
@@ -72,9 +72,9 @@ export function SearchButton({
                 ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
                 : lit
                   ? "bg-[#e6f4ff] text-[#46a5e7] dark:bg-[#1a2a3d] dark:text-[#46a5e7] hover:bg-[#b3e0ff] hover:shadow-[0_2px_8px_0_rgba(70,165,231,0.15)] dark:hover:bg-[#142033]"
-                  : "hover:bg-zinc-100 dark:hover:bg-zinc-800",
-              // Add right margin on desktop only
-              !isMobileOrTablet && "ml-2"
+                  : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              // Removed "!isMobileOrTablet && "ml-2"" as it's no longer the first button in all layouts
+              // Spacing will be handled by the parent flex container's gap property.
             )
           }
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
@@ -105,6 +105,51 @@ export function SearchButton({
   );
 }
 
+export function AttachButton({
+  onClick,
+}: {
+  onClick?: () => void;
+}) {
+  const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
+  React.useEffect(() => {
+    const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          className={cn(
+            "inline-flex items-center cursor-pointer justify-center h-9 ml-2 rounded-full border text-zinc-500 dark:text-zinc-400 bg-white dark:bg-zinc-900 font-medium px-2.5", // Consistent padding with SearchButton
+            "hover:bg-zinc-100 dark:hover:bg-zinc-800" // Standard hover state
+          )}
+          style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }} // Consistent minWidth
+          data-testid="composer-button-attach"
+          aria-label="Attach file"
+        >
+          <Paperclip
+            className={cn(
+              "h-[18px] w-[18px]",
+              "text-zinc-400" // Standard icon color
+            )}
+          />
+          {!isMobileOrTablet && (
+            <span className="ml-1 font-medium text-sm">Attach</span>
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={isMobileOrTablet ? "top" : "bottom"} className="select-none">
+        Attach file
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 
 const REASON_MODEL = "deepseek-r1-distill-llama-70b";
 
@@ -122,12 +167,12 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   )
 }
 
-export { Textarea }
+export { Textarea } // This is the ShadcnTextarea, re-exported
 
 export function ReasonButton({
   selectedModel,
   setSelectedModel,
-  hideTextOnMobile = false,
+  hideTextOnMobile = false, // Prop exists, though text visibility is also handled by isMobileOrTablet
 }: {
   selectedModel: string;
   setSelectedModel: (model: string) => void;
@@ -150,7 +195,6 @@ export function ReasonButton({
       setLit(selectedModel === REASON_MODEL);
   }, [selectedModel]);
 
-    // Show icon-only on mobile/tablet (<1024px), icon+text on desktop (>=1024px)
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
   React.useEffect(() => {
     const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
@@ -159,7 +203,6 @@ export function ReasonButton({
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Only show text on desktop (>=1024px), icon only on mobile/tablet
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -203,7 +246,8 @@ export function ReasonButton({
               fillRule="evenodd"
             />
           </svg>
-          {!isMobileOrTablet && (
+          {/* Text visibility controlled by isMobileOrTablet, consistent with SearchButton and new AttachButton */}
+          {!isMobileOrTablet && ( 
             <span className="ml-1 font-medium text-sm">Reason</span>
           )}
         </button>
@@ -214,5 +258,3 @@ export function ReasonButton({
     </Tooltip>
   );
 }
-
-// ReasonButton is now exported inline above
