@@ -449,7 +449,7 @@ const PurePreviewMessage = ({
                               wordSpeed={50} // Adjust speed: 30-75ms is a good range. Lower is faster.
                               asMarkdown={false} // CRITICAL: Keep false for performance during active streaming
                               className="w-full"
-                            // onComplete={() => console.log("Typewriter completed for this chunk/message")}
+                            onComplete={() => console.log("Typewriter completed for this chunk/message")}
                             />
                           ) : (
                             // Render full Markdown for:
