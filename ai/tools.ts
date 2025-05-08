@@ -31,7 +31,8 @@ function generateMarkdownBarChart(
   let chart = `\n\n**Bar Chart for '${column}'**\n\n`;
   sorted.forEach((v, i) => {
     const bar = '█'.repeat(Math.round((v / max) * maxWidth));
-    chart += `${v.toLocaleString()} | ${bar}\n`;
+    // Use deterministic formatting to avoid SSR/CSR mismatch
+    chart += `${v.toString()} | ${bar}\n`;
   });
   return chart;
 }
