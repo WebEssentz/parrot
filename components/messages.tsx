@@ -18,23 +18,45 @@ export const Messages = ({
   endRef: React.RefObject<HTMLDivElement>;
   headerHeight?: number;
 }) => {
-
   // Ref for the latest message
   const latestMsgRef = useRef<HTMLDivElement>(null);
+  // Ref for the scrollable container
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Track if user is at the bottom
+  const [isUserAtBottom, setIsUserAtBottom] = useState(true);
+
+  // Handler to check if user is at the bottom
+  const handleScroll = () => {
+    const container = containerRef.current;
+    if (!container) return;
+    // Allow 2px tolerance
+    const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 2;
+    setIsUserAtBottom(atBottom);
+  };
 
   // Scroll latest message just below the header when messages change
   useLayoutEffect(() => {
+    // Only auto-scroll if user is at bottom or not streaming
     if (!latestMsgRef.current) return;
-    const latestRect = latestMsgRef.current.getBoundingClientRect();
-    const container = latestMsgRef.current.closest('.overflow-y-auto');
+    const container = containerRef.current || latestMsgRef.current.closest('.overflow-y-auto');
     if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const offset = latestRect.top - containerRect.top - headerHeight;
-    // Only scroll if the latest message is not already at the right position (tolerance 2px)
-    if (Math.abs(offset) > 2) {
-      container.scrollBy({ top: offset, behavior: 'smooth' });
+    // Only scroll if user is at bottom or not streaming
+    if (isUserAtBottom || (status !== 'streaming' && status !== 'submitted')) {
+      const latestRect = latestMsgRef.current.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const offset = latestRect.top - containerRect.top - headerHeight;
+      if (Math.abs(offset) > 2) {
+        container.scrollBy({ top: offset, behavior: 'smooth' });
+      }
     }
-  }, [messages, headerHeight]);
+  }, [messages, headerHeight, isUserAtBottom, status]);
+
+  // When streaming ends, auto-scroll to bottom if user was at bottom before
+  useEffect(() => {
+    if ((status === 'ready' || status === 'error') && isUserAtBottom && containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [status, isUserAtBottom]);
 
   const hasMessages = messages.length > 0;
   // Check if desktop (match logic in Chat)
@@ -47,7 +69,12 @@ export const Messages = ({
   }, []);
 
   return (
-    <div className="flex-1 max-w-full py-8 sm:py-10">
+    <div
+      className="flex-1 max-w-full py-8 sm:py-10 overflow-y-auto overscroll-auto"
+      ref={containerRef}
+      onScroll={handleScroll}
+      style={{ position: 'relative' }}
+    >
       <div className="w-full px-2 sm:px-4 sm:max-w-4xl mx-auto pt-8">
         {messages.map((m, i) => {
           const isLatest = i === messages.length - 1;
