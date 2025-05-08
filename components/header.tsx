@@ -59,9 +59,10 @@ export const Header = () => {
               </Link>
             ) : (
               <span
-                className="text-[20px] font-semibold text-zinc-800 dark:text-zinc-100 select-none"
+                className="text-[20px] font-leading select-none -mt-2"
                 style={{
-                  lineHeight: '28px',
+                  color: '#5d5d5d',
+                  lineHeight: '22px',
                   fontFamily: 'Google Sans, "Helvetica Neue", sans-serif',
                   letterSpacing: 'normal',
                 }}

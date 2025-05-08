@@ -11,7 +11,7 @@ export const SignInButton = () => {
       href="/signin"
       className="inline-flex items-center font-semibold gap-2 ml-2 border border-gray-300 dark:border-gray-700 text-black dark:text-white text-sm px-4 py-2 rounded-full bg-transparent hover:bg-gray-100 dark:hover:bg-zinc-900"
     >
-      Sign in
+      Log in
     </Link>
   );
 };

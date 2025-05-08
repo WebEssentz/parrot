@@ -1,7 +1,7 @@
 // src/components/messages.tsx
 import type { Message as TMessage } from "ai";
 import { Message } from "./message";
-import { useRef, useLayoutEffect, useState } from "react";
+import { useRef, useLayoutEffect, useState, useEffect } from "react";
 // No need for useScrollToBottom here; handled in Chat
 
 
@@ -35,6 +35,16 @@ export const Messages = ({
       container.scrollBy({ top: offset, behavior: 'smooth' });
     }
   }, [messages, headerHeight]);
+
+  const hasMessages = messages.length > 0;
+  // Check if desktop (match logic in Chat)
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   return (
     <div className="flex-1 max-w-full py-8 sm:py-10">

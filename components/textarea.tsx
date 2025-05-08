@@ -49,6 +49,13 @@ export const Textarea = ({
         placeholder={"Ask Parrot..."}
         onChange={handleInputChange}
         onKeyDown={(e) => {
+          // On desktop: Enter = send, Shift+Enter = newline
+          // On mobile: Enter = newline, no send
+          if (isMobileOrTablet) {
+            // Let mobile Enter always insert a newline (default behavior)
+            return;
+          }
+          // Desktop behavior: Enter (no shift) sends, Shift+Enter = newline
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             if (input.trim() && !isLoading) {

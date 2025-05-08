@@ -44,7 +44,7 @@ export default function Chat() {
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
   const inputAreaRef = useRef<HTMLDivElement>(null); // Ref for the fixed input area container
   // Desktop-only terms message
-  const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(undefined as undefined | boolean);
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
     check();
@@ -142,18 +142,18 @@ export default function Chat() {
   const bufferForInputArea = 100;
 
   return (
-    <div className="relative flex flex-col h-dvh w-full max-w-full bg-background dark:bg-background">
+    <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
       <Header />
 
       {/* SCROLLABLE MESSAGE CONTAINER */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto w-full pt-8 sm:pt-12 scrollbar-thin"
+        className="flex-1 overflow-y-hidden overscroll-none w-full pt-8 sm:pt-12 scrollbar-thin"
         style={{
           paddingBottom: inputAreaHeight > 0 ? `${inputAreaHeight + bufferForInputArea}px` : `${100 + bufferForInputArea}px`,
         }}
       >
-        {messages.length === 0 ? (
+        {typeof isDesktop === "undefined" ? null : messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-3xl">
               <ProjectOverview />
@@ -161,7 +161,7 @@ export default function Chat() {
               {isDesktop && (
                 <form
                   onSubmit={handleSubmit}
-                  className="w-full max-w-3xl mx-auto mt-6"
+                  className="w-full max-w-3xl mx-auto mt-6 "
                 >
                   <Textarea
                     selectedModel={selectedModel}
@@ -176,23 +176,23 @@ export default function Chat() {
               )}
               {/* Desktop-only terms message */}
               {isDesktop && (
-                <div className="w-full max-w-3xl mx-auto mb-2 flex justify-center mt-2">
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400 select-none">
+                <div className="w-full max-w-4xl mx-auto fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center">
+                  <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl">
                     By messaging Parrot, you agree to our{' '}
                     <a
                       href="/terms"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+                      className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline"
                     >
                       Terms
                     </a>
-                    {' '}and{' '}
+                    {' '}and have read our{' '}
                     <a
                       href="/privacy"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-200"
+                      className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline"
                     >
                       Privacy Policy
                     </a>.
@@ -209,7 +209,7 @@ export default function Chat() {
       </div>
 
       {/* FIXED INPUT AREA CONTAINER - Only show on mobile or when there are messages */}
-      {(!isDesktop || messages.length > 0) && (
+      {(typeof isDesktop === "undefined") ? null : (!isDesktop || messages.length > 0) && (
         <div
           ref={inputAreaRef}
           className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
@@ -217,7 +217,7 @@ export default function Chat() {
           <div className="w-full px-2 sm:px-4 pt-2 pb-3 sm:pb-4">
             <form
               onSubmit={handleSubmit}
-              className="w-full max-w-3xl mx-auto"
+              className="w-full max-w-3xl mx-auto mb-3"
             >
               <Textarea
                 selectedModel={selectedModel}
@@ -229,6 +229,14 @@ export default function Chat() {
                 stop={stop}
               />
             </form>
+            {/* AI disclaimer under textarea when there are messages */}
+            {(messages.length > 0) && (
+              <div className="w-full max-w-4xl mx-auto fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
+                <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-2 select-none">
+                  Parrot uses AI. Double check response.
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
