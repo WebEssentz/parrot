@@ -128,7 +128,11 @@ export function ReasoningMessagePart({
     memoizedSetIsExpanded(isReasoning);
   }, [isReasoning, memoizedSetIsExpanded]);
 
+  // No flash effect needed for finished message
+
   const { theme } = useTheme ? useTheme() : { theme: undefined };
+  // No flash effect needed for finished message
+
   return (
     <div className="flex flex-col">
       {isReasoning ? (
@@ -160,34 +164,13 @@ export function ReasoningMessagePart({
         </div>
       ) : (
         <div className="flex flex-row gap-2 items-center">
-          {/* Shimmer on hover for reasoned text */}
+          {/* Click on text expands/collapses reasoning parts */}
           <span
-            className="font-medium text-sm pl-4 mt-1 relative inline-block parrot-reasoned-shimmer-hover"
-            style={{ minWidth: 120 }}
+            className="font-medium text-sm pl-4 mt-1 relative inline-block"
+            style={{ minWidth: 120, cursor: 'pointer' }}
+            onClick={() => setIsExpanded((v) => !v)}
           >
             Reasoned for a few seconds
-            <style>{`
-              .parrot-reasoned-shimmer-hover {
-                cursor: pointer;
-              }
-              .parrot-reasoned-shimmer-hover:hover {
-                background: ${theme === 'dark'
-                  ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
-                  : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)'};
-                background-size: 200% 100%;
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-                animation: parrot-shimmer-text 1.3s linear 1;
-                animation-timing-function: linear;
-                will-change: background-position;
-                display: inline-block;
-              }
-              @keyframes parrot-shimmer-text {
-                0% { background-position: -100% 0; }
-                100% { background-position: 100% 0; }
-              }
-            `}</style>
           </span>
           <button
             className={cn(
