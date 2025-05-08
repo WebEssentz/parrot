@@ -178,6 +178,7 @@ body {
     transform: translateX(100%);
   }
 }
+
 .animate-shimmer {
   animation: shimmer 1.2s infinite linear;
 }
