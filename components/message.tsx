@@ -446,7 +446,7 @@ const PurePreviewMessage = ({
                         >
                           {isLatestActivelyStreamingTextPart ? (
                             <StreamingTextRenderer
-                              animationStyle="fade"
+                              animationStyle="typewriter"
                               fullText={part.text}
                               wordSpeed={20}
                             />

@@ -10,25 +10,31 @@ export const Messages = ({
   isLoading,
   status,
   endRef,
+  headerHeight = 0,
 }: {
   messages: TMessage[];
   isLoading: boolean;
   status: "error" | "submitted" | "streaming" | "ready";
   endRef: React.RefObject<HTMLDivElement>;
+  headerHeight?: number;
 }) => {
 
   // Ref for the latest message
   const latestMsgRef = useRef<HTMLDivElement>(null);
-  const [spacerHeight, setSpacerHeight] = useState(0);
 
+  // Scroll latest message just below the header when messages change
   useLayoutEffect(() => {
-    if (!latestMsgRef.current || !endRef.current) return;
+    if (!latestMsgRef.current) return;
     const latestRect = latestMsgRef.current.getBoundingClientRect();
-    const endRect = endRef.current.getBoundingClientRect();
-    // Calculate the space needed to push the latest message to the bottom
-    const space = endRect.bottom - latestRect.bottom;
-    setSpacerHeight(space > 0 ? space : 0);
-  }, [messages, endRef]);
+    const container = latestMsgRef.current.closest('.overflow-y-auto');
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const offset = latestRect.top - containerRect.top - headerHeight;
+    // Only scroll if the latest message is not already at the right position (tolerance 2px)
+    if (Math.abs(offset) > 2) {
+      container.scrollBy({ top: offset, behavior: 'smooth' });
+    }
+  }, [messages, headerHeight]);
 
   return (
     <div className="flex-1 max-w-full py-8 sm:py-10">
@@ -49,6 +55,7 @@ export const Messages = ({
             <div
               key={m.id}
               ref={isLatest ? latestMsgRef : undefined}
+              data-latest-message={isLatest ? "true" : undefined}
             >
               <Message
                 isLatestMessage={isLatest}
@@ -59,7 +66,6 @@ export const Messages = ({
             </div>
           );
         })}
-
       </div>
     </div>
   );
