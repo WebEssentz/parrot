@@ -148,7 +148,10 @@ export default function Chat() {
       {/* SCROLLABLE MESSAGE CONTAINER */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-hidden overscroll-none w-full pt-8 sm:pt-12 scrollbar-thin"
+        className={
+          `flex-1 w-full pt-8 sm:pt-12 scrollbar-thin ` +
+          ((messages.length > 0) ? "overflow-y-auto overscroll-auto" : "overflow-y-hidden overscroll-none")
+        }
         style={{
           paddingBottom: inputAreaHeight > 0 ? `${inputAreaHeight + bufferForInputArea}px` : `${100 + bufferForInputArea}px`,
         }}

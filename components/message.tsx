@@ -1,8 +1,8 @@
 "use client";
-
 import { Modal } from "./ui/modal";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "motion/react";
+import { useTheme } from "next-themes";
 import { memo, useCallback, useEffect, useState, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { VoidTextRenderer } from "./void-text-renderer";
@@ -19,7 +19,6 @@ import {
   SparklesIcon,
   StopCircle,
 } from "lucide-react";
-import { SpinnerIcon } from "./icons";
 import { StreamingTextRenderer } from "./streaming-text-renderer";
 
 // Copy icon SVG as a React component
@@ -35,6 +34,16 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+// SpinnerIcon: simple loader for tool invocation UI
+function SpinnerIcon() {
+  return (
+    <svg className="h-4 w-4 text-zinc-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+    </svg>
+  );
+}
 
 // Utility to detect mobile
 function useIsMobile() {
@@ -119,18 +128,67 @@ export function ReasoningMessagePart({
     memoizedSetIsExpanded(isReasoning);
   }, [isReasoning, memoizedSetIsExpanded]);
 
+  const { theme } = useTheme ? useTheme() : { theme: undefined };
   return (
     <div className="flex flex-col">
       {isReasoning ? (
-        <div className="flex flex-row gap-2 items-center">
-          <div className="font-medium text-sm pl-4 mt-1">Reasoning</div>
-          <div className="animate-spin">
-            <SpinnerIcon />
-          </div>
+        <div className="flex flex-row items-center gap-1">
+          <span className="font-medium text-sm pl-4 mt-1 relative inline-block" style={{ minWidth: 120 }}>
+            <span style={{
+              background: theme === 'dark'
+                ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
+                : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)',
+              backgroundSize: '200% 100%',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              animation: 'parrot-shimmer-text 1.3s linear infinite',
+              animationTimingFunction: 'linear',
+              willChange: 'background-position',
+              display: 'inline-block',
+            }}>
+              Reasoning
+            </span>
+            <style>{`
+              @keyframes parrot-shimmer-text {
+                0% { background-position: -100% 0; }
+                100% { background-position: 100% 0; }
+              }
+            `}</style>
+          </span>
+          <span className="animate-spin ml-1"><SpinnerIcon /></span>
         </div>
       ) : (
         <div className="flex flex-row gap-2 items-center">
-          <div className="font-medium text-sm pl-4 mt-1">Reasoned for a few seconds</div>
+          {/* Shimmer on hover for reasoned text */}
+          <span
+            className="font-medium text-sm pl-4 mt-1 relative inline-block parrot-reasoned-shimmer-hover"
+            style={{ minWidth: 120 }}
+          >
+            Reasoned for a few seconds
+            <style>{`
+              .parrot-reasoned-shimmer-hover {
+                cursor: pointer;
+              }
+              .parrot-reasoned-shimmer-hover:hover {
+                background: ${theme === 'dark'
+                  ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
+                  : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)'};
+                background-size: 200% 100%;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                animation: parrot-shimmer-text 1.3s linear 1;
+                animation-timing-function: linear;
+                will-change: background-position;
+                display: inline-block;
+              }
+              @keyframes parrot-shimmer-text {
+                0% { background-position: -100% 0; }
+                100% { background-position: 100% 0; }
+              }
+            `}</style>
+          </span>
           <button
             className={cn(
               "cursor-pointer rounded-full dark:hover:bg-zinc-800 hover:bg-zinc-200",
@@ -339,43 +397,86 @@ const PurePreviewMessage = ({
                         </motion.div>
                       );
                     case "tool-invocation":
-                      const { toolName, state } = part.toolInvocation;
-
                       return (
-                        <motion.div
-                          initial={{ y: 5, opacity: 0 }}
-                          animate={{ y: 0, opacity: 1 }}
+                        <ToolInvocationMessagePart
                           key={`message-${message.id}-part-${i}`}
-                          className="flex flex-col gap-2 p-2 mb-3 text-sm bg-zinc-50 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800"
-                        >
-                          <div className="flex-1 flex items-center justify-center">
-                            <div className="flex items-center justify-center w-8 h-8 bg-zinc-50 dark:bg-zinc-800 rounded-full">
-                              <PocketKnife className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="font-medium flex items-baseline gap-2">
-                                {state === "call" ? "Calling" : "Called"}{" "}
-                                <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md">
-                                  {toolName}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="w-5 h-5 flex items-center justify-center">
-                              {state === "call" ? (
-                                isLatestMessage && status !== "ready" ? (
-                                  <Loader2 className="animate-spin h-4 w-4 text-zinc-500" />
-                                ) : (
-                                  <StopCircle className="h-4 w-4 text-red-500" />
-                                )
-                              ) : state === "result" ? (
-                                <CheckCircle size={14} className="text-green-600" />
-                              ) : null}
-                            </div>
-                          </div>
-                        </motion.div>
+                          part={part}
+                          isLatestMessage={isLatestMessage}
+                          status={status}
+                        />
                       );
-                    case "reasoning":
-                      return (
+// ToolInvocationMessagePart: Reusable, extensible tool invocation UI
+function getToolStatusLabel(toolName: string, state: string) {
+  // Add more tools here as needed
+  switch (toolName) {
+    case "googleSearch":
+      return state === "call" ? "Searching the Web" : "Web Results";
+    case "fetchUrl":
+      return state === "call" ? "Fetching Url data" : "Fetched Url data";
+    case "getWeatherdata":
+    case "weatherTool":
+      return "Getting weather data";
+    default:
+      // Fallback for unknown tools
+      if (state === "call") return `Running ${toolName}`;
+      return `Finished ${toolName}`;
+  }
+}
+
+
+function ToolInvocationMessagePart({ part, isLatestMessage, status }: {
+  part: any;
+  isLatestMessage: boolean;
+  status: "error" | "submitted" | "streaming" | "ready";
+}) {
+  const { toolName, state } = part.toolInvocation;
+  const label = getToolStatusLabel(toolName, state);
+  const isRunning = state === "call" && isLatestMessage && status !== "ready";
+  const isDone = state === "result";
+  const { theme } = useTheme ? useTheme() : { theme: undefined };
+  return (
+    <div className="flex flex-col">
+      <div className="flex flex-row items-center gap-1">
+        <span className="font-medium text-sm pl-4 mt-1 relative inline-block" style={{ minWidth: 120 }}>
+          {isRunning ? (
+            <span style={{ position: 'relative', display: 'inline-block' }}>
+              <span style={{
+                background: theme === 'dark'
+                  ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
+                  : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)',
+                backgroundSize: '200% 100%',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                animation: 'parrot-shimmer-text 1.3s linear infinite',
+                animationTimingFunction: 'linear',
+                willChange: 'background-position',
+                display: 'inline-block',
+              }}>
+                {label}
+              </span>
+              <style>{`
+                @keyframes parrot-shimmer-text {
+                  0% { background-position: -100% 0; }
+                  100% { background-position: 100% 0; }
+                }
+              `}</style>
+            </span>
+          ) : label}
+        </span>
+        {isRunning && (
+          <span className="animate-spin ml-1"><SpinnerIcon /></span>
+        )}
+        {isDone && (
+          <span className="text-green-600 ml-1" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center' }}><CheckCircle size={16} /></span>
+        )}
+      </div>
+      {/* Details/params could be shown here if needed in the future */}
+    </div>
+  );
+}
+case "reasoning":
+  return (
                         <ReasoningMessagePart
                           key={`message-${message.id}-${i}`}
                           // @ts-expect-error part
