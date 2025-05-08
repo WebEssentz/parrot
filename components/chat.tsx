@@ -153,7 +153,11 @@ export default function Chat() {
           ((messages.length > 0) ? "overflow-y-auto overscroll-auto" : "overflow-y-hidden overscroll-none")
         }
         style={{
-          paddingBottom: inputAreaHeight > 0 ? `${inputAreaHeight + bufferForInputArea}px` : `${100 + bufferForInputArea}px`,
+          // On desktop, push the textarea down as it grows; on mobile, let it overlay
+          paddingBottom:
+            typeof isDesktop !== 'undefined' && isDesktop
+              ? (inputAreaHeight > 0 ? `${inputAreaHeight + bufferForInputArea}px` : `${100 + bufferForInputArea}px`)
+              : `${bufferForInputArea}px`,
         }}
       >
         {typeof isDesktop === "undefined" ? null : messages.length === 0 ? (

@@ -153,10 +153,11 @@ export function AttachButton({
 
 const REASON_MODEL = "deepseek-r1-distill-llama-70b";
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+function Textarea({ className, maxLength = 4000, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea
       data-slot="textarea"
+      maxLength={maxLength}
       className={cn(
         // Existing styles
         "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex field-sizing-content min-h-16 w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
@@ -164,8 +165,11 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
         "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50",
         // Subtle shadow for scroll effect
         "shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] dark:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
+        // Enable vertical scroll when overflowing
+        "overflow-y-auto overscroll-auto",
         className
       )}
+      style={{ ...props.style, maxHeight: 320 }}
       {...props}
     />
   )

@@ -7,6 +7,22 @@ import { useEffect, useState } from "react";
 export const Header = () => {
   const [showBorder, setShowBorder] = useState(false);
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
+  
+  // Set header text color CSS variable for light/dark mode
+  useEffect(() => {
+    const setParrotHeaderColor = () => {
+      const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.style.setProperty('--parrot-header-color', isDark ? '#bdbdbd' : '#5d5d5d');
+    };
+    setParrotHeaderColor();
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setParrotHeaderColor);
+    const observer = new MutationObserver(setParrotHeaderColor);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => {
+      window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', setParrotHeaderColor);
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
@@ -61,14 +77,15 @@ export const Header = () => {
               <span
                 className="text-[20px] font-leading select-none -mt-2"
                 style={{
-                  color: '#5d5d5d',
+                  color: 'var(--parrot-header-color, #5d5d5d)',
                   lineHeight: '22px',
-                  fontFamily: 'Google Sans, "Helvetica Neue", sans-serif',
+                  fontFamily: 'Google Sans, \"Helvetica Neue\", sans-serif',
                   letterSpacing: 'normal',
                 }}
               >
                 Parrot
               </span>
+
             )}
           </span>
         </div>
