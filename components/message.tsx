@@ -445,10 +445,11 @@ const PurePreviewMessage = ({
                           }}
                         >
                           {isLatestActivelyStreamingTextPart ? (
-                            <VoidTextRenderer
-                              text={part.text}
-                              wordDelay={80}
-                            />           
+                            <StreamingTextRenderer
+                              animationStyle="fade"
+                              fullText={part.text}
+                              wordSpeed={20}
+                            />
                           ) : (
                             // Render full Markdown for:
                             // - User messages

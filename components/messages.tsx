@@ -1,55 +1,65 @@
-// Messages.tsx
+// src/components/messages.tsx
 import type { Message as TMessage } from "ai";
 import { Message } from "./message";
-import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
+import { useRef, useLayoutEffect, useState } from "react";
+// No need for useScrollToBottom here; handled in Chat
 
-// Messages.tsx
+
 export const Messages = ({
   messages,
-  isLoading: isOverallLoading, // Renamed for clarity
-  status: overallStatus,     // Renamed for clarity
+  isLoading,
+  status,
+  endRef,
 }: {
   messages: TMessage[];
   isLoading: boolean;
   status: "error" | "submitted" | "streaming" | "ready";
-  mobileInputHeight?: number;
+  endRef: React.RefObject<HTMLDivElement>;
 }) => {
-  const [containerRef, endRef] = useScrollToBottom();
+
+  // Ref for the latest message
+  const latestMsgRef = useRef<HTMLDivElement>(null);
+  const [spacerHeight, setSpacerHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    if (!latestMsgRef.current || !endRef.current) return;
+    const latestRect = latestMsgRef.current.getBoundingClientRect();
+    const endRect = endRef.current.getBoundingClientRect();
+    // Calculate the space needed to push the latest message to the bottom
+    const space = endRect.bottom - latestRect.bottom;
+    setSpacerHeight(space > 0 ? space : 0);
+  }, [messages, endRef]);
 
   return (
-    <div className="relative flex-1">
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-y-auto max-w-full py-8 sm:py-10 scrollbar-thin pb-[120px] sm:pb-[80px]"
-      >
-        <div className="w-full px-2 sm:px-4 sm:max-w-4xl mx-auto pt-8">
-          {messages.map((m, i) => {
-            const isLatest = i === messages.length - 1;
-            let messageStatus: "error" | "submitted" | "streaming" | "ready" = "ready";
-            let messageIsLoading = false;
+    <div className="flex-1 max-w-full py-8 sm:py-10">
+      <div className="w-full px-2 sm:px-4 sm:max-w-4xl mx-auto pt-8">
+        {messages.map((m, i) => {
+          const isLatest = i === messages.length - 1;
+          let messageStatus: "error" | "submitted" | "streaming" | "ready" = "ready";
+          let messageIsLoading = false;
 
-            if (m.role === 'assistant' && isLatest) {
-              messageStatus = overallStatus; // The last AI message reflects the overall stream status
-              messageIsLoading = isOverallLoading || overallStatus === 'streaming' || overallStatus === 'submitted';
-            } else if (m.role === 'user') {
-              // User messages are generally 'ready' once displayed
-              messageStatus = 'ready';
-              messageIsLoading = false;
-            }
-            // Potentially handle m.error to set status to 'error'
-
-            return (
+          if (m.role === "assistant" && isLatest) {
+            messageStatus = status;
+            messageIsLoading = isLoading || status === "streaming" || status === "submitted";
+          } else if (m.role === "user") {
+            messageStatus = "ready";
+            messageIsLoading = false;
+          }
+          return (
+            <div
+              key={m.id}
+              ref={isLatest ? latestMsgRef : undefined}
+            >
               <Message
-                key={m.id}
                 isLatestMessage={isLatest}
                 isLoading={messageIsLoading}
                 message={m}
                 status={messageStatus}
               />
-            );
-          })}
-          <div ref={endRef} />
-        </div>
+            </div>
+          );
+        })}
+
       </div>
     </div>
   );

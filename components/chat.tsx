@@ -4,13 +4,15 @@
 import { defaultModel } from "@/ai/providers";
 import { SEARCH_MODE } from "@/components/ui/textarea"; // Make sure this matches the export from components/ui/textarea
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Textarea } from "./textarea"; // This should be your main Textarea wrapper
 import { ProjectOverview } from "./project-overview";
-import { Messages } from "./messages"; 
+import { Messages } from "./messages";
+import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "./header";
 import React from "react";
 import { toast } from "sonner";
+
 
 // ... (generateAndSetTitle function remains the same)
 async function generateAndSetTitle(firstUserMessageContent: string) {
@@ -34,19 +36,23 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
   }
 }
 
-
-
 export default function Chat() {
+  // --- SCROLL LOGIC ---
+  const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
-  const titleGeneratedRef = React.useRef(false);
+  const titleGeneratedRef = useRef(false);
+  const [inputAreaHeight, setInputAreaHeight] = useState(0);
+  const inputAreaRef = useRef<HTMLDivElement>(null); // Ref for the fixed input area container
   // Desktop-only terms message
-  const [isDesktop, setIsDesktop] = React.useState(false);
-  React.useEffect(() => {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
+
+
 
   const {
     messages,
@@ -79,48 +85,74 @@ export default function Chat() {
   });
 
   useEffect(() => {
-      if (messages.length === 1 && messages[0].role === 'user' && !titleGeneratedRef.current) {
-          const firstUserMessageContent = messages[0].content;
-          titleGeneratedRef.current = true; 
-          generateAndSetTitle(firstUserMessageContent);
-      }
-      if (messages.length === 0 && titleGeneratedRef.current) {
-          titleGeneratedRef.current = false;
-          document.title = "Parrot AI";
-      }
+    if (messages.length === 1 && messages[0].role === 'user' && !titleGeneratedRef.current) {
+      const firstUserMessageContent = messages[0].content;
+      titleGeneratedRef.current = true;
+      generateAndSetTitle(firstUserMessageContent);
+    }
+    if (messages.length === 0 && titleGeneratedRef.current) {
+      titleGeneratedRef.current = false;
+      document.title = "Parrot AI";
+    }
   }, [messages]);
 
+  
   // Custom handleSubmit for the form
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Prevent default form submission
-
-    // Call the original handleSubmit from useChat with the current event
-    // This is important for useChat to handle the submission process correctly
-    originalHandleSubmit(e); 
-
-    // If you were manually appending and clearing input, ensure it's compatible
-    // with how useChat's handleSubmit works or let useChat handle it.
-    // For instance, useChat usually handles input clearing.
-    // If you need to clear it manually or append here, make sure it does not conflict.
-    // append({ role: 'user', content: input }); // useChat likely does this
-    // handleInputChange({ target: { value: '' } } as any); // useChat likely does this
-    
-    // Reset model if it was SEARCH_MODE after useChat has processed the submission
-    // The onFinish callback in useChat is a better place for this.
-    // if (selectedModel === SEARCH_MODE) {
-    //   setSelectedModel(defaultModel);
-    // }
+    e.preventDefault();
+    originalHandleSubmit(e);
+    // After sending a user message, scroll to the very bottom (buffer included)
+    setTimeout(() => {
+      scrollToBottom();
+    }, 200); // Delay to allow DOM update, adjust as needed
   };
 
+  
+
+   // Effect for measuring and updating input area height
+ useEffect(() => {
+  const measureAndUpdateHeight = () => {
+    if (inputAreaRef.current) {
+      const newHeight = inputAreaRef.current.offsetHeight;
+      console.log("Chat.tsx ResizeObserver: Measured inputArea newHeight:", newHeight);
+      setInputAreaHeight(newHeight);
+    }
+  };
+
+    measureAndUpdateHeight(); // Initial measurement
+
+    const observer = new ResizeObserver(measureAndUpdateHeight);
+    if (inputAreaRef.current) {
+      observer.observe(inputAreaRef.current);
+    }
+
+    // Also listen to window resize for broader layout changes
+    window.addEventListener('resize', measureAndUpdateHeight);
+
+    return () => {
+      if (inputAreaRef.current) {
+        observer.unobserve(inputAreaRef.current);
+      }
+      observer.disconnect();
+      window.removeEventListener('resize', measureAndUpdateHeight);
+    };
+  }, []); // Re-run if things that might affect its structure change, but observer handles content resize
 
   const isLoading = status === "streaming" || status === "submitted";
-  const inputAreaPaddingBottomClass = "pb-28 sm:pb-32 md:pb-36"; // Increased padding for taller input
+  const bufferForInputArea = 150;
 
   return (
     <div className="relative flex flex-col h-dvh w-full max-w-full bg-background dark:bg-background">
       <Header />
 
-      <div className={`flex-1 overflow-y-auto w-full ${inputAreaPaddingBottomClass} pt-8 sm:pt-12`}>
+      {/* SCROLLABLE MESSAGE CONTAINER */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto w-full pt-8 sm:pt-12 scrollbar-thin"
+        style={{
+          paddingBottom: inputAreaHeight > 0 ? `${inputAreaHeight + bufferForInputArea}px` : `${100 + bufferForInputArea}px`,
+        }}
+      >
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="max-w-xl w-full px-4">
@@ -128,13 +160,18 @@ export default function Chat() {
             </div>
           </div>
         ) : (
-          <Messages messages={messages} isLoading={isLoading} status={status} />
+          <Messages messages={messages} isLoading={isLoading} status={status as any} endRef={endRef as React.RefObject<HTMLDivElement>} />
         )}
+        {/* The endRef is now at the very end of the scrollable area, after the buffer */}
+        <div ref={endRef as React.RefObject<HTMLDivElement>} style={{ height: 1 }} />
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background">
-        <div className="w-full px-2 sm:px-4 pt-2 pb-3 sm:pb-4"> {/* Adjusted padding */}
-          {/* Desktop-only Terms and Policies message, only show if no messages yet */}
+      {/* FIXED INPUT AREA CONTAINER - Assign ref here */}
+      <div
+        ref={inputAreaRef} // This ref is used to measure inputAreaHeight
+        className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
+      >
+        <div className="w-full px-2 sm:px-4 pt-2 pb-3 sm:pb-4"> {/* Container for padding and max-width */}
           {isDesktop && messages.length === 0 && (
             <div className="w-full max-w-3xl mx-auto mb-2 flex justify-center">
               <span className="text-xs text-zinc-500 dark:text-zinc-400 select-none">
