@@ -139,7 +139,7 @@ export default function Chat() {
   }, []); // Re-run if things that might affect its structure change, but observer handles content resize
 
   const isLoading = status === "streaming" || status === "submitted";
-  const bufferForInputArea = 150;
+  const bufferForInputArea = 100;
 
   return (
     <div className="relative flex flex-col h-dvh w-full max-w-full bg-background dark:bg-background">

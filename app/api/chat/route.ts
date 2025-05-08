@@ -242,7 +242,7 @@ export async function POST(req: Request) {
     system: systemPrompt,
     messages: messages as UIMessage[],
     experimental_transform: smoothStream({
-    delayInMs: 80, // Controls typing speed (default: 10ms)
+    delayInMs: 20, // Controls typing speed (default: 10ms)
     chunking: 'word' // Controls how text is chunked (default: 'word')
     }),
     tools: {
