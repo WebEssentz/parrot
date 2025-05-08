@@ -6,6 +6,17 @@
 
 ---
 
+</p>
+
+## 🚀 2025-05-08: Bug Fixes & Improvements
+
+- **Chat Scroll Behavior:**
+  - Improved auto-scroll logic: chat only auto-scrolls if the user is at the bottom or if the AI is not generating (not streaming/submitted).
+  - User scroll position is preserved if the user scrolls up during AI streaming.
+  - No forced scroll to bottom until AI is done or the user is already at the bottom.
+- **SSR/CSR Hydration Fix:**
+  - Bar chart generator now uses deterministic number formatting to prevent hydration mismatches between server and client.
+
 ## 🚀 Major 2025 Updates
 
 - **One-Shot Search Mode:** When the Search button is selected, the next message always uses real-time web search, then reverts to the default model. No more infinite search loops.

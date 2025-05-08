@@ -1,4 +1,19 @@
+
 # Changelog
+
+## 2025-05-08
+
+### Bug Fixes & Improvements
+
+- **Chat Scroll Behavior:**
+  - Improved auto-scroll logic in chat: the chat only auto-scrolls if the user is at the bottom or if the AI is not generating (not streaming/submitted).
+  - If the user scrolls up during AI streaming, their scroll position is preserved and not overridden.
+  - No forced scroll to bottom until AI is done or the user is already at the bottom, ensuring a user-friendly chat experience.
+
+- **SSR/CSR Hydration Fix:**
+  - Bar chart generator now uses deterministic number formatting (`toString()` instead of `toLocaleString`) to prevent hydration mismatches between server and client.
+
+---
 
 ## 2025-05-05
 
