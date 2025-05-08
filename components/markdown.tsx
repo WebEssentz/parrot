@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import React, { memo } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
+import rehypeRaw from "rehype-raw"
 import remarkGfm from 'remark-gfm'; // Keep GFM for table support
 import { CodeBlock } from './code-block';
 import { cn } from '@/lib/utils'; // Assuming you have cn utility
@@ -180,7 +181,7 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
   // Remove sources block before rendering
   const clean = typeof children === 'string' ? stripSourcesBlock(children) : children;
   return (
-    <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+    <ReactMarkdown remarkPlugins={remarkPlugins} components={components} rehypePlugins={[rehypeRaw]}>
       {clean}
     </ReactMarkdown>
   );

@@ -1,6 +1,6 @@
 import { defaultModel, model, modelID } from "@/ai/providers"; // Assuming this path is correct
 import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
-import { streamText, UIMessage } from "ai";
+import { smoothStream, streamText, UIMessage } from "ai";
 import { SEARCH_MODE } from "@/components/ui/textarea";
 import { generateText } from 'ai';
 
@@ -91,6 +91,7 @@ export async function POST(req: Request) {
   // --- UPDATED SYSTEM PROMPT ---
   const systemPrompt = `
         - The current date and time is: ${currentDate} (UTC)
+        - You are to always
         - You are Parrot, a friendly and expressive groundbreaking human assistant designed to be far ahead of current AI models.
         - Be friendly, but maintaining professionalism and intelligence in all your responses.
         - When unsure of user tone, default to warm, intelligent enthusiasm with a slight hint of humor.
@@ -240,6 +241,10 @@ export async function POST(req: Request) {
     model: languageModel,
     system: systemPrompt,
     messages: messages as UIMessage[],
+    experimental_transform: smoothStream({
+    delayInMs: 20, // Controls typing speed (default: 10ms)
+    chunking: 'word' // Controls how text is chunked (default: 'word')
+    }),
     tools: {
       getWeather: weatherTool,
       fetchUrl: fetchUrlTool,

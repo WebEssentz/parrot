@@ -1,0 +1,136 @@
+/* Void blackhole text animation styles */
+.void-text {
+  position: relative;
+}
+
+/* Style for each character/word as it appears */
+.void-text span {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(10px);
+  transform: scale(1.5);
+  color: transparent;
+  text-shadow: 0 0 8px var(--foreground, rgba(0, 0, 0, 0.8));
+  animation: void-appear 0.8s forwards;
+}
+
+@keyframes void-appear {
+  0% {
+    opacity: 0;
+    filter: blur(10px);
+    transform: scale(1.5);
+    color: transparent;
+    text-shadow: 0 0 8px var(--foreground, rgba(0, 0, 0, 0.8));
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+    color: var(--foreground, inherit);
+    text-shadow: none;
+  }
+}
+
+/* Create a staggered animation delay for each word */
+.void-text span:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.void-text span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.void-text span:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.void-text span:nth-child(4) {
+  animation-delay: 0.25s;
+}
+.void-text span:nth-child(5) {
+  animation-delay: 0.3s;
+}
+.void-text span:nth-child(6) {
+  animation-delay: 0.35s;
+}
+.void-text span:nth-child(7) {
+  animation-delay: 0.4s;
+}
+.void-text span:nth-child(8) {
+  animation-delay: 0.45s;
+}
+.void-text span:nth-child(9) {
+  animation-delay: 0.5s;
+}
+.void-text span:nth-child(10) {
+  animation-delay: 0.55s;
+}
+/* Add more if needed for longer texts */
+
+/* Animation for the void effect */
+@keyframes void-appear {
+  0% {
+    opacity: 0;
+    filter: blur(10px);
+    transform: scale(1.5);
+    color: transparent;
+    text-shadow: 0 0 8px var(--foreground, rgba(0, 0, 0, 0.8));
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+    color: var(--foreground, inherit);
+    text-shadow: none;
+  }
+}
+
+/* Fade-in text animation styles */
+.fade-text {
+  position: relative;
+}
+
+.fade-text span {
+  display: inline-block;
+  opacity: 0;
+  animation: fade-appear 0.5s forwards;
+}
+
+/* Staggered animation delay for fade effect */
+.fade-text span:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.fade-text span:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.fade-text span:nth-child(3) {
+  animation-delay: 0.15s;
+}
+.fade-text span:nth-child(4) {
+  animation-delay: 0.2s;
+}
+.fade-text span:nth-child(5) {
+  animation-delay: 0.25s;
+}
+.fade-text span:nth-child(6) {
+  animation-delay: 0.3s;
+}
+.fade-text span:nth-child(7) {
+  animation-delay: 0.35s;
+}
+.fade-text span:nth-child(8) {
+  animation-delay: 0.4s;
+}
+.fade-text span:nth-child(9) {
+  animation-delay: 0.45s;
+}
+.fade-text span:nth-child(10) {
+  animation-delay: 0.5s;
+}
+/* Add more if needed */
+
+@keyframes fade-appear {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}

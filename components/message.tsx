@@ -5,6 +5,7 @@ import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useState, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { VoidTextRenderer } from "./void-text-renderer";
 import equal from "fast-deep-equal";
 
 import { Markdown } from "./markdown";
@@ -444,13 +445,10 @@ const PurePreviewMessage = ({
                           }}
                         >
                           {isLatestActivelyStreamingTextPart ? (
-                            <StreamingTextRenderer
-                              fullText={part.text}
-                              wordSpeed={50} // Adjust speed: 30-75ms is a good range. Lower is faster.
-                              asMarkdown={false} // CRITICAL: Keep false for performance during active streaming
-                              className="w-full"
-                            onComplete={() => console.log("Typewriter completed for this chunk/message")}
-                            />
+                            <VoidTextRenderer
+                              text={part.text}
+                              wordDelay={80}
+                            />           
                           ) : (
                             // Render full Markdown for:
                             // - User messages
