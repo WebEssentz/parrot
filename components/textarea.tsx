@@ -52,6 +52,9 @@ export const Textarea = ({
       setSearchToggle(false);
       setReasonToggle(false);
     }
+    // If parent sets model to REASON_MODEL but both toggles were previously on, keep both toggles on
+    // (i.e., if both toggles are on, and parent switches model to REASON_MODEL after search, keep both lit)
+    // So, do not change toggles if model is REASON_MODEL and both toggles are already on
     // Otherwise, do not change toggles (user controls them)
   }, [selectedModel]);
 
@@ -153,7 +156,7 @@ export const Textarea = ({
                   className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
                     isLoading || !input.trim()
                       ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-                      : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white'
+                      : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white cursor-pointer'
                   }`}
                   aria-label="Send"
                   data-testid="composer-button-send"
