@@ -3,11 +3,13 @@ import Link from "next/link";
 import { SignInButton, SignUpButton } from "./deploy-button";
 import { ThemeToggle } from "./theme-toggle";
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 
 export const Header = () => {
   const [showBorder, setShowBorder] = useState(false);
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
-  
+  const { theme } = useTheme();
+
   // Set header text color CSS variable for light/dark mode
   useEffect(() => {
     const setParrotHeaderColor = () => {
@@ -75,9 +77,9 @@ export const Header = () => {
               </Link>
             ) : (
               <span
-                className="text-[20px] font-leading select-none -mt-2"
+                className="text-[20px] font-leading select-none -mt-2 font-medium"
                 style={{
-                  color: 'var(--parrot-header-color, #5d5d5d)',
+                  color: `${theme == "dark" ? "white" : "gray"}`, // Tailwind green-500 for both modes
                   lineHeight: '22px',
                   fontFamily: 'Google Sans, \"Helvetica Neue\", sans-serif',
                   letterSpacing: 'normal',

@@ -156,7 +156,8 @@ export function ReasoningMessagePart({
             <style>{`
               @keyframes parrot-shimmer-text {
                 0% { background-position: -100% 0; }
-                100% { background-position: 100% 0; }
+                50% { background-position: 100% 0; }
+                100% { background-position: -100% 0; }
               }
             `}</style>
           </span>
@@ -393,7 +394,7 @@ function getToolStatusLabel(toolName: string, state: string) {
   // Add more tools here as needed
   switch (toolName) {
     case "googleSearch":
-      return state === "call" ? "Searching the Web" : "Web Results";
+      return state === "call" ? "Searching the Web" : "Searched the Web";
     case "fetchUrl":
       return state === "call" ? "Fetching Url data" : "Fetched Url data";
     case "getWeatherdata":
