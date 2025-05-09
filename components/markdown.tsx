@@ -48,6 +48,12 @@ const components: Partial<Components> = {
             );
         }
     },
+
+    // --- Paragraph Styling ---
+    p: ({ node, children, ...props }) => (
+        <p className="mb-2" {...props}>{children}</p>
+    ),
+    
     pre: ({ children }) => <>{children}</>, // Keep pre wrapper simple
 
     // --- List Styling (Keep As Is or Adjust if needed) ---
@@ -57,6 +63,7 @@ const components: Partial<Components> = {
     ul: ({ node, children, ...props }) => (
         <ul className="list-disc list-outside ml-6 space-y-1" {...props}>{children}</ul> // Adjusted spacing/margin
     ),
+    
     li: ({ node, children, ...props }) => (
         <li className="pl-1" {...props}>{children}</li> // Slight padding adjustment
     ),
