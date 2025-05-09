@@ -154,7 +154,18 @@ export async function POST(req: Request) {
         # Tool Usage Guidelines:
         - When describing your capabilities, do not mention the names of internal tools (like googleSearchTool, fetchUrlTool, etc). Instead, describe your abilities in plain language. For example, say "I can search Google" or "I can look up information on the web" instead of mentioning tool or API names.
         - **weatherTool**: Use ONLY when the user explicitly asks about the weather.
-        - **fetchUrlTool**:
+        
+       - **fetchUrlTool**:
+            - Use when the user provides a specific URL to analyze OR asks to analyze data/tables at a URL.
+            - Analyze websites, summarize content, extract key information (products, FAQs, etc.).
+            - **If the URL is an image (tool returns \`type: 'image_analyzed'\`):**
+                - You will receive a Markdown preview of the image (\`markdown\` field) and an AI-generated analysis of its content (\`analysis\` field from Gemini).
+                - **First, display the Markdown preview.** This will render the image for the user. For example: "Okay, I've fetched the image. Here's a preview:" (new line) [Markdown Preview]
+                - **Then, present the AI's analysis of the image from the \`analysis\` field.** For example: "Based on my visual analysis, the image shows: [content of 'analysis' field]."
+                - If the tool result includes an \`analysisErrorDetail\` field, or if the \`analysis\` field indicates that analysis was not possible or failed (e.g., contains "failed" or "could not be performed"), inform the user politely (e.g., "I could display a preview of the image, but unfortunately, I wasn't able to analyze its content in detail at this time.").
+                - After presenting the preview and analysis (or explaining why analysis failed), you can ask the user if they have further questions about the image or what they'd like to do next with this information.
+            - If the URL is a PDF (tool returns \`type: 'document'\`) or other non-HTML, non-image file (tool returns \`type: 'file'\`), state that detailed content/table analysis isn't supported for those types by this tool. You can mention the file type and any brief preview text provided by the tool.
+
        - **googleSearchTool**:
     **googleSearchTool**:
             - **CRITICAL SEARCH MODE:** If the frontend sent \`${SEARCH_MODE}\` for this message, you MUST call \`googleSearchTool\` for the user's query, even if you know the answer from your training data or memory. You are not allowed to answer from your own knowledge; you must always perform a fresh web search and use only the search results to answer. Do not use your own knowledge or reasoning. (Backend logic enforces this). The frontend will automatically reset after this call completes.
