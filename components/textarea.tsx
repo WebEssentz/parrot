@@ -44,20 +44,15 @@ export const Textarea = ({
   const [searchToggle, setSearchToggle] = React.useState(false);
   const [reasonToggle, setReasonToggle] = React.useState(false);
 
-  // Sync toggles with selectedModel
+  // Sync toggles with selectedModel, but do NOT auto-unlit after message send
+  // Only user actions change toggle state
   React.useEffect(() => {
-    if (selectedModel === SEARCH_MODE) {
-      setSearchToggle(true);
-      // If both toggles were previously on, keep reasonToggle true
-      // Otherwise, keep as is (so user can have both on)
-    } else if (selectedModel === REASON_MODEL) {
-      setReasonToggle(true);
-      // If both toggles were previously on, keep searchToggle true
-      // Otherwise, keep as is
-    } else {
+    // Only update toggles if model is default (reset case)
+    if (selectedModel === defaultModel) {
       setSearchToggle(false);
       setReasonToggle(false);
     }
+    // Otherwise, do not change toggles (user controls them)
   }, [selectedModel]);
 
   // Handlers: allow both toggles to be on, and toggled off independently
@@ -66,6 +61,7 @@ export const Textarea = ({
       if (reasonToggle) {
         setSearchToggle(true);
         // Both on now
+        // If reason is already on, both should be on
         setSelectedModel(SEARCH_MODE);
       } else {
         setSearchToggle(true);
@@ -86,6 +82,7 @@ export const Textarea = ({
       if (searchToggle) {
         setReasonToggle(true);
         // Both on now
+        // If search is already on, both should be on
         setSelectedModel(SEARCH_MODE);
       } else {
         setReasonToggle(true);
