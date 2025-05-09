@@ -9,6 +9,7 @@ export const Header = () => {
   const [showBorder, setShowBorder] = useState(false);
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
   const { theme } = useTheme();
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // Set header text color CSS variable for light/dark mode
   useEffect(() => {
@@ -40,6 +41,13 @@ export const Header = () => {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Wait until page is fully loaded (client-side hydration complete)
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
+
+  if (!isLoaded) return null;
 
   return (
     <div
@@ -79,7 +87,7 @@ export const Header = () => {
               <span
                 className="text-[20px] font-leading select-none -mt-2 font-medium"
                 style={{
-                  color: `${theme == "dark" ? "white" : "gray"}`, // Tailwind green-500 for both modes
+                  color: `${theme == "dark" ? "white" : "gray"}`,
                   lineHeight: '22px',
                   fontFamily: 'Google Sans, \"Helvetica Neue\", sans-serif',
                   letterSpacing: 'normal',
