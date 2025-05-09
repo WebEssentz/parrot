@@ -87,7 +87,7 @@ export const Header = () => {
               <span
                 className="text-[20px] font-leading select-none -mt-2 font-medium"
                 style={{
-                  color: `${theme == "dark" ? "white" : "gray"}`,
+                  color: `${theme == "dark" ? "white" : "black"}`,
                   lineHeight: '22px',
                   fontFamily: 'Google Sans, \"Helvetica Neue\", sans-serif',
                   letterSpacing: 'normal',
