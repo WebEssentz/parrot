@@ -125,17 +125,18 @@ export function AttachButton({
           type="button"
           onClick={onClick}
           className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-9 ml-2 rounded-full  text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5", // Consistent padding with SearchButton
-            "hover:bg-zinc-100 dark:hover:bg-zinc-800" // Standard hover state
+            // MODIFIED: Removed "ml-2". Spacing will be handled by the parent flex container (#prompt-actions with space-x-2).
+            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5", 
+            "hover:bg-zinc-100 dark:hover:bg-zinc-800"
           )}
-          style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }} // Consistent minWidth
+          style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
           data-testid="composer-button-attach"
           aria-label="Attach file"
         >
           <Paperclip
             className={cn(
               "h-[18px] w-[18px]",
-              "text-zinc-400" // Standard icon color
+              "text-zinc-400"
             )}
           />
           {!isMobileOrTablet && (
@@ -153,7 +154,8 @@ export function AttachButton({
 
 const REASON_MODEL = "deepseek-r1-distill-llama-70b";
 
-function Textarea({ className, maxLength = 4000, ...props }: React.ComponentProps<"textarea">) {
+// Updated Textarea (ShadcnTextarea) definition
+function Textarea({ className, maxLength = 4000, rows = 1, ...props }: React.ComponentProps<"textarea"> & { rows?: number }) {
   return (
     <textarea
       data-slot="textarea"
@@ -174,7 +176,6 @@ function Textarea({ className, maxLength = 4000, ...props }: React.ComponentProp
     />
   )
 }
-
 export { Textarea } // This is the ShadcnTextarea, re-exported
 
 export function ReasonButton({

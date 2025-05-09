@@ -1,20 +1,19 @@
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton } from "@/components/ui/textarea"; // Added AttachButton
+import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton } from "@/components/ui/textarea";
 import { ArrowUp } from "lucide-react";
 import { PauseIcon } from "./icons";
 import React from "react";
 
 interface InputProps {
   input: string;
-  // Use correct event type for textarea, not input
   handleInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   isLoading: boolean;
-  status: 'idle' | 'submitted' | 'streaming' | 'error' | string; // Use specific statuses if known
+  status: 'idle' | 'submitted' | 'streaming' | 'error' | string;
   stop: () => void;
-  selectedModel: string; // Can be modelID or SEARCH_MODE
-  setSelectedModel: (model: string) => void; // Can set modelID or SEARCH_MODE
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
 }
 
-export const Textarea = ({
+export const Textarea = ({ // Consider renaming this component if Textarea.tsx is also your UI definition
   input,
   handleInputChange,
   isLoading,
@@ -23,7 +22,6 @@ export const Textarea = ({
   selectedModel,
   setSelectedModel,
 }: InputProps) => {
-  // Responsive: icon-only on mobile/tablet (<1024px), icon+text on desktop (>=1024px)
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
   React.useEffect(() => {
     const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
@@ -32,94 +30,102 @@ export const Textarea = ({
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  
+  // --- Sizing & Positioning Constants ---
+  const buttonsVerticalOffset = "bottom-3"; // 12px from the bottom edge of the outer shell
+  // Width for the send button area on the right (button 36px + gap)
+  const sendButtonAreaWidthPx = 52;
 
   return (
-    <div className="relative w-full pt-4 bg-transparent dark:bg-transparent">
-      {/* Model name display commented out for now */}
-      {/*
-      <div className="absolute left-2 top-2 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md max-w-[60vw] truncate">
-        {MODEL_DISPLAY_NAMES[selectedModel] || selectedModel}
-      </div>
-      */}
-      <ShadcnTextarea
-        className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-4 pb-17 text-base md:text-base font-normal border-2 border-zinc-200 dark:border-zinc-700 shadow-lg min-h-[64px] placeholder:text-base md:placeholder:text-base placeholder:pl-1 overflow-y-auto overscroll-auto"
-        value={input}
-        autoFocus
-        placeholder={"Ask Parrot..."}
-        maxLength={4000}
-        style={{ maxHeight: 320 }}
-        onChange={handleInputChange}
-        onKeyDown={(e) => {
-          // On desktop: Enter = send, Shift+Enter = newline
-          // On mobile: Enter = newline, no send
-          if (isMobileOrTablet) {
-            // Let mobile Enter always insert a newline (default behavior)
-            return;
-          }
-          // Desktop behavior: Enter (no shift) sends, Shift+Enter = newline
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            if (input.trim() && !isLoading) {
-              // @ts-expect-error err
-              const form = e.target.closest("form");
-              if (form) form.requestSubmit();
+    <div className="relative flex w-full items-end px-3 py-3">
+      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
+        {/* Textarea fills container, no scroll on textarea itself */}
+        <ShadcnTextarea
+          className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal min-h-[40px] max-h-52 placeholder:text-base md:placeholder:text-base placeholder:pl-1 flex-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none transition-[min-height] duration-200"
+          value={input}
+          autoFocus
+          placeholder={"Ask Parrot..."}
+          maxLength={4000}
+          style={{ minHeight: 40, maxHeight: 208 }}
+          onChange={handleInputChange}
+          onKeyDown={(e) => {
+            if (isMobileOrTablet) return;
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              if (input.trim() && !isLoading) {
+                // @ts-expect-error err
+                const form = e.target.closest("form");
+                if (form) form.requestSubmit();
+              }
             }
-          }
-        }}
-      />
-      
-      {/* Action buttons row (mobile/tablet: icons only, desktop: show text) */}
-      <div
-        data-testid="composer-footer-actions"
-        className={`max-xs:gap-1 flex items-center gap-2 overflow-x-auto [scrollbar-width:none] mt-2 absolute bottom-2 z-20 ${isMobileOrTablet ? 'left-0' : 'left-0'}`}
-        style={{marginRight: 102}}
-      >
-        {/* New Attach Button */}
-        <AttachButton onClick={() => console.log("Attach button clicked")} />
-        
-        {/* Search Button: icon only on mobile/tablet, icon+text on desktop */}
-        <SearchButton
-          selectedModel={selectedModel}
-          setSelectedModel={setSelectedModel}
+          }}
         />
-        <ReasonButton
-          selectedModel={selectedModel}
-          setSelectedModel={setSelectedModel}
-          hideTextOnMobile // This prop is part of ReasonButton's definition
-        />
-      </div>
 
-      {status === "streaming" ? (
-        <button
-          type="button"
-          onClick={stop}
-          className="cursor-pointer absolute right-2 bottom-2 rounded-full p-2 bg-black dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
-          title="Stop generating"
-        >
-          <PauseIcon className="h-4 w-4 text-white dark:text-black cursor-pointer" />
-        </button>
-      ) : status === "submitted" ? (
-        <button
-          type="button"
-          disabled
-          className="cursor-not-allowed absolute right-2 bottom-2 rounded-full p-2 bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 transition-colors"
-        >
-          <PauseIcon className="h-4 w-4 text-zinc-400 dark:text-zinc-500 cursor-not-allowed" />
-        </button>
-      ) : (
-        <button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          className={`absolute right-2 bottom-2 rounded-full p-2
-            ${isLoading || !input.trim()
-              ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-              : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white'}
-            `}
-        >
-          <ArrowUp className="h-4 w-4 transition-colors duration-300" />
-        </button>
-      )}
-    </div>
+      <div>
+        {/* Action bar */}
+        <div className="justify-content-end relative ms-2 flex w-full flex-auto flex-col">
+          <div className="flex-auto"></div>
+        </div>
+        <div style={{ height: 48 }}></div>
+      </div>
+      {/* Action bar overlays bottom */}
+      <div className="bg-primary-surface-primary absolute start-3 end-0 bottom-3 z-2 flex items-center">
+        <div className="w-full">
+          <div
+            data-testid="composer-footer-actions"
+            className="flex items-center max-xs:gap-1 gap-2 overflow-x-auto [scrollbar-width:none]"
+            style={{ marginRight: 98 }}
+          >
+            <AttachButton onClick={() => console.log('Attach button clicked')} />
+            <SearchButton selectedModel={selectedModel} setSelectedModel={setSelectedModel} />
+            <ReasonButton selectedModel={selectedModel} setSelectedModel={setSelectedModel} hideTextOnMobile />
+          </div>
+          {/* Send/Stop Button */}
+          <div className="absolute end-3 bottom-0 flex items-center gap-2">
+            <div className="ms-auto flex items-center gap-1.5">
+              {status !== "streaming" && status !== "submitted" && (
+                <button
+                  type="submit"
+                  disabled={isLoading || !input.trim()}
+                  className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
+                    isLoading || !input.trim()
+                      ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
+                      : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white'
+                  }`}
+                  aria-label="Send"
+                  data-testid="composer-button-send"
+                  style={{ minWidth: 36, minHeight: 36, padding: 0 }}
+                >
+                  <ArrowUp className="h-4 w-4 transition-colors duration-300 mx-auto my-auto" />
+                </button>
+              )}
+              {status === "streaming" && (
+                <button
+                  type="button"
+                  onClick={stop}
+                  className="rounded-full p-2 bg-black dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
+                  title="Stop generating"
+                  style={{ minWidth: 36, minHeight: 36 }}
+                >
+                  <PauseIcon className="h-4 w-4 text-white dark:text-black cursor-pointer" />
+                </button>
+              )}
+              {status === "submitted" && (
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-full p-2 bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 transition-colors cursor-not-allowed"
+                  style={{ minWidth: 36, minHeight: 36 }}
+                >
+                  <PauseIcon className="h-4 w-4 text-zinc-400 dark:text-zinc-500 cursor-not-allowed" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="absolute start-4 top-3 ms-[1px] flex items-center pb-px"></div>
+      <div className="w-full"></div>
+      </div>
+      </div>
   );
 };
