@@ -125,8 +125,8 @@ export function AttachButton({
           type="button"
           onClick={onClick}
           className={cn(
-            // MODIFIED: Removed "ml-2". Spacing will be handled by the parent flex container (#prompt-actions with space-x-2).
-            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5", 
+            // Add negative margin to shift left
+            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5 -ml-2 sm:-ml-2",
             "hover:bg-zinc-100 dark:hover:bg-zinc-800"
           )}
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
@@ -162,7 +162,7 @@ function Textarea({ className, maxLength = 4000, rows = 1, ...props }: React.Com
       maxLength={maxLength}
       className={cn(
         // Existing styles
-        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex field-sizing-content min-h-16 w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex field-sizing-content min-h-10 w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         // Glassy background for both light and dark
         "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50",
         // Subtle shadow for scroll effect

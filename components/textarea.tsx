@@ -44,7 +44,7 @@ export const Textarea = ({ // Consider renaming this component if Textarea.tsx i
           value={input}
           autoFocus
           placeholder={"Ask Parrot..."}
-          maxLength={4000}
+          // maxLength removed to allow unlimited input
           style={{ minHeight: 40, maxHeight: 208 }}
           onChange={handleInputChange}
           onKeyDown={(e) => {
@@ -95,28 +95,28 @@ export const Textarea = ({ // Consider renaming this component if Textarea.tsx i
                   data-testid="composer-button-send"
                   style={{ minWidth: 36, minHeight: 36, padding: 0 }}
                 >
-                  <ArrowUp className="h-4 w-4 transition-colors duration-300 mx-auto my-auto" />
+                  <ArrowUp className="h-5 w-5 transition-colors duration-300 mx-auto my-auto" />
                 </button>
               )}
               {status === "streaming" && (
                 <button
                   type="button"
                   onClick={stop}
-                  className="rounded-full p-2 bg-black dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-full flex items-center justify-center bg-black dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
                   title="Stop generating"
-                  style={{ minWidth: 36, minHeight: 36 }}
+                  style={{ minWidth: 40, minHeight: 40 }}
                 >
-                  <PauseIcon className="h-4 w-4 text-white dark:text-black cursor-pointer" />
+                  <PauseIcon size={28} className="h-6 w-6 text-white dark:text-black cursor-pointer" />
                 </button>
               )}
               {status === "submitted" && (
                 <button
                   type="button"
                   disabled
-                  className="rounded-full p-2 bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 transition-colors cursor-not-allowed"
-                  style={{ minWidth: 36, minHeight: 36 }}
+                  className="rounded-full flex items-center justify-center bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 transition-colors cursor-not-allowed"
+                  style={{ minWidth: 40, minHeight: 40 }}
                 >
-                  <PauseIcon className="h-4 w-4 text-zinc-400 dark:text-zinc-500 cursor-not-allowed" />
+                  <PauseIcon size={28} className="h-6 w-6 text-zinc-400 dark:text-zinc-500 cursor-not-allowed" />
                 </button>
               )}
             </div>
