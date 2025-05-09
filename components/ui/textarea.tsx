@@ -49,14 +49,28 @@ export function SearchButton({
 
   const handleClick = () => {
     if (!isSearching) {
-        setSelectedModel(SEARCH_MODE); // Activate search mode
-        setLit(true); // Keep visual indicator if desired
+      setSelectedModel(SEARCH_MODE); // Activate search mode
+      setLit(true);
     } else {
-        // IMPORTANT: Fall back to the *actual* default model ID here
-        setSelectedModel(defaultModel); // Deactivate search, return to default
-        setLit(false);
+      setSelectedModel(defaultModel); // Deactivate search, return to default
+      setLit(false);
     }
   };
+
+  // When search mode is active, revert to default model after one search
+  React.useEffect(() => {
+    if (isSearching) {
+      // Listen for Enter key or form submit to revert
+      const handler = (e: KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          setSelectedModel(defaultModel);
+          setLit(false);
+        }
+      };
+      window.addEventListener("keydown", handler);
+      return () => window.removeEventListener("keydown", handler);
+    }
+  }, [isSearching, setSelectedModel]);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
