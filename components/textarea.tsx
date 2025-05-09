@@ -1,4 +1,5 @@
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton } from "@/components/ui/textarea";
+import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea";
+import { defaultModel } from "@/ai/providers";
 import { ArrowUp } from "lucide-react";
 import { PauseIcon } from "./icons";
 import React from "react";
@@ -13,7 +14,9 @@ interface InputProps {
   setSelectedModel: (model: string) => void;
 }
 
-export const Textarea = ({ // Consider renaming this component if Textarea.tsx is also your UI definition
+
+
+export const Textarea = ({
   input,
   handleInputChange,
   isLoading,
@@ -30,10 +33,74 @@ export const Textarea = ({ // Consider renaming this component if Textarea.tsx i
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // --- Sizing & Positioning Constants ---
-  const buttonsVerticalOffset = "bottom-3"; // 12px from the bottom edge of the outer shell
-  // Width for the send button area on the right (button 36px + gap)
-  const sendButtonAreaWidthPx = 52;
+  // --- New state for independent toggles, but sync with selectedModel ---
+  // Use the same SEARCH_MODE and REASON_MODEL as in ui/textarea.tsx
+  const REASON_MODEL = "deepseek-r1-distill-llama-70b";
+  // Model selection logic:
+  // - defaultModel: nothing selected
+  // - SEARCH_MODE: search or search+reason (always SEARCH_MODE when search is enabled)
+  // - REASON_MODEL: only reason
+  // Both toggles can be on independently, and can be toggled off independently
+  const [searchToggle, setSearchToggle] = React.useState(false);
+  const [reasonToggle, setReasonToggle] = React.useState(false);
+
+  // Sync toggles with selectedModel
+  React.useEffect(() => {
+    if (selectedModel === SEARCH_MODE) {
+      setSearchToggle(true);
+      // If both toggles were previously on, keep reasonToggle true
+      // Otherwise, keep as is (so user can have both on)
+    } else if (selectedModel === REASON_MODEL) {
+      setReasonToggle(true);
+      // If both toggles were previously on, keep searchToggle true
+      // Otherwise, keep as is
+    } else {
+      setSearchToggle(false);
+      setReasonToggle(false);
+    }
+  }, [selectedModel]);
+
+  // Handlers: allow both toggles to be on, and toggled off independently
+  const handleSetSearchEnabled = (enabled: boolean) => {
+    if (enabled) {
+      if (reasonToggle) {
+        setSearchToggle(true);
+        // Both on now
+        setSelectedModel(SEARCH_MODE);
+      } else {
+        setSearchToggle(true);
+        setSelectedModel(SEARCH_MODE);
+      }
+    } else {
+      if (reasonToggle) {
+        setSearchToggle(false);
+        setSelectedModel(REASON_MODEL);
+      } else {
+        setSearchToggle(false);
+        setSelectedModel(defaultModel);
+      }
+    }
+  };
+  const handleSetReasonEnabled = (enabled: boolean) => {
+    if (enabled) {
+      if (searchToggle) {
+        setReasonToggle(true);
+        // Both on now
+        setSelectedModel(SEARCH_MODE);
+      } else {
+        setReasonToggle(true);
+        setSelectedModel(REASON_MODEL);
+      }
+    } else {
+      if (searchToggle) {
+        setReasonToggle(false);
+        setSelectedModel(SEARCH_MODE);
+      } else {
+        setReasonToggle(false);
+        setSelectedModel(defaultModel);
+      }
+    }
+  };
 
   return (
     <div className="relative flex w-full items-end px-3 py-3">
@@ -76,8 +143,8 @@ export const Textarea = ({ // Consider renaming this component if Textarea.tsx i
             style={{ marginRight: 98 }}
           >
             <AttachButton onClick={() => console.log('Attach button clicked')} />
-            <SearchButton selectedModel={selectedModel} setSelectedModel={setSelectedModel} />
-            <ReasonButton selectedModel={selectedModel} setSelectedModel={setSelectedModel} hideTextOnMobile />
+            <SearchButton isSearchEnabled={searchToggle} setIsSearchEnabled={handleSetSearchEnabled} />
+            <ReasonButton isReasonEnabled={reasonToggle} setIsReasonEnabled={handleSetReasonEnabled} hideTextOnMobile />
           </div>
           {/* Send/Stop Button */}
           <div className="absolute end-3 bottom-0 flex items-center gap-2">

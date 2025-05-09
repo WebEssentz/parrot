@@ -29,14 +29,13 @@ function SearchIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement>)
 
 export const SEARCH_MODE = "__search_mode__";
 export function SearchButton({
-  selectedModel,
-  setSelectedModel,
+  isSearchEnabled,
+  setIsSearchEnabled,
 }: {
-  selectedModel: string; // Accepts SEARCH_MODE or modelID
-  setSelectedModel: (model: string) => void;
+  isSearchEnabled: boolean;
+  setIsSearchEnabled: (enabled: boolean) => void;
 }) {
-  const isSearching = selectedModel === SEARCH_MODE;
-  const [lit, setLit] = React.useState(false);
+  const isSearching = isSearchEnabled;
 
   // Responsive: icon-only on mobile/tablet (<1024px), icon+text on desktop (>=1024px)
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
@@ -47,30 +46,10 @@ export function SearchButton({
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Toggle logic: independent
   const handleClick = () => {
-    if (!isSearching) {
-      setSelectedModel(SEARCH_MODE); // Activate search mode
-      setLit(true);
-    } else {
-      setSelectedModel(defaultModel); // Deactivate search, return to default
-      setLit(false);
-    }
+    setIsSearchEnabled(!isSearching);
   };
-
-  // When search mode is active, revert to default model after one search
-  React.useEffect(() => {
-    if (isSearching) {
-      // Listen for Enter key or form submit to revert
-      const handler = (e: KeyboardEvent) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          setSelectedModel(defaultModel);
-          setLit(false);
-        }
-      };
-      window.addEventListener("keydown", handler);
-      return () => window.removeEventListener("keydown", handler);
-    }
-  }, [isSearching, setSelectedModel]);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -84,9 +63,7 @@ export function SearchButton({
               "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5",
               isSearching
                 ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
-                : lit
-                  ? "bg-[#e6f4ff] text-[#46a5e7] dark:bg-[#1a2a3d] dark:text-[#46a5e7] hover:bg-[#b3e0ff] hover:shadow-[0_2px_8px_0_rgba(70,165,231,0.15)] dark:hover:bg-[#142033]"
-                  : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
               // Removed "!isMobileOrTablet && "ml-2"" as it's no longer the first button in all layouts
               // Spacing will be handled by the parent flex container's gap property.
             )
@@ -101,9 +78,7 @@ export function SearchButton({
                 "h-[18px] w-[18px]",
                 isSearching
                   ? "text-[#1e93ff]"
-                  : lit
-                    ? "text-[#46a5e7]"
-                    : "text-zinc-400"
+                  : "text-zinc-400"
               )
             }
           />
@@ -193,29 +168,19 @@ function Textarea({ className, maxLength = 4000, rows = 1, ...props }: React.Com
 export { Textarea } // This is the ShadcnTextarea, re-exported
 
 export function ReasonButton({
-  selectedModel,
-  setSelectedModel,
+  isReasonEnabled,
+  setIsReasonEnabled,
+  hideTextOnMobile,
 }: {
-  selectedModel: string;
-  setSelectedModel: (model: string) => void;
+  isReasonEnabled: boolean;
+  setIsReasonEnabled: (enabled: boolean) => void;
   hideTextOnMobile?: boolean;
 }) {
-  const isReasoning = selectedModel === REASON_MODEL;
-  const [lit, setLit] = React.useState(false);
+  const isReasoning = isReasonEnabled;
 
   const handleClick = () => {
-    if (!isReasoning) {
-      setSelectedModel(REASON_MODEL);
-      setLit(true);
-    } else {
-      setSelectedModel(defaultModel);
-      setLit(false);
-    }
+    setIsReasonEnabled(!isReasoning);
   };
-
-  React.useEffect(() => {
-      setLit(selectedModel === REASON_MODEL);
-  }, [selectedModel]);
 
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
   React.useEffect(() => {
@@ -237,9 +202,7 @@ export function ReasonButton({
               "inline-flex items-center cursor-pointer justify-center h-9 rounded-full  text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2",
               isReasoning
                 ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
-                : lit
-                  ? "bg-[#e6f4ff] text-[#46a5e7] dark:bg-[#1a2a3d] dark:text-[#46a5e7] hover:bg-[#b3e0ff] hover:shadow-[0_2px_8px_0_rgba(70,165,231,0.15)] dark:hover:bg-[#142033]"
-                  : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
             )
           }
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 36 : 0 }}
@@ -255,20 +218,17 @@ export function ReasonButton({
                 "h-[18px] w-[18px]",
                 isReasoning
                   ? "fill-[#1e93ff] text-[#1e93ff]"
-                  : lit
-                    ? "fill-[#46a5e7] text-[#46a5e7]"
-                    : "fill-none text-zinc-400"
+                  : "fill-none text-zinc-400"
               )
             }
           >
             <path
               d="m12 3c-3.585 0-6.5 2.9225-6.5 6.5385 0 2.2826 1.162 4.2913 2.9248 5.4615h7.1504c1.7628-1.1702 2.9248-3.1789 2.9248-5.4615 0-3.6159-2.915-6.5385-6.5-6.5385zm2.8653 14h-5.7306v1h5.7306v-1zm-1.1329 3h-3.4648c0.3458 0.5978 0.9921 1 1.7324 1s1.3866-0.4022 1.7324-1zm-5.6064 0c0.44403 1.7252 2.0101 3 3.874 3s3.43-1.2748 3.874-3c0.5483-0.0047 0.9913-0.4506 0.9913-1v-2.4593c2.1969-1.5431 3.6347-4.1045 3.6347-7.0022 0-4.7108-3.8008-8.5385-8.5-8.5385-4.6992 0-8.5 3.8276-8.5 8.5385 0 2.8977 1.4378 5.4591 3.6347 7.0022v2.4593c0 0.5494 0.44301 0.9953 0.99128 1z"
               clipRule="evenodd"
-              fill={isReasoning ? "#1e93ff" : lit ? "#46a5e7" : "currentColor"}
+              fill={isReasoning ? "#1e93ff" : "currentColor"}
               fillRule="evenodd"
             />
           </svg>
-          {/* Text visibility controlled by isMobileOrTablet, consistent with SearchButton and new AttachButton */}
           {!isMobileOrTablet && ( 
             <span className="ml-1 font-medium text-sm">Reason</span>
           )}
