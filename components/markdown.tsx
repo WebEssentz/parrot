@@ -10,7 +10,7 @@ const components: Partial<Components> = {
   // --- Blockquote Styling ---
   blockquote: ({ node, children, ...props }) => (
     <blockquote
-      className="relative my-4 border-l-4 border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/30"
+      className="relative my-4 border-l-4 border-zinc-300 dark:border-zinc-700 rounded"
       style={{
         paddingTop: 8,
         paddingBottom: 8,
@@ -213,13 +213,13 @@ const components: Partial<Components> = {
 
 const remarkPlugins = [remarkGfm]
 
-// Utility: Remove sources block from markdown string (between <!-- PARROT_SOURCES_START --> and <!-- PARROT_SOURCES_END -->)
+// Utility: Remove sources block from markdown string (between <!-- ATLAS_SOURCES_START --> and <!-- ATLAS_SOURCES_END -->)
 function stripSourcesBlock(markdown: string): string {
-  const start = markdown.indexOf("<!-- PARROT_SOURCES_START -->")
-  const end = markdown.indexOf("<!-- PARROT_SOURCES_END -->")
+  const start = markdown.indexOf("<!-- ATLAS_SOURCES_START -->")
+  const end = markdown.indexOf("<!-- ATLAS_SOURCES_END -->")
   if (start === -1 || end === -1 || end < start) return markdown
   // Remove the block including the markers
-  return markdown.slice(0, start) + markdown.slice(end + "<!-- PARROT_SOURCES_END -->".length)
+  return markdown.slice(0, start) + markdown.slice(end + "<!-- ATLAS_SOURCES_END -->".length)
 }
 
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {

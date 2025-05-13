@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Parrot AI",
+  title: "Atlas AI",
   description:
     "This starter project uses Groq with the AI SDK via the Vercel Marketplace",
 };

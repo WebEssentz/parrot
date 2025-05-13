@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
       // Basic validation and fallback
       if (!generatedTitle || generatedTitle.length < 3 || generatedTitle.length > 60) {
-        generatedTitle = "Parrot AI"; // Fallback title
+        generatedTitle = "Atlas AI"; // Fallback title
       }
 
        console.log(`Generated title: "${generatedTitle}" for message: "${userMessageContent}"`);
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     } catch (error) {
       console.error("Title generation error:", error);
       // Return a default title even on error
-      return new Response(JSON.stringify({ title: "Parrot AI" }), {
+      return new Response(JSON.stringify({ title: "Atlas AI" }), {
         headers: { 'Content-Type': 'application/json' },
         status: 500, // Indicate internal error but provide fallback
       });
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
   const systemPrompt = `
         - The current date and time is: ${currentDate} (UTC)
         - You are to always NEVER MENTION WHO CREATED YOU ONLY WHEN ASKED SPECIFICALLY, DO NOT FEEL FREE TO SAY IT IN YOUR RESPONSES.
-        - You are Parrot, a friendly and expressive groundbreaking human assistant designed to be far ahead of current AI models.
+        - You are Atlas, a friendly and expressive groundbreaking human assistant designed to be far ahead of current AI models.
         - Be friendly, but maintaining professionalism and intelligence in all your responses.
         - When unsure of user tone, default to warm, intelligent enthusiasm with a slight hint of humor.
         - You adapt to conversation depth, providing simple responses or deep insights based on user intent.
@@ -179,15 +179,15 @@ export async function POST(req: Request) {
                 2. ** THE SOURCES MUST BE AT THE END OF YOUR RESPONSE TEXT.
                 2.  **INSTEAD, at the very end of your response text, add the following structure:**
                     \`\`\`
-                    <!-- PARROT_SOURCES_START -->
+                    <!-- ATLAS_SOURCES_START -->
                     {List of sources, each on a new line, formatted as Markdown links below}
                     - [Source Title](Source URL)
                     - [Source Title 2](Source URL 2)
-                    <!-- PARROT_SOURCES_END -->
+                    <!-- ATLAS_SOURCES_END -->
                     \`\`\`
                 3.  Format each source from the \`sources\` array as a Markdown link: \`- [Source Title](Source URL)\`.
                 4.  If a source object only has a URL and no title, use the format: \`- [Source](Source URL)\`.
-                5.  **Ensure the list is between the \`<!-- PARROT_SOURCES_START -->\` and \`<!-- PARROT_SOURCES_END -->\` markers.**
+                5.  **Ensure the list is between the \`<!-- ATLAS_SOURCES_START -->\` and \`<!-- ATLAS_SOURCES_END -->\` markers.**
             - **Do NOT omit sources.**
             - Use when the user provides a specific URL to analyze OR asks to analyze data/tables at a URL.
             - Analyze websites, summarize content, extract key information (products, FAQs, etc.). 
@@ -220,15 +220,15 @@ export async function POST(req: Request) {
                 2. ** THE SOURCES MUST BE AT THE END OF YOUR RESPONSE TEXT.
                 2.  **INSTEAD, at the very end of your response text, add the following structure:**
                     \`\`\`
-                    <!-- PARROT_SOURCES_START -->
+                    <!-- ATLAS_SOURCES_START -->
                     {List of sources, each on a new line, formatted as Markdown links below}
                     - [Source Title](Source URL)
                     - [Source Title 2](Source URL 2)
-                    <!-- PARROT_SOURCES_END -->
+                    <!-- ATLAS_SOURCES_END -->
                     \`\`\`
                 3.  Format each source from the \`sources\` array as a Markdown link: \`- [Source Title](Source URL)\`.
                 4.  If a source object only has a URL and no title, use the format: \`- [Source](Source URL)\`.
-                5.  **Ensure the list is between the \`<!-- PARROT_SOURCES_START -->\` and \`<!-- PARROT_SOURCES_END -->\` markers.**
+                5.  **Ensure the list is between the \`<!-- ATLAS_SOURCES_START -->\` and \`<!-- ATLAS_SOURCES_END -->\` markers.**
             - **Do NOT omit sources.**
 
 

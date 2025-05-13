@@ -116,7 +116,7 @@ export const Textarea = ({
           className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal min-h-[40px] max-h-52 placeholder:text-base md:placeholder:text-base placeholder:pl-1 flex-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none transition-[min-height] duration-200"
           value={input}
           autoFocus
-          placeholder={"Ask Parrot..."}
+          placeholder={"Ask Atlas..."}
           // maxLength removed to allow unlimited input
           style={{ minHeight: 40, maxHeight: 208 }}
           onChange={handleInputChange}
@@ -162,7 +162,7 @@ export const Textarea = ({
                   className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
                     isLoading || !input.trim()
                       ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-                      : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white cursor-pointer'
+                      : 'dark:bg-white dark:text-[#171717] bg-[#171717] hover:bg-zinc-800 text-white cursor-pointer'
                   }`}
                   aria-label="Send"
                   data-testid="composer-button-send"
@@ -175,7 +175,7 @@ export const Textarea = ({
                 <button
                   type="button"
                   onClick={stop}
-                  className="rounded-full flex items-center justify-center bg-black dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-full flex items-center justify-center bg-[#171717] dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
                   title="Stop generating"
                   style={{ minWidth: 40, minHeight: 40 }}
                 >

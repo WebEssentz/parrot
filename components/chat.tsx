@@ -92,7 +92,7 @@ export default function Chat() {
     }
     if (messages.length === 0 && titleGeneratedRef.current) {
       titleGeneratedRef.current = false;
-      document.title = "Parrot AI";
+      document.title = "Atlas AI";
     }
   }, [messages]);
 
@@ -185,7 +185,7 @@ export default function Chat() {
               {isDesktop && (
                 <div className="w-full max-w-4xl mx-auto fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center">
                   <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl">
-                    By messaging Parrot, you agree to our{' '}
+                    By messaging Atlas, you agree to our{' '}
                     <a
                       href="/terms"
                       target="_blank"
@@ -240,7 +240,7 @@ export default function Chat() {
             {(messages.length > 0) && (
               <div className="w-full max-w-4xl mx-auto fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
                 <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-2 select-none">
-                  Parrot uses AI. Double check response.
+                  Atlas uses AI. Double check response.
                 </span>
               </div>
             )}

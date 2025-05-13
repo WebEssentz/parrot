@@ -83,11 +83,11 @@ interface ReasoningMessagePartProps {
   isReasoning: boolean;
 }
 
-// Utility: Extract sources from markdown string (between <!-- PARROT_SOURCES_START --> and <!-- PARROT_SOURCES_END -->)
+// Utility: Extract sources from markdown string (between <!-- ATLAS_SOURCES_START --> and <!-- ATLAS_SOURCES_END -->)
 export function extractSourcesFromText(text: string): { title: string; url: string }[] {
   const sources: { title: string; url: string }[] = [];
-  const start = text.indexOf("<!-- PARROT_SOURCES_START -->");
-  const end = text.indexOf("<!-- PARROT_SOURCES_END -->");
+  const start = text.indexOf("<!-- ATLAS_SOURCES_START -->");
+  const end = text.indexOf("<!-- ATLAS_SOURCES_END -->");
   if (start === -1 || end === -1 || end < start) return sources;
   const block = text.slice(start, end);
   // Match - [Title](URL)
@@ -148,7 +148,7 @@ export function ReasoningMessagePart({
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
-                // animation: 'parrot-shimmer-text 1.3s linear infinite',
+                // animation: 'atlas-shimmer-text 1.3s linear infinite',
                 // animationTimingFunction: 'linear',
                 willChange: 'background-position',
                 display: 'inline-block',
@@ -159,7 +159,7 @@ export function ReasoningMessagePart({
               Reasoning
             </span>
             {/* <style>{`
-              @keyframes parrot-shimmer-text {
+              @keyframes atlas-shimmer-text {
                 0% { background-position: -100% 0; }
                 50% { background-position: 100% 0; }
                 100% { background-position: -100% 0; }
@@ -437,7 +437,7 @@ const PurePreviewMessage = ({
                                       WebkitBackgroundClip: 'text',
                                       WebkitTextFillColor: 'transparent',
                                       backgroundClip: 'text',
-                                      animation: 'parrot-shimmer-text 1.3s linear infinite',
+                                      animation: 'atlas-shimmer-text 1.3s linear infinite',
                                       animationTimingFunction: 'linear',
                                       willChange: 'background-position',
                                       display: 'inline-block',
@@ -449,7 +449,7 @@ const PurePreviewMessage = ({
                                     </span>
                                     <style>
                                       {`
-                                      @keyframes parrot-shimmer-text {
+                                      @keyframes atlas-shimmer-text {
                                         0% { background-position: -100% 0; }
                                           100% { background-position: 100% 0; }
                                         }
