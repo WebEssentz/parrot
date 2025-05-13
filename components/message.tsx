@@ -551,7 +551,8 @@ const PurePreviewMessage = ({
                             // - Assistant messages that are not the latest actively streaming part
                             // - The final "ready" state of any assistant message part
                             <div
-                              className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 rounded-xl w-full sm:max-w-2xl shadow"
+                              className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-6 py-1 pt-4 rounded-full w-fit max-w-full sm:max-w-2xl shadow flex justify-center items-center text-center mx-auto"
+                              style={{ minHeight: 44 }}
                             >
                               <Markdown>{part.text}</Markdown>
                             </div>
