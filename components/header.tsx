@@ -93,7 +93,7 @@ export const Header = () => {
                   letterSpacing: 'normal',
                 }}
               >
-Atlas
+                Atlas
               </span>
 
             )}

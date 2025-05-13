@@ -1,8 +1,18 @@
 import NextLink from "next/link";
 
+import React, { useEffect, useState } from "react";
+
 export const ProjectOverview = () => {
+  const [isTablet, setIsTablet] = useState(false);
+  useEffect(() => {
+    const check = () => setIsTablet(window.innerWidth >= 640 && window.innerWidth < 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   return (
-    <div className="flex flex-col items-center justify-end pb-44 sm:pb-0">
+    <div className={`flex flex-col items-center justify-end ${isTablet ? 'pb-64' : 'pb-44'} sm:pb-0`}>
       <h1 className="w-full text-2xl sm:text-3xl text-primary flex flex-col items-center tracking-tight text-center">
         {/* Wrapper for the first line to make "Hi, I'm Atlas" a single flex item */}
         <div className="flex items-baseline"> {/* Aligns "Hi, I'm" and "Atlas" along their text baseline */}
