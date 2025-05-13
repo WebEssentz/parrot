@@ -141,7 +141,7 @@ export function AttachButton({
 }
 
 
-const REASON_MODEL = "deepseek-r1-distill-llama-70b";
+const REASON_MODEL = "qwen-qwq-32b";
 
 // Updated Textarea (ShadcnTextarea) definition
 function Textarea({ className, maxLength = 4000, rows = 1, ...props }: React.ComponentProps<"textarea"> & { rows?: number }) {

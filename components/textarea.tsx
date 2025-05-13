@@ -35,7 +35,7 @@ export const Textarea = ({
 
   // --- New state for independent toggles, but sync with selectedModel ---
   // Use the same SEARCH_MODE and REASON_MODEL as in ui/textarea.tsx
-  const REASON_MODEL = "deepseek-r1-distill-llama-70b";
+  const REASON_MODEL = "qwen-qwq-32b";
   // Model selection logic:
   // - defaultModel: nothing selected
   // - SEARCH_MODE: search or search+reason (always SEARCH_MODE when search is enabled)
@@ -110,7 +110,7 @@ export const Textarea = ({
 
   return (
     <div className="relative flex w-full items-end px-3 py-3">
-      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent mt-1">
+      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
         {/* Textarea fills container, no scroll on textarea itself */}
         <ShadcnTextarea
           className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal min-h-[40px] max-h-52 placeholder:text-base md:placeholder:text-base placeholder:pl-1 flex-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none transition-[min-height] duration-200"
@@ -162,7 +162,7 @@ export const Textarea = ({
                   className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
                     isLoading || !input.trim()
                       ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-                      : 'dark:bg-white dark:text-[#171717] bg-[#171717] hover:bg-zinc-800 text-white cursor-pointer'
+                      : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white cursor-pointer'
                   }`}
                   aria-label="Send"
                   data-testid="composer-button-send"
@@ -175,7 +175,7 @@ export const Textarea = ({
                 <button
                   type="button"
                   onClick={stop}
-                  className="rounded-full flex items-center justify-center bg-[#171717] dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-full flex items-center justify-center bg-black dark:bg-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed transition-colors"
                   title="Stop generating"
                   style={{ minWidth: 40, minHeight: 40 }}
                 >

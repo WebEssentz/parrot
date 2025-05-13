@@ -266,7 +266,7 @@ const PurePreviewMessage = ({
         {isAssistant && sources.length > 0 && (
           <div className="flex justify-end mb-1">
             <button
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm"
+              className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm"
               onClick={() => setShowSources(true)}
               type="button"
             >
@@ -287,7 +287,7 @@ const PurePreviewMessage = ({
             </div>
             <div className="overflow-y-auto max-h-[55vh] pr-1">
               {sources.map((src, i) => {
-                let icon = <img src="/globe.svg" alt="site" className="w-5 h-5 mr-2 inline-block align-middle" />;
+                let icon = <img src="/globe.svg" alt="site" className="cursor-pointer w-5 h-5 mr-2 inline-block align-middle" />;
                 try {
                   const u = new URL(src.url);
                   if (u.protocol === "file:") icon = <img src="/file.svg" alt="file" className="w-5 h-5 mr-2 inline-block align-middle" />;
