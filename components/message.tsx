@@ -319,32 +319,8 @@ const PurePreviewMessage = ({
               : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit",
           )}
         >
-          {/* Desktop: Copy icon left of AI icon, animates in on hover (fade in on hover, hidden otherwise) */}
-          {isAssistant && !isMobile && status === "ready" && (
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.2 }}
-              className="mr-2 flex items-center"
-              style={{ pointerEvents: 'none' }}
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="Copy message"
-                    className="rounded-full p-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 opacity-0 group-hover/message:opacity-100 focus:opacity-100 cursor-pointer"
-                    style={{ color: '#828282', pointerEvents: 'auto', transition: 'opacity 0.2s' }}
-                    onClick={handleCopy}
-                  >
-                    {copied ? <CheckIcon style={{ color: '#828282', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: '#828282', transition: 'all 0.2s' }} />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-              </Tooltip>
-            </motion.div>
-          )}
+          {/* Desktop: Copy icon at the bottom of the AI message bubble */}
+          {/* AI icon remains at the top left, copy icon moves to bottom of bubble on desktop */}
           {/* AI icon */}
           {isAssistant && (
             <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
@@ -488,6 +464,37 @@ const PurePreviewMessage = ({
                   }
                 })}
               </div>
+              {/* Desktop: Action icons (copy, etc) at the left start of the AI message bubble, matching mobile layout */}
+              {!isMobile && isAssistant && status === "ready" && (
+                <div className="w-full flex flex-row items-center mt-0">
+                  <div className="flex items-center gap-0.5 p-0 select-none pointer-events-auto">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Copy message"
+                          className="rounded-lg focus:outline-none flex h-[32px] w-[32px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          style={{
+                            color: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? '#fff' : '#828282',
+                            background: 'transparent',
+                            marginTop: '-6px',
+                          }}
+                          onClick={handleCopy}
+                          onMouseLeave={() => setCopied(false)}
+                        >
+                          {copied ? (
+                            <CheckIcon style={{ color: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                          ) : (
+                            <CopyIcon style={{ color: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                    </Tooltip>
+                    {/* Future action icons can be added here, will align left */}
+                  </div>
+                </div>
+              )}
               {/* Mobile: Copy icon always at the bottom, after the message bubble */}
               {isMobile && isAssistant && status === "ready" && (
                 <div className="relative w-full -mt-2">
@@ -550,11 +557,40 @@ const PurePreviewMessage = ({
                             // - User messages
                             // - Assistant messages that are not the latest actively streaming part
                             // - The final "ready" state of any assistant message part
-                            <div
-                              className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-6 py-1 pt-4 rounded-full w-fit max-w-full sm:max-w-2xl flex justify-center items-center text-center mx-auto"
-                              style={{ minHeight: 44 }}
-                            >
-                              <Markdown>{part.text}</Markdown>
+                            <div className="group/user-message w-fit mx-auto flex flex-row items-center gap-2 relative">
+                              {/* Copy icon to the left of the user message (desktop only) */}
+                              {!isMobile ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      aria-label="Copy message"
+                                      className="opacity-0 group-hover/user-message:opacity-100 transition-opacity duration-200 rounded-full p-2 flex items-center justify-center select-none border-none shadow-none bg-transparent cursor-pointer"
+                                      style={{ background: 'none', border: 'none', boxShadow: 'none', marginRight: 4 }}
+                                      onClick={() => {
+                                        copyToClipboard(part.text);
+                                        setCopied(true);
+                                        if (copyTimeout.current) clearTimeout(copyTimeout.current);
+                                        copyTimeout.current = setTimeout(() => setCopied(false), 1000);
+                                      }}
+                                      onMouseLeave={() => setCopied(false)}
+                                    >
+                                      {copied ? (
+                                        <CheckIcon style={{ color: typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                      ) : (
+                                        <CopyIcon style={{ color: typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                      )}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="select-none">Copy</TooltipContent>
+                                </Tooltip>
+                              ) : null}
+                              <div
+                                className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-6 py-1 pt-4 rounded-full w-fit max-w-full sm:max-w-2xl flex justify-center items-center text-center"
+                                style={{ minHeight: 44 }}
+                              >
+                                <Markdown>{part.text}</Markdown>
+                              </div>
                             </div>
                           )}
                         </div>
