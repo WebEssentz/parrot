@@ -1,8 +1,11 @@
 import NextLink from "next/link";
+
 export const ProjectOverview = () => {
   return (
     <div className="flex flex-col items-center justify-end pb-44 sm:pb-0">
-      <h1 className="text-3xl text-zinc-700 dark:text-zinc-300 font-semibold mb-4">What can I help with?</h1>
+      <h1 className="w-full text-2xl flex-col tracking-tight sm:text-3xl text-primary flex items-center justify-center text-center">
+        Welcome to Atlas.<span className="text-zinc-500 dark:text-gray">How can I help you today?</span>
+      </h1>
     </div>
   );
 };
