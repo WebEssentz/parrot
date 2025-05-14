@@ -418,7 +418,7 @@ const PurePreviewMessage = ({
                                       willChange: 'background-position',
                                       display: 'inline-block',
                                     }}
-                                     // Force re-render on theme change to reset background
+                                      // Force re-render on theme change to reset background
                                       key={theme}
                                     >
                                       {label}
@@ -466,8 +466,10 @@ const PurePreviewMessage = ({
               </div>
               {/* Desktop: Action icons (copy, etc) at the left start of the AI message bubble, matching mobile layout */}
               {!isMobile && isAssistant && status === "ready" && (
-                <div className="w-full flex flex-row items-center mt-0">
-                  <div className="flex items-center gap-0.5 p-0 select-none pointer-events-auto">
+                <div className="w-full flex flex-row items-center mt-0 group/ai-message-action-row">
+                  <div
+                    className="flex items-center gap-0.5 p-0 select-none pointer-events-auto opacity-0 group-hover/ai-message-action-row:opacity-100 transition-opacity duration-300 delay-300"
+                  >
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
@@ -586,7 +588,7 @@ const PurePreviewMessage = ({
                                 </Tooltip>
                               ) : null}
                               <div
-                                className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-6 py-1 pt-4 rounded-full w-fit max-w-full sm:max-w-2xl flex justify-center items-center text-center"
+                                className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 rounded-2xl w-fit max-w-full sm:max-w-2xl shadow-sm"
                                 style={{ minHeight: 44 }}
                               >
                                 <Markdown>{part.text}</Markdown>
