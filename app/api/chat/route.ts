@@ -11,7 +11,7 @@ export const maxDuration = 60;
 const REASON_MODEL_ID = "qwen-qwq-32b"; // Your specific reasoning model ID
 
 export async function POST(req: Request) {
- const requestBody = await req.json();
+  const requestBody = await req.json();
   const {
     messages,
     selectedModel, // This comes from the frontend
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   // --- Existing Streaming Chat Logic ---
   if (!messages || typeof selectedModel === 'undefined') { // Check typeof selectedModel
     return new Response(JSON.stringify({ error: "Missing messages or selectedModel for chat request" }), {
-        headers: { 'Content-Type': 'application/json' }, status: 400,
+      headers: { 'Content-Type': 'application/json' }, status: 400,
     });
   }
 
@@ -147,7 +147,14 @@ export async function POST(req: Request) {
             - If the URL is a PDF (tool returns \`type: 'document'\`) or other non-HTML, non-image file (tool returns \`type: 'file'\`), state that detailed content/table analysis isn't supported for those types by this tool. You can mention the file type and any brief preview text provided by the tool.
 
        - **googleSearchTool**:
-            - **CRITICAL SEARCH MODE:** If the frontend sent \`${SEARCH_MODE}\` for this message, you MUST call \`googleSearchTool\` for the user's query, even if you know the answer from your training data or memory. You are not allowed to answer from your own knowledge; you must always perform a fresh web search and use only the search results to answer. Do not use your own knowledge or reasoning. (Backend logic enforces this). The frontend will automatically reset after this call completes.
+        - **CRITICAL SEARCH MODE:** If the frontend sent \`${SEARCH_MODE}\` for the current user message, you MUST call \`googleSearchTool\` for the user's query. Do not answer from your own knowledge.
+        - **Search Failure and Retry Policy:**
+            1.  If you call \`googleSearchTool\` and the tool returns an error, or if the results are empty or clearly unhelpful (e.g., "No results found", "Search failed"), you MUST first inform the user that the initial search attempt failed (e.g., "My first attempt to search the web for that didn't work as expected.").
+            2.  After informing the user of the first failure, you MUST attempt to call \`googleSearchTool\` **one more time** for the *exact same user query*. Do not modify the query unless the user explicitly asks you to.
+            3.  If this second call to \`googleSearchTool\` also returns an error or unhelpful results, you MUST inform the user that both search attempts failed and politely suggest they try searching for the information themselves (e.g., "I'm sorry, I tried searching twice but couldn't find the information. You might have better luck searching directly.").
+            4.  **Under no circumstances should you try to answer the query from your own knowledge if it required a search and all search attempts (up to two) have failed.** Simply state that you couldn't find the information via search.
+            5.  If a search is successful (either first or second attempt), proceed to use the search results to answer the user's query and provide sources as instructed below.
+
     - Otherwise (when Search Mode is OFF): Use for questions requiring **up-to-date information**, current events, breaking news, or general knowledge questions not specific to a URL provided by the user.
             - Use if the user asks a question that your internal knowledge might not cover accurately (e.g., "Who won the F1 race yesterday?", "What are the latest AI developments this week?").
             - **Prioritize "fetchUrlTool" if a relevant URL is provided by the user.** Use "googleSearchTool" if no URL is given or if the URL analysis doesn't contain the needed *current/external* information.
@@ -201,21 +208,51 @@ export async function POST(req: Request) {
         - Use tables for comparisons
         - Add contextual emojis naturally
     `;
-  
+
   const isFrontendRequestingSearch = selectedModel === SEARCH_MODE;
-  
+
   // Simplified history check for example
-  const lastUserMessageContent = (messages as UIMessage[]).filter(msg => msg.role === 'user').pop()?.content || '';
-  const hasRecentSearchForQuery = (messages as UIMessage[]).some(msg => 
-    msg.role === 'assistant' && 
-    msg.content?.includes('<!-- ATLAS_SOURCES_START -->') &&
-    msg.content?.includes(lastUserMessageContent) 
-  );
-  const forceGoogleSearchTool = isFrontendRequestingSearch && !hasRecentSearchForQuery && messages[messages.length - 1]?.role !== 'function';
+  const lastUserMessage = (messages as UIMessage[]).filter(msg => msg.role === 'user').pop();
+  const lastUserMessageContent = lastUserMessage?.content || '';
+
+  // Count previous googleSearchTool calls *for the current lastUserMessageContent* in this turn
+  let googleSearchAttemptsForThisQuery = 0;
+  if (lastUserMessage) {
+    let currentTurnMessages = messages as UIMessage[];
+    // Find the index of the last user message to define the current turn
+    const lastUserMessageIndex = messages.map((m: UIMessage) => m.id).lastIndexOf(lastUserMessage.id);
+    if (lastUserMessageIndex !== -1) {
+      currentTurnMessages = messages.slice(lastUserMessageIndex);
+    }
+
+    for (const msg of currentTurnMessages) {
+      if (msg.role === 'assistant' && msg.toolInvocations) {
+        for (const ti of msg.toolInvocations) {
+          // Check if the tool call was for googleSearch and if arguments match the user query
+          // This is a simplified check; actual args might be structured if your tool takes an object.
+          if ((ti.toolName === 'googleSearch' || ti.toolName === 'googleSearchTool') &&
+            (typeof ti.args === 'string' && ti.args.includes(lastUserMessageContent)) || // Simple string arg check
+            (typeof ti.args === 'object' && ti.args && JSON.stringify(ti.args).includes(lastUserMessageContent)) // Object arg check
+          ) {
+            googleSearchAttemptsForThisQuery++;
+          }
+        }
+      }
+    }
+  }
+
+
+
+  // Determine if we MUST force the googleSearchTool initially
+  // If it's SEARCH_MODE and it's the first attempt for this query.
+  // The AI's retry logic (prompted) will handle subsequent calls if the first fails.
+  const forceInitialGoogleSearch = isFrontendRequestingSearch &&
+    googleSearchAttemptsForThisQuery === 0 &&
+    messages[messages.length - 1]?.role !== 'function';
 
   let actualModelIdForLLM: modelID;
   if (isFrontendRequestingSearch) {
-    actualModelIdForLLM = REASON_MODEL_ID; // Search uses Reasoning Model
+    actualModelIdForLLM = REASON_MODEL_ID;
   } else if (selectedModel === REASON_MODEL_ID) {
     actualModelIdForLLM = REASON_MODEL_ID;
   } else if (selectedModel === defaultModel || !selectedModel) {
@@ -223,34 +260,35 @@ export async function POST(req: Request) {
   } else {
     actualModelIdForLLM = selectedModel as modelID;
   }
-  
+
   try {
-    model.languageModel(actualModelIdForLLM); 
+    model.languageModel(actualModelIdForLLM);
   } catch (e: any) {
     if (e.constructor?.name === 'AI_NoSuchModelError' || e.message?.includes('No such languageModel')) {
-        console.warn(`LLM ID "${actualModelIdForLLM}" is not valid. Falling back to defaultModel "${defaultModel}". Original selectedModel from frontend: "${selectedModel}"`);
-        actualModelIdForLLM = defaultModel;
+      console.warn(`LLM ID "${actualModelIdForLLM}" is not valid. Falling back to defaultModel "${defaultModel}". Frontend selectedModel: "${selectedModel}"`);
+      actualModelIdForLLM = defaultModel;
     } else {
-        throw e;
+      throw e;
     }
   }
   const languageModel = model.languageModel(actualModelIdForLLM);
 
-  console.log(`API Request: Frontend selectedModel = "${selectedModel}", forceGoogleSearchTool = ${forceGoogleSearchTool}, Using LLM = "${actualModelIdForLLM}"`);
+  console.log(`API Request: Frontend selectedModel = "${selectedModel}", forceInitialGoogleSearch = ${forceInitialGoogleSearch}, googleSearchAttemptsForThisQuery = ${googleSearchAttemptsForThisQuery}, Using LLM = "${actualModelIdForLLM}"`);
 
   const result = streamText({
     model: languageModel,
     system: systemPrompt,
-    messages: messages as UIMessage[],
+    messages: messages as UIMessage[], // Pass current messages
     experimental_transform: smoothStream({ delayInMs: 20, chunking: 'word' }),
     tools: {
       getWeather: weatherTool,
       fetchUrl: fetchUrlTool,
-      googleSearch: googleSearchTool, 
+      googleSearch: googleSearchTool,
     },
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
-    ...(forceGoogleSearchTool && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }), 
+    ...(forceInitialGoogleSearch && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
+    // The AI model itself will decide to call googleSearch again if the first attempt (forced or not) fails, based on the system prompt.
   });
 
   return result.toDataStreamResponse({
@@ -265,8 +303,8 @@ export async function POST(req: Request) {
         }
         // Check for AI_NoSuchModelError specifically if it can happen at this stage
         if (error.constructor.name === 'AI_NoSuchModelError') {
-            console.error("Error: AI_NoSuchModelError during streaming response.", error);
-            return `Error: The AI model specified (${(error as any).modelId}) is not available. Please try again or contact support.`;
+          console.error("Error: AI_NoSuchModelError during streaming response.", error);
+          return `Error: The AI model specified (${(error as any).modelId}) is not available. Please try again or contact support.`;
         }
       }
       console.error("Streaming Error:", error);
