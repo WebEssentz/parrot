@@ -1,31 +1,28 @@
 "use client";
 
-// Assuming Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE are imported from the correct path
-// e.g. import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea";
 import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea";
 import { defaultModel } from "@/ai/providers";
 import { ArrowUp } from "lucide-react";
-import { PauseIcon } from "./icons"; // Assuming this is local ./icons
+import { PauseIcon } from "./icons";
 import React from "react";
 
 interface InputProps {
   input: string;
   handleInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  isLoading: boolean; // This is `uiIsLoading` from chat.tsx
+  isLoading: boolean;
   status: 'idle' | 'submitted' | 'streaming' | 'error' | string;
   stop: () => void;
-  selectedModel: string;
-  setSelectedModel: (model: string) => void;
+  selectedModel: string; // This is the "active operation mode" from chat.tsx (defaultModel after onFinish)
+  setSelectedModel: (model: string) => void; // This updates chat.tsx's "active operation mode"
 }
 
-// This component is used as <CustomTextarea ... /> in chat.tsx
 export const Textarea = ({ 
   input,
   handleInputChange,
-  isLoading, // This prop receives `uiIsLoading` from chat.tsx
+  isLoading,
   status,
   stop,
-  selectedModel,
+  selectedModel, // Used to know if an operation just finished (became defaultModel)
   setSelectedModel,
 }: InputProps) => {
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
@@ -36,49 +33,40 @@ export const Textarea = ({
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Ensure REASON_MODEL is defined consistently if used, e.g., from a shared constants file or here
-  const REASON_MODEL = "qwen-qwq-32b"; 
+  const REASON_MODEL_ID = "qwen-qwq-32b";
 
-  const [searchToggle, setSearchToggle] = React.useState(false);
-  const [reasonToggle, setReasonToggle] = React.useState(false);
+  // Local visual toggles for the buttons. These are the source of truth for button appearance.
+  // They persist until the user clicks them off.
+  const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
+  const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
 
-  React.useEffect(() => {
-    // This effect ensures that if the parent `selectedModel` changes,
-    // the corresponding toggle button's visual state is updated.
-    if (selectedModel === REASON_MODEL) {
-      if (!reasonToggle) setReasonToggle(true);
-      // if (searchToggle) setSearchToggle(false); // Decide if modes are exclusive visually
-    } else if (selectedModel === SEARCH_MODE) {
-      if (!searchToggle) setSearchToggle(true);
-      // if (reasonToggle) setReasonToggle(false); // Decide if modes are exclusive visually
-    } else { // defaultModel or other
-      if (searchToggle) setSearchToggle(false);
-      if (reasonToggle) setReasonToggle(false);
+  // This effect runs when the actual "selectedModel" for the operation (from chat.tsx)
+  // gets reset to defaultModel (e.g., after onFinish).
+  // If we want the toggles to turn off when the operation mode resets, we can do it here.
+  // BUT, the requirement is "leave it selected ... until user clicks to unlit".
+  // So, this useEffect is NOT needed to change searchToggleIsOn/reasonToggleIsOn based on selectedModel prop.
+  // The toggles change ONLY on user click.
+
+  const determineEffectiveModel = (currentSearchState: boolean, currentReasonState: boolean): string => {
+    if (currentSearchState) { // If search is on, it's the primary mode for the API call
+      return SEARCH_MODE;
     }
-  }, [selectedModel]); // Only depends on selectedModel from parent
+    if (currentReasonState) { // If search is off, but reason is on
+      return REASON_MODEL_ID;
+    }
+    return defaultModel; // Both are off
+  };
 
   const handleSetSearchEnabled = (enabled: boolean) => {
-    // This function is called by SearchButton onClick
-    // It updates the local toggle state AND calls setSelectedModel (prop from chat.tsx)
-    setSearchToggle(enabled);
-    if (enabled) {
-      setSelectedModel(SEARCH_MODE);
-      if (reasonToggle) setReasonToggle(false); // If search is on, reason is off
-    } else {
-      // If search is being turned off, revert to default or reason if it was on
-      // This logic might need adjustment based on desired interaction for combined modes
-      setSelectedModel(reasonToggle ? REASON_MODEL : defaultModel);
-    }
+    setSearchToggleIsOn(enabled);
+    // Update the effective model in chat.tsx based on the new state of BOTH toggles
+    setSelectedModel(determineEffectiveModel(enabled, reasonToggleIsOn));
   };
 
   const handleSetReasonEnabled = (enabled: boolean) => {
-    setReasonToggle(enabled);
-    if (enabled) {
-      setSelectedModel(REASON_MODEL);
-      if (searchToggle) setSearchToggle(false); // If reason is on, search is off
-    } else {
-      setSelectedModel(searchToggle ? SEARCH_MODE : defaultModel);
-    }
+    setReasonToggleIsOn(enabled);
+    // Update the effective model in chat.tsx based on the new state of BOTH toggles
+    setSelectedModel(determineEffectiveModel(searchToggleIsOn, enabled));
   };
   
   return (
@@ -91,7 +79,7 @@ export const Textarea = ({
           placeholder={"Ask Atlas..."}
           style={{ minHeight: 40, maxHeight: 208 }}
           onChange={handleInputChange}
-          disabled={isLoading} // Disable textarea itself when loading
+          disabled={isLoading}
           onKeyDown={(e) => {
             if (isMobileOrTablet) return;
             if (e.key === "Enter" && !e.shiftKey) {
@@ -103,11 +91,8 @@ export const Textarea = ({
             }
           }}
         />
-
-        <div style={{paddingBottom: '48px'}}> {/* Placeholder for buttons area height */}
-          {/* This empty div might be for layout spacing; ensure it's intentional */}
+        <div style={{paddingBottom: '48px'}}> 
         </div>
-
         <div className="bg-primary-surface-primary absolute start-3 end-0 bottom-3 z-2 flex items-center">
           <div className="w-full">
             <div
@@ -117,18 +102,18 @@ export const Textarea = ({
             >
               <AttachButton 
                 onClick={() => console.log('Attach button clicked')} 
-                disabled={isLoading} // Disable AttachButton when loading
+                disabled={isLoading}
               />
               <SearchButton 
-                isSearchEnabled={searchToggle} 
+                isSearchEnabled={searchToggleIsOn} 
                 setIsSearchEnabled={handleSetSearchEnabled} 
-                disabled={isLoading} // Disable SearchButton when loading
+                disabled={isLoading}
               />
               <ReasonButton 
-                isReasonEnabled={reasonToggle} 
-                setIsReasonEnabled={handleSetReasonEnabled} 
+                isReasonEnabled={reasonToggleIsOn} 
+                setIsReasonEnabled={handleSetReasonEnabled} // Corrected: should be setIsReasonEnabled
                 hideTextOnMobile 
-                disabled={isLoading} // Disable ReasonButton when loading
+                disabled={isLoading}
               />
             </div>
             <div className="absolute end-3 bottom-0 flex items-center gap-2">
@@ -152,11 +137,10 @@ export const Textarea = ({
                 {(status === "streaming" || status === "submitted") && (
                   <button
                     type="button"
-                    onClick={status === "streaming" ? stop : undefined} // Stop only if actively streaming
-                    disabled={status === "submitted" && !isLoading} // Disable if submitted but not actively loading (e.g. waiting for stream start)
-                                                                // Or simply rely on isLoading which covers both 'submitted' and 'streaming'
+                    onClick={status === "streaming" ? stop : undefined}
+                    disabled={isLoading}
                     className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
-                      (status === "submitted" && !isLoading) || isLoading // Broader condition for disabled appearance for stop button
+                      isLoading 
                       ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                       : 'bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
                     }`}
@@ -164,7 +148,7 @@ export const Textarea = ({
                     style={{ minWidth: 40, minHeight: 40 }}
                   >
                     <PauseIcon size={28} className={`h-6 w-6 transition-colors duration-300 ${
-                       (status === "submitted" && !isLoading) || isLoading ? 'text-zinc-400 dark:text-zinc-500' : 'text-white dark:text-black'
+                       isLoading ? 'text-zinc-400 dark:text-zinc-500' : 'text-white dark:text-black'
                     }`} />
                   </button>
                 )}

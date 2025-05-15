@@ -7,6 +7,9 @@ import { generateText } from 'ai';
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
+// Define REASON_MODEL ID if it's used as a flag or specific model
+const REASON_MODEL_ID = "qwen-qwq-32b"; // Your specific reasoning model ID
+
 export async function POST(req: Request) {
  const requestBody = await req.json();
   const {
@@ -199,74 +202,54 @@ export async function POST(req: Request) {
         - Add contextual emojis naturally
     `;
   
+  const isFrontendRequestingSearch = selectedModel === SEARCH_MODE;
+  
+  // Simplified history check for example
   const lastUserMessageContent = (messages as UIMessage[]).filter(msg => msg.role === 'user').pop()?.content || '';
-  const searchHistory = (messages as UIMessage[]).filter(msg => 
+  const hasRecentSearchForQuery = (messages as UIMessage[]).some(msg => 
     msg.role === 'assistant' && 
-    (
-      (msg.toolInvocations && msg.toolInvocations.some(inv => inv.toolName === 'googleSearch' || inv.toolName === 'googleSearchTool')) || // Check tool invocations
-      (msg.data && typeof msg.data === 'object' && 'tool' in msg.data && (msg.data.tool === 'googleSearch' || msg.data.tool === 'googleSearchTool')) || // Legacy check if you used 'data' field
-      msg.content?.includes('<!-- ATLAS_SOURCES_START -->') // Check for search marker in content
-    ) && msg.content?.includes(lastUserMessageContent) // And if it contains the last user message (this part might be too strict)
+    msg.content?.includes('<!-- ATLAS_SOURCES_START -->') &&
+    msg.content?.includes(lastUserMessageContent) 
   );
-  
-  // This variable determines if we MUST force the googleSearchTool
-  // The condition for not re-searching might need refinement.
-  // For now, if selectedModel is SEARCH_MODE, we intend to search.
-  const forceGoogleSearchTool = selectedModel === SEARCH_MODE && 
-    !searchHistory.length && // Simpler check: if no recent search history for this query.
-    messages[messages.length - 1]?.role !== 'function'; // And last message isn't a tool result
+  const forceGoogleSearchTool = isFrontendRequestingSearch && !hasRecentSearchForQuery && messages[messages.length - 1]?.role !== 'function';
 
-  // Determine the actual model ID to use for the language model
-  // If selectedModel from frontend is SEARCH_MODE (our flag), use defaultModel for the LLM.
-  // Otherwise, use the selectedModel if it's a valid model ID.
   let actualModelIdForLLM: modelID;
-  if (selectedModel === SEARCH_MODE) {
+  if (isFrontendRequestingSearch) {
+    actualModelIdForLLM = REASON_MODEL_ID; // Search uses Reasoning Model
+  } else if (selectedModel === REASON_MODEL_ID) {
+    actualModelIdForLLM = REASON_MODEL_ID;
+  } else if (selectedModel === defaultModel || !selectedModel) {
     actualModelIdForLLM = defaultModel;
-  } else if (selectedModel === "qwen-qwq-32b") { // Example: if REASON_MODEL is also a flag not direct LLM
-    actualModelIdForLLM = defaultModel; // Or a specific model for reasoning if different
-  }
-  else {
-    actualModelIdForLLM = selectedModel as modelID; // Assume other selectedModel values are valid LLM IDs
+  } else {
+    actualModelIdForLLM = selectedModel as modelID;
   }
   
-  // Fallback to defaultModel if actualModelIdForLLM is somehow not a valid/recognized ID
-  // This requires knowing your valid model IDs. For now, we trust `defaultModel` is always valid.
-  // And that non-SEARCH_MODE `selectedModel` values are valid.
-  // A more robust check might involve listing your available model IDs.
   try {
-    const testProviderModel = model.languageModel(actualModelIdForLLM); // Test if model ID is valid
+    model.languageModel(actualModelIdForLLM); 
   } catch (e: any) {
-    if (e.constructor.name === 'AI_NoSuchModelError' || e.message?.includes('No such languageModel')) {
-        console.warn(`Provided model ID "${actualModelIdForLLM}" is not valid. Falling back to defaultModel "${defaultModel}". Original selectedModel: "${selectedModel}"`);
+    if (e.constructor?.name === 'AI_NoSuchModelError' || e.message?.includes('No such languageModel')) {
+        console.warn(`LLM ID "${actualModelIdForLLM}" is not valid. Falling back to defaultModel "${defaultModel}". Original selectedModel from frontend: "${selectedModel}"`);
         actualModelIdForLLM = defaultModel;
     } else {
-        throw e; // Re-throw other errors
+        throw e;
     }
   }
-
   const languageModel = model.languageModel(actualModelIdForLLM);
 
-  console.log(`API Request: selectedModel from frontend = "${selectedModel}", forceGoogleSearchTool = ${forceGoogleSearchTool}, Using LLM = "${actualModelIdForLLM}"`);
+  console.log(`API Request: Frontend selectedModel = "${selectedModel}", forceGoogleSearchTool = ${forceGoogleSearchTool}, Using LLM = "${actualModelIdForLLM}"`);
 
   const result = streamText({
     model: languageModel,
     system: systemPrompt,
     messages: messages as UIMessage[],
-    experimental_transform: smoothStream({
-      delayInMs: 20,
-      chunking: 'word'
-    }),
+    experimental_transform: smoothStream({ delayInMs: 20, chunking: 'word' }),
     tools: {
-      // Ensure these tool names are consistent with what you check for in searchHistory and what you use in toolChoice
       getWeather: weatherTool,
       fetchUrl: fetchUrlTool,
-      googleSearch: googleSearchTool, // If your tool is named 'googleSearchTool' in definition, use that key.
-                                     // For example: googleSearchTool: googleSearchToolDefinition
+      googleSearch: googleSearchTool, 
     },
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
-    // Conditionally force the tool based on `forceGoogleSearchTool`
-    // IMPORTANT: Ensure 'googleSearch' here matches the key in the `tools` object above.
     ...(forceGoogleSearchTool && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }), 
   });
 

@@ -12,7 +12,11 @@ import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "./header";
 import React from "react";
 import { toast } from "sonner";
-import { DiscordIconSvg, Github, InstagramIcon, LinkedInIcon, XIcon } from "./icons"; // Assuming path
+import { Github, LinkedInIcon, XIcon } from "./icons"; // Assuming path
+
+
+// const REASON_MODEL_ID = "qwen-qwq-32b"; // Consistent definition
+
 
 async function generateAndSetTitle(firstUserMessageContent: string) {
   try {
@@ -110,48 +114,28 @@ export default function Chat() {
     }
   }, [messages]);
 
-  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // console.log(`handleSubmit: Current selectedModel (state): ${selectedModel}, isSubmittingSearch: ${isSubmittingSearch}, input: "${input}"`);
-
-    if (!input.trim()) {
-      // console.log("handleSubmit: Input is empty, aborting.");
-      return;
-    }
+    if (!input.trim()) return;
     
-    // Determine the model to use for *this* specific submission
-    // This should be based on the `selectedModel` state at the moment of this function call.
-    const modelForThisSubmit = selectedModel;
-    modelForCurrentSubmissionRef.current = modelForThisSubmit; // Store it in the ref
+    // `selectedModel` (state) here reflects the user's current toggle combination from textarea.tsx
+    const intendedModelForThisSubmit = selectedModel; 
+    modelForCurrentSubmissionRef.current = intendedModelForThisSubmit;
 
-    if (modelForThisSubmit === SEARCH_MODE) {
-      if (isSubmittingSearch) {
-        // console.warn("handleSubmit: Search submission (SEARCH_MODE) already in progress (isSubmittingSearch is true). New submission blocked.");
-        return;
-      }
-      // console.log("handleSubmit: Initiating SEARCH_MODE submission. Setting isSubmittingSearch to true.");
-      setIsSubmittingSearch(true); // Set flag specifically for search
+    if (intendedModelForThisSubmit === SEARCH_MODE) {
+      if (isSubmittingSearch) return;
+      setIsSubmittingSearch(true);
     } else if (isSubmittingSearch && modelForCurrentSubmissionRef.current === SEARCH_MODE) {
-        // This case should ideally not be hit if the above check for SEARCH_MODE is comprehensive
-        // but acts as a safeguard: if we somehow think we're submitting non-search but a search is flagged.
-        // console.warn("handleSubmit: A search is flagged (isSubmittingSearch), but current model is not SEARCH_MODE. Blocking to prevent conflict.");
-        return;
+        // This means a previous submission was a search and isSubmittingSearch is still true
+        return; 
     }
 
-
-    // console.log(`handleSubmit: Proceeding with submission. Model for this call (from ref): ${modelForCurrentSubmissionRef.current}`);
     originalHandleSubmit(e, {
-        // Pass the model that was determined *at the start of this handleSubmit call*
-        // This ensures the backend gets the intended model for THIS specific request.
         body: { selectedModel: modelForCurrentSubmissionRef.current } 
     });
 
-    if (showMobileInfoMessage) {
-        setShowMobileInfoMessage(false);
-    }
-    setTimeout(() => {
-      scrollToBottom();
-    }, 200);
+    if (showMobileInfoMessage) setShowMobileInfoMessage(false);
+    setTimeout(() => scrollToBottom(), 200);
   }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom]);
 
 
@@ -251,17 +235,14 @@ export default function Chat() {
             <div className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-3xl">
               <ProjectOverview />
               {isDesktop && (
-                <form
-                  onSubmit={handleSubmit} // This is the useCallback version
-                  className="w-full max-w-3xl mx-auto mt-6 "
-                >
+                <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto mt-6 ">
                   <CustomTextareaWrapper
-                    selectedModel={selectedModel}
-                    setSelectedModel={setSelectedModel} // This function will update selectedModel state
+                    selectedModel={selectedModel} // Pass current operation mode (resets to default after op)
+                    setSelectedModel={setSelectedModel} // Allow textarea to set next operation mode
                     handleInputChange={handleInputChange}
                     input={input}
-                    isLoading={uiIsLoading} // Pass the comprehensive loading state
-                    status={status} // Pass original status for UI like PauseIcon
+                    isLoading={uiIsLoading}
+                    status={status}
                     stop={stop}
                   />
                 </form>
@@ -331,18 +312,14 @@ export default function Chat() {
               </div>
             )}
             
-            <form
-              ref={textareaFormRef}
-              onSubmit={handleSubmit} // This is the useCallback version
-              className="w-full" 
-            >
+            <form ref={textareaFormRef} onSubmit={handleSubmit} className="w-full">
               <CustomTextareaWrapper
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 handleInputChange={handleInputChange}
                 input={input}
-                isLoading={uiIsLoading} // Pass the comprehensive loading state
-                status={status} // Pass original status for UI like PauseIcon
+                isLoading={uiIsLoading}
+                status={status}
                 stop={stop}
               />
             </form>
