@@ -675,7 +675,7 @@ const PurePreviewMessage = ({
                                           <button
                                             type="button"
                                             aria-label={expanded ? "Collapse message" : "Expand message"}
-                                            className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                            className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
                                             onClick={e => {
                                               e.stopPropagation();
                                               setExpanded(v => !v);
