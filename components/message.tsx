@@ -689,7 +689,7 @@ const PurePreviewMessage = ({
                                             )}
                                           </button>
                                         </TooltipTrigger>
-                                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={6} align="end">
+                                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">
                                           {expanded ? "Collapse message" : "Expand message"}
                                         </TooltipContent>
                                       </Tooltip>
