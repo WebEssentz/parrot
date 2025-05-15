@@ -615,9 +615,22 @@ const PurePreviewMessage = ({
                                     <TooltipContent side="bottom" className="select-none">Copy</TooltipContent>
                                   </Tooltip>
                                 ) : null}
+                                {/* === THIS IS THE USER MESSAGE BUBBLE TO STYLE === */}
                                 <div
-                                  className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-6 py-3 mt-2 rounded-full w-fit max-w-[60vw] sm:max-w-xs text-left"
-                                  style={{ minHeight: 40, lineHeight: '1.4' }}
+                                  className={cn(
+                                    "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
+                                    "px-5 py-3",     // Generous horizontal padding, standard vertical
+                                    "mt-2",
+                                    "rounded-2xl",    // Or rounded-3xl, or e.g. rounded-[22px]
+                                    "w-fit",
+                                    "max-w-[70vw] md:max-w-md", // Max widths
+                                    "text-left",
+                                    "break-words"
+                                  )}
+                                  style={{
+                                    minHeight: '40px',
+                                    lineHeight: '1.5'
+                                  }}
                                 >
                                   <Markdown>{part.text}</Markdown>
                                 </div>
