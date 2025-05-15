@@ -129,7 +129,7 @@ export const fetchUrlTool = tool({
   description: // UPDATED description
     "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries.",
   parameters: z.object({
-    url: z.string().url().describe("The URL to fetch and analyze"),
+    url: z.string().describe("The URL to fetch and analyze"), // Removed .url() for Gemini compatibility
     referer: z.string().optional().describe("The referring page, for multi-step navigation"),
     userIntent: z.string().optional().describe("The user's question or intent, for focused extraction, including data analysis requests like 'analyze the table'."),
   }),
@@ -163,7 +163,7 @@ export const fetchUrlTool = tool({
 
         try {
           steps.push('Step 2a: Sending image to Gemini for analysis.');
-          const geminiModel = google('gemini-2.5-pro-exp-03-25'); // Use a capable Gemini vision model
+          const geminiModel = google('gemini-2.0-flash'); // Use a capable Gemini vision model
           
           const analysisResult = await generateText({
             model: geminiModel,
@@ -372,7 +372,7 @@ export const googleSearchTool = tool({
   execute: async ({ query }) => {
     console.log(`googleSearchTool: Executing search for query: "${query}"`);
     try {
-      const modelInstance = google('gemini-2.5-pro-exp-03-25', { // User-provided model
+      const modelInstance = google('gemini-2.0-flash', { // User-provided model
         useSearchGrounding: true,
         dynamicRetrievalConfig: {
           mode: 'MODE_DYNAMIC',

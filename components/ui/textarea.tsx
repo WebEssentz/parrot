@@ -144,11 +144,10 @@ export function AttachButton({
 const REASON_MODEL = "qwen-qwq-32b";
 
 // Updated Textarea (ShadcnTextarea) definition
-function Textarea({ className, maxLength = 4000, rows = 1, ...props }: React.ComponentProps<"textarea"> & { rows?: number }) {
+function Textarea({ className, rows = 1, ...props }: React.ComponentProps<"textarea"> & { rows?: number }) {
   return (
     <textarea
       data-slot="textarea"
-      maxLength={maxLength}
       className={cn(
         // Existing styles
         "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex field-sizing-content min-h-10 w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",

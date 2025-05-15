@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { memo, useCallback, useEffect, useState, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { VoidTextRenderer } from "./void-text-renderer";
 import equal from "fast-deep-equal";
 
 import { Markdown } from "./markdown";
@@ -43,6 +42,22 @@ function SpinnerIcon() {
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
     </svg>
   );
+}
+
+// Show AI action icons on hover of any part of the AI message (desktop only).
+// The `data-ai-action` elements (which include the copy icon) are only rendered for AI messages on desktop.
+if (typeof window !== 'undefined') {
+  const styleId = 'ai-message-hover-style';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.innerHTML = `
+      .group\\/ai-message-hoverable:hover [data-ai-action] { /* Ensure opacity for elements with data-ai-action on hover of parent group */
+        opacity: 1 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
 // Utility to detect mobile
@@ -233,6 +248,8 @@ const PurePreviewMessage = ({
   status: "error" | "submitted" | "streaming" | "ready";
   isLatestMessage: boolean;
 }) => {
+  // Move useTheme to the top to ensure consistent hook order
+  const { theme } = useTheme ? useTheme() : { theme: undefined };
   // Extract sources from all text parts
   const allText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
   const sources = extractSourcesFromText(allText);
@@ -332,7 +349,7 @@ const PurePreviewMessage = ({
 
           {isAssistant ? (
             <div
-              className="w-full"
+              className="w-full group/ai-message-hoverable" // Apply group for hover effect over the entire AI message block
               style={{ marginLeft: 0, paddingLeft: 0 }}
             >
               <div className="flex flex-col space-y-4" style={{ alignItems: 'flex-start' }}>
@@ -465,37 +482,45 @@ const PurePreviewMessage = ({
                 })}
               </div>
               {/* Desktop: Action icons (copy, etc) at the left start of the AI message bubble, matching mobile layout */}
+              {/* Show copy icon row on desktop when hovering any part of the AI message */}
               {!isMobile && isAssistant && status === "ready" && (
-                <div className="w-full flex flex-row items-center mt-0 group/ai-message-action-row">
-                  <div
-                    className="flex items-center gap-0.5 p-0 select-none pointer-events-auto opacity-0 group-hover/ai-message-action-row:opacity-100 transition-opacity duration-300 delay-300"
-                  >
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Copy message"
-                          className="rounded-lg focus:outline-none flex h-[32px] w-[32px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                          style={{
-                            color: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? '#fff' : '#828282',
-                            background: 'transparent',
-                            marginTop: '-6px',
-                          }}
-                          onClick={handleCopy}
-                          onMouseLeave={() => setCopied(false)}
-                        >
-                          {copied ? (
-                            <CheckIcon style={{ color: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                          ) : (
-                            <CopyIcon style={{ color: (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                          )}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                    </Tooltip>
-                    {/* Future action icons can be added here, will align left */}
-                  </div>
-                </div>
+                (() => {
+                  const { theme } = useTheme();
+                  return (
+                    <div className="w-full flex flex-row items-center mt-0 relative"> {/* Removed group/ai-message-hoverable from here; it's now on the parent AI message block */}
+                      <div
+                        className="flex items-center gap-0.5 p-0 -mt-5 select-none pointer-events-auto opacity-0 transition-opacity duration-200 delay-75 ml-2"
+                        data-ai-action
+                        style={{ position: 'absolute', left: 0, top: 0 }}
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Copy message"
+                              className="rounded-lg focus:outline-none flex h-[32px] w-[32px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                              style={{
+                                color: theme === 'dark' ? '#fff' : '#828282',
+                                background: 'transparent',
+                                marginTop: '-6px',
+                              }}
+                              onClick={handleCopy}
+                              onMouseLeave={() => setCopied(false)}
+                            >
+                              {copied ? (
+                                <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                              ) : (
+                                <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                        </Tooltip>
+                        {/* Future action icons can be added here, will align left */}
+                      </div>
+                    </div>
+                  );
+                })()
               )}
               {/* Mobile: Copy icon always at the bottom, after the message bubble */}
               {isMobile && isAssistant && status === "ready" && (
@@ -519,89 +544,93 @@ const PurePreviewMessage = ({
             </div>
           ) : (
             <div className="flex flex-col w-full space-y-4">
-              {message.parts?.map((part, i) => {
-                switch (part.type) {
-                  case "text":
-                    const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-                    // This is the flag that determines if we should use the StreamingTextRenderer
-                    const isLatestActivelyStreamingTextPart =
-                      isAssistant &&
-                      status === "streaming" && // The overall stream is active (or this message's specific stream status)
-                      isLatestMessage &&        // This is the last message in the chat
-                      isEffectivelyLastPart;    // This is the current text part being streamed
+              {/* Get theme at the top of the component scope */}
+              {(() => {
+                const { theme } = useTheme();
+                return message.parts?.map((part, i) => {
+                  switch (part.type) {
+                    case "text":
+                      const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
+                      // This is the flag that determines if we should use the StreamingTextRenderer
+                      const isLatestActivelyStreamingTextPart =
+                        isAssistant &&
+                        status === "streaming" && // The overall stream is active (or this message's specific stream status)
+                        isLatestMessage &&        // This is the last message in the chat
+                        isEffectivelyLastPart;    // This is the current text part being streamed
 
-                    return (
-                      <motion.div
-                        initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
-                        animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
-                        transition={{ duration: 0.2 }}
-                        key={`message-${message.id}-part-${i}`}
-                        className="flex flex-row items-start w-full pb-4"
-                      >
-                        <div
-                          className="flex flex-col gap-4 px-4 py-2 w-full" // Added w-full for consistency
-                          style={{
-                            marginLeft: 0,
-                            alignItems: 'flex-start',
-                            background: 'none',
-                            border: 'none',
-                            boxShadow: 'none',
-                          }}
+                      return (
+                        <motion.div
+                          initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
+                          animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
+                          transition={{ duration: 0.2 }}
+                          key={`message-${message.id}-part-${i}`}
+                          className="flex flex-row items-start w-full pb-4"
                         >
-                          {isLatestActivelyStreamingTextPart ? (
-                            <StreamingTextRenderer
-                              animationStyle="typewriter"
-                              fullText={part.text}
-                              wordSpeed={20}
-                            />
-                          ) : (
-                            // Render full Markdown for:
-                            // - User messages
-                            // - Assistant messages that are not the latest actively streaming part
-                            // - The final "ready" state of any assistant message part
-                            <div className="group/user-message w-fit mx-auto flex flex-row items-center gap-2 relative">
-                              {/* Copy icon to the left of the user message (desktop only) */}
-                              {!isMobile ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      aria-label="Copy message"
-                                      className="opacity-0 group-hover/user-message:opacity-100 transition-opacity duration-200 rounded-full p-2 flex items-center justify-center select-none border-none shadow-none bg-transparent cursor-pointer"
-                                      style={{ background: 'none', border: 'none', boxShadow: 'none', marginRight: 4 }}
-                                      onClick={() => {
-                                        copyToClipboard(part.text);
-                                        setCopied(true);
-                                        if (copyTimeout.current) clearTimeout(copyTimeout.current);
-                                        copyTimeout.current = setTimeout(() => setCopied(false), 1000);
-                                      }}
-                                      onMouseLeave={() => setCopied(false)}
-                                    >
-                                      {copied ? (
-                                        <CheckIcon style={{ color: typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                      ) : (
-                                        <CopyIcon style={{ color: typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                      )}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" className="select-none">Copy</TooltipContent>
-                                </Tooltip>
-                              ) : null}
-                              <div
-                                className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 rounded-2xl w-fit max-w-full sm:max-w-2xl"
-                                style={{ minHeight: 44 }}
-                              >
-                                <Markdown>{part.text}</Markdown>
+                          <div
+                            className="flex flex-col gap-4 px-4 py-2 w-full" // Added w-full for consistency
+                            style={{
+                              marginLeft: 0,
+                              alignItems: 'flex-start',
+                              background: 'none',
+                              border: 'none',
+                              boxShadow: 'none',
+                            }}
+                          >
+                            {isLatestActivelyStreamingTextPart ? (
+                              <StreamingTextRenderer
+                                animationStyle="typewriter"
+                                fullText={part.text}
+                                wordSpeed={20}
+                              />
+                            ) : (
+                              // Render full Markdown for:
+                              // - User messages
+                              // - Assistant messages that are not the latest actively streaming part
+                              // - The final "ready" state of any assistant message part
+                              <div className="group/user-message w-fit mx-auto flex flex-row items-center gap-2 relative">
+                                {/* Copy icon to the left of the user message (desktop only) */}
+                                {!isMobile ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        aria-label="Copy message"
+                                        className="opacity-0 group-hover/user-message:opacity-100 transition-opacity duration-200 rounded-full p-2 flex items-center justify-center select-none border-none shadow-none bg-transparent cursor-pointer"
+                                        style={{ background: 'none', border: 'none', boxShadow: 'none', marginRight: 4 }}
+                                        onClick={() => {
+                                          copyToClipboard(part.text);
+                                          setCopied(true);
+                                          if (copyTimeout.current) clearTimeout(copyTimeout.current);
+                                          copyTimeout.current = setTimeout(() => setCopied(false), 1000);
+                                        }}
+                                        onMouseLeave={() => setCopied(false)}
+                                      >
+                                        {copied ? (
+                                          <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#000', transition: 'all 0.2s' }} />
+                                        ) : (
+                                          <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#000', transition: 'all 0.2s' }} />
+                                        )}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="select-none">Copy</TooltipContent>
+                                  </Tooltip>
+                                ) : null}
+                                <div
+                                  className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 pt-5 mt-2 rounded-3xl w-fit max-w-full sm:max-w-2xl"
+                                  style={{ minHeight: 44 }}
+                                >
+                                  <Markdown>{part.text}</Markdown>
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  default:
-                    return null;
-                }
-              })}
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    default:
+                      return null;
+                  }
+                });
+              })()}
             </div>
           )}
         </div>

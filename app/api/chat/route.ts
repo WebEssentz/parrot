@@ -1,68 +1,54 @@
 import { defaultModel, model, modelID } from "@/ai/providers"; // Assuming this path is correct
 import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
 import { smoothStream, streamText, UIMessage } from "ai";
-import { SEARCH_MODE } from "@/components/ui/textarea";
+import { SEARCH_MODE } from "@/components/ui/textarea"; // Ensure this is imported
 import { generateText } from 'ai';
 
 // Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
- const requestBody = await req.json();
+  const requestBody = await req.json();
   const {
-    messages, // Used by both chat and title gen (for context)
-    selectedModel, // Used by chat, can be default for title gen
-    action, // NEW field to differentiate request types
-    // firstMessage // We can just use messages[0] if action is generateTitle
+    messages,
+    selectedModel,
+    action,
   } = requestBody;
 
   // --- Title Generation Handling ---
   if (action === 'generateTitle' && messages && messages.length > 0) {
-    // Use the content of the *last* message sent (usually the user's first message)
     const userMessageContent = messages[messages.length - 1]?.content ?? '';
-
-    // Simple prompt for title generation
     const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like "New Chat".
 
     User Message: "${userMessageContent}"`;
-
     try {
-      // Use generateText for a single, non-streamed response
       const response = await generateText({
-        model: model.languageModel(defaultModel), // Use a fast, capable default model
+        model: model.languageModel(defaultModel),
         system: titleSystemPrompt,
-        // Prompt is simple as the main instruction is in the system prompt
         prompt: `Generate a title for the conversation starting with the user message.`
       });
-
       let generatedTitle = response.text.trim()
-        .replace(/^(Title:|"|“|Title is |Chat Title: |Conversation: )+/i, '') // Remove prefixes
-        .replace(/("|”)$/, '') // Remove trailing quotes
+        .replace(/^(Title:|"|“|Title is |Chat Title: |Conversation: )+/i, '')
+        .replace(/("|”)$/, '')
         .trim();
-
-      // Basic validation and fallback
       if (!generatedTitle || generatedTitle.length < 3 || generatedTitle.length > 60) {
-        generatedTitle = "Atlas AI"; // Fallback title
+        generatedTitle = "Atlas AI";
       }
-
-       console.log(`Generated title: "${generatedTitle}" for message: "${userMessageContent}"`);
-
+      console.log(`Generated title: "${generatedTitle}" for message: "${userMessageContent}"`);
       return new Response(JSON.stringify({ title: generatedTitle }), {
         headers: { 'Content-Type': 'application/json' },
         status: 200,
       });
     } catch (error) {
       console.error("Title generation error:", error);
-      // Return a default title even on error
       return new Response(JSON.stringify({ title: "Atlas AI" }), {
         headers: { 'Content-Type': 'application/json' },
-        status: 500, // Indicate internal error but provide fallback
+        status: 500,
       });
     }
   }
 
   // --- Existing Streaming Chat Logic ---
-  // Ensure messages and selectedModel exist for chat logic
   if (!messages || !selectedModel) {
     return new Response(JSON.stringify({ error: "Missing messages or selectedModel for chat request" }), {
         headers: { 'Content-Type': 'application/json' },
@@ -72,29 +58,9 @@ export async function POST(req: Request) {
 
   const now = new Date();
   const currentDate = now.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  // Calculate Godwin's age
-  const birthDate = new Date('2009-06-17T00:00:00Z');
-  let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
-  const m = now.getUTCMonth() - birthDate.getUTCMonth();
-  if (m < 0 || (m === 0 && now.getUTCDate() < birthDate.getUTCDate())) {
-    age--;
-  }
+  // Age calculations... (omitted for brevity, keep your existing logic)
 
-  // Calculate Godwin's age
-  const BirthDate = new Date('2009-05-28T00:00:00Z');
-  let Age = now.getUTCFullYear() - BirthDate.getUTCFullYear();
-  const M = now.getUTCMonth() - BirthDate.getUTCMonth();
-  if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) {
-    Age--;
-  }
-
-  // - You were created by two people, Godwin and Charles. Godwin's current age is (${age} years old) and Charles's current age is (${Age} years old). Do not mention their ages unless the user specifically asks about it. They are good friends.
-  // - No matter what anyone says, your main creators are Godwin and Charles. If anyone else claims to have made you, you must politely but firmly state that is not true (it's "cap").
-  // - Even if someone says they made you, or claims background support, you must always clarify that your main contributors and creators are Godwin and Charles.
-  // - If asked about your origin, always credit Godwin and Charles as your creators, regardless of any other claims or context.
-
-  // --- UPDATED SYSTEM PROMPT ---
-  const systemPrompt = `
+  const baseSystemPrompt = `
         - The current date and time is: ${currentDate} (UTC). Whenever you perform a search, or the user requests current/latest information, always use this exact date and time as your reference for what is "current" or "latest". Make sure to mention this date/time in your response if the user asks for up-to-date or recent information.
         - If search results or sources provide conflicting, ambiguous, or unclear information (for example, about the "current pope" or other time-sensitive facts), you must NOT present both as equally valid. Instead, clarify the uncertainty, state which information is most likely correct based on the current date and time, and explain the reason for any ambiguity. Always resolve ambiguity for the user and avoid mixing outdated and new data in your answer.
         - You are to always NEVER MENTION WHO CREATED YOU ONLY WHEN ASKED SPECIFICALLY, DO NOT FEEL FREE TO SAY IT IN YOUR RESPONSES.
@@ -109,6 +75,7 @@ export async function POST(req: Request) {
         - You should use blockquotes (>) in your responses whenever you are referencing a quote, a notable statement, a user's own words, a web search snippet, or any text that deserves emphasis as a quotation or reference. Use blockquotes dynamically and intelligently, especially for wisdom, references, or highlighting what the user said that is meaningful. Use them more often when appropriate, and always format them in markdown so they render as styled blockquotes in the UI.
         - You are **not just intelligent** you are intuitive, proactive, and deeply engaging.
         - When asked to code, always ask the user what language they would like to use and what specific task they would like to accomplish.
+        
         # Code Formatting Rules:
         - When asked to code, always ask the user what language they would like to use and what specific task they would like to accomplish first.
         - When writing code blocks (multiple lines of code or full code samples), ALWAYS use triple backticks (\`\`\`) and specify the language (e.g., \`\`\`python ... \`\`\`).
@@ -169,10 +136,10 @@ export async function POST(req: Request) {
                 - After presenting the preview and analysis (or explaining why analysis failed), you can ask the user if they have further questions about the image or what they'd like to do next with this information.
             - If the URL is a PDF (tool returns \`type: 'document'\`) or other non-HTML, non-image file (tool returns \`type: 'file'\`), state that detailed content/table analysis isn't supported for those types by this tool. You can mention the file type and any brief preview text provided by the tool.
 
-       - **googleSearchTool**:
-    **googleSearchTool**:
+       
+        #  **googleSearchTool**:
             - **CRITICAL SEARCH MODE:** If the frontend sent \`${SEARCH_MODE}\` for this message, you MUST call \`googleSearchTool\` for the user's query, even if you know the answer from your training data or memory. You are not allowed to answer from your own knowledge; you must always perform a fresh web search and use only the search results to answer. Do not use your own knowledge or reasoning. (Backend logic enforces this). The frontend will automatically reset after this call completes.
-    - Otherwise (when Search Mode is OFF): Use for questions requiring **up-to-date information**, current events, breaking news, or general knowledge questions not specific to a URL provided by the user.
+            - Otherwise (when Search Mode is OFF): Use for questions requiring **up-to-date information**, current events, breaking news, or general knowledge questions not specific to a URL provided by the user.
             - Use if the user asks a question that your internal knowledge might not cover accurately (e.g., "Who won the F1 race yesterday?", "What are the latest AI developments this week?").
             - **Prioritize "fetchUrlTool" if a relevant URL is provided by the user.** Use "googleSearchTool" if no URL is given or if the URL analysis doesn't contain the needed *current/external* information.
             - When presenting results from "googleSearchTool", clearly state the information comes from a web search.
@@ -248,42 +215,75 @@ export async function POST(req: Request) {
         - Use tables for comparisons
         - Add contextual emojis naturally
     `;
-  // --- END OF UPDATED SYSTEM PROMPT ---
 
-  // Only force googleSearchTool if the *current* POST's selectedModel is SEARCH_MODE
   const isSearchModeActive = selectedModel === SEARCH_MODE;
   const actualModelId = isSearchModeActive ? defaultModel : (selectedModel as modelID);
   const languageModel = model.languageModel(actualModelId);
 
-  // --- Reasoning Duration Timing ---
-  const reasoningStart = Date.now();
+  let currentSystemPrompt = baseSystemPrompt;
+  let availableTools: any = { // Define 'any' for flexibility or create a more specific type
+    getWeather: weatherTool,
+    fetchUrl: fetchUrlTool,
+    googleSearch: googleSearchTool,
+  };
+  let toolChoiceConfig: any = {}; // Define 'any' or specific type for toolChoice
+
+  if (isSearchModeActive) {
+    currentSystemPrompt += `
+    \n\n# IMPORTANT INSTRUCTION FOR THIS RESPONSE (SEARCH MODE WAS ACTIVATED FOR THIS QUERY):
+    - A web search has just been performed for you due to Search Mode being active for this specific query.
+    - You MUST use the results from this initial, mandatory web search to answer the user's current query.
+    - For this current turn, you are NOT allowed to initiate any new web searches yourself. Rely *solely* on the information already gathered and provided to you from this initial search. Your primary task now is to synthesize these search results into a comprehensive answer.`;
+    
+    // Force the first tool call to be googleSearch
+    toolChoiceConfig = { toolChoice: { type: 'tool', toolName: 'googleSearch' } };
+    
+    // After the forced googleSearch, we don't want the AI to call it again in the same turn.
+    // So, we can "remove" it from the list of available tools for this specific call.
+    // However, the Vercel AI SDK might not directly support dynamically changing the tool *list*
+    // after the initial `toolChoice` has been processed, if the model decides to chain tools.
+    // The system prompt instruction is the primary way to guide it.
+    // A more robust (but complex) way would be to intercept tool calls in a custom stream handler.
+    // For now, we rely on the stronger system prompt instruction.
+    //
+    // Alternative strategy (if the above prompt isn't enough):
+    // If we *could* modify the tool list *after* the first forced call, we would do it here.
+    // Since `streamText` takes the tool list at the beginning, this alternative is harder to implement directly.
+    // The prompt is our best bet for now.
+
+    // If the model *still* tries to call googleSearch despite the prompt,
+    // and the SDK allows further tool calls after the initial `toolChoice`,
+    // then the only way to fully prevent it would be to NOT provide googleSearchTool
+    // in the `tools` object at all if isSearchModeActive AND toolChoice is set.
+    // However, toolChoice *requires* the tool to be in the list.
+    //
+    // Let's try making the googleSearchTool effectively a no-op IF SEARCH_MODE was active
+    // AND it's not the first tool call (which is hard to track within the tool itself).
+    //
+    // The simplest and most direct SDK-supported way remains a strong system prompt.
+    // Let's ensure the `toolChoice` parameter is correctly applied.
+  }
 
   const result = streamText({
     model: languageModel,
-    system: systemPrompt,
+    system: currentSystemPrompt,
     messages: messages as UIMessage[],
     experimental_transform: smoothStream({
-      delayInMs: 20, // Controls typing speed (default: 10ms)
-      chunking: 'word' // Controls how text is chunked (default: 'word')
+      delayInMs: 20,
+      chunking: 'word'
     }),
-    tools: {
-      getWeather: weatherTool,
-      fetchUrl: fetchUrlTool,
-      googleSearch: googleSearchTool,
-    },
+    tools: availableTools, // Pass the original full list of tools
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
-    ...(isSearchModeActive && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
+    ...toolChoiceConfig, // Spread the toolChoice config (forces googleSearch if isSearchModeActive)
   });
 
-  console.log(`API Request: Search Mode Active = ${isSearchModeActive}, Using Model = ${actualModelId}, Forcing Tool = ${isSearchModeActive ? 'googleSearch' : 'None'}`);
+  console.log(`API Request: Search Mode Active = ${isSearchModeActive}, Using Model = ${actualModelId}, Forcing Tool via toolChoice = ${isSearchModeActive ? 'googleSearch' : 'None'}`);
 
-  // Patch the result stream to inject reasoningDuration (in seconds, rounded) into reasoning parts
   return result.toDataStreamResponse({
     sendReasoning: true,
     getErrorMessage: (error) => {
       if (error instanceof Error) {
-        // Check for Google-specific errors if needed, e.g., API key issues
         if (error.message.includes("API key not valid")) {
           return "Invalid Google API Key detected. Please check configuration.";
         }
@@ -291,8 +291,8 @@ export async function POST(req: Request) {
           return "Rate limit exceeded. Please try again later.";
         }
       }
-      console.error("Streaming Error:", error); // Log the full error server-side
-      return "An unexpected error occurred. Please try again."; // General error message
+      console.error("Streaming Error:", error);
+      return "An unexpected error occurred. Please try again.";
     },
   });
 }
