@@ -1,9 +1,13 @@
+"use client"; // Ensure this is at the top if it's a client component
+
 import * as React from "react"
-import type { modelID } from "@/ai/providers";
-import { defaultModel } from "@/ai/providers";
+// import type { modelID } from "@/ai/providers"; // Not directly used here
+import { defaultModel } from "@/ai/providers"; // Not directly used here, but SEARCH_MODE uses it
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils"
-import { Paperclip } from "lucide-react"; // Import Paperclip icon for AttachButton
+import { Paperclip } from "lucide-react";
+
+export const SEARCH_MODE = "__search_mode__"; // Ensure this is consistently defined
 
 // Custom Search SVG icon
 function SearchIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement>) {
@@ -27,18 +31,18 @@ function SearchIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement>)
   );
 }
 
-export const SEARCH_MODE = "__search_mode__";
 export function SearchButton({
   isSearchEnabled,
   setIsSearchEnabled,
+  disabled, // Added disabled prop
 }: {
   isSearchEnabled: boolean;
   setIsSearchEnabled: (enabled: boolean) => void;
+  disabled?: boolean; // Optional disabled prop
 }) {
   const isSearching = isSearchEnabled;
-
-  // Responsive: icon-only on mobile/tablet (<1024px), icon+text on desktop (>=1024px)
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
+
   React.useEffect(() => {
     const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
     check();
@@ -46,10 +50,11 @@ export function SearchButton({
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Toggle logic: independent
   const handleClick = () => {
+    if (disabled) return; // Do nothing if disabled
     setIsSearchEnabled(!isSearching);
   };
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -57,30 +62,25 @@ export function SearchButton({
           type="button"
           aria-pressed={isSearching}
           onClick={handleClick}
-          className={
-            cn(
-              // Increased height, padding, and added desktop margin
-              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5",
-              isSearching
-                ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
-                : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              // Removed "!isMobileOrTablet && "ml-2"" as it's no longer the first button in all layouts
-              // Spacing will be handled by the parent flex container's gap property.
-            )
-          }
+          disabled={disabled} // Apply disabled state
+          className={cn(
+            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5",
+            isSearching && !disabled // Apply active styles only if not disabled
+              ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
+              : "hover:bg-zinc-100 dark:hover:bg-zinc-800",
+            disabled ? "opacity-50 cursor-not-allowed" : "" // Styles for disabled state
+          )}
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
           data-testid="composer-button-search"
           aria-label="Search"
         >
           <SearchIcon
-            className={
-              cn(
-                "h-[18px] w-[18px]",
-                isSearching
-                  ? "text-[#1e93ff]"
-                  : "text-zinc-400"
-              )
-            }
+            className={cn(
+              "h-[18px] w-[18px]",
+              isSearching && !disabled // Apply active styles only if not disabled
+                ? "text-[#1e93ff]"
+                : "text-zinc-400"
+            )}
           />
           {!isMobileOrTablet && (
             <span className="ml-1 font-medium text-sm">Search</span>
@@ -88,7 +88,7 @@ export function SearchButton({
         </button>
       </TooltipTrigger>
       <TooltipContent side={isMobileOrTablet ? "top" : "bottom"} className="select-none">
-        Search the web
+        {disabled ? "Processing..." : "Search the web"}
       </TooltipContent>
     </Tooltip>
   );
@@ -96,8 +96,10 @@ export function SearchButton({
 
 export function AttachButton({
   onClick,
+  disabled, // Added disabled prop
 }: {
   onClick?: () => void;
+  disabled?: boolean; // Optional disabled prop
 }) {
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
   React.useEffect(() => {
@@ -113,10 +115,11 @@ export function AttachButton({
         <button
           type="button"
           onClick={onClick}
+          disabled={disabled} // Apply disabled state
           className={cn(
-            // Add negative margin to shift left
             "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5 -ml-2 sm:-ml-2",
-            "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            "hover:bg-zinc-100 dark:hover:bg-zinc-800",
+            disabled ? "opacity-50 cursor-not-allowed" : "" // Styles for disabled state
           )}
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
           data-testid="composer-button-attach"
@@ -134,33 +137,29 @@ export function AttachButton({
         </button>
       </TooltipTrigger>
       <TooltipContent side={isMobileOrTablet ? "top" : "bottom"} className="select-none">
-        Upload files and more
+        {disabled ? "Processing..." : "Upload files and more"}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-
+// Ensure REASON_MODEL is defined if used, or remove if not relevant to this file
 const REASON_MODEL = "qwen-qwq-32b";
 
-// Updated Textarea (ShadcnTextarea) definition
+// Textarea (ShadcnTextarea) definition
 function Textarea({ className, rows = 1, ...props }: React.ComponentProps<"textarea"> & { rows?: number }) {
   return (
     <textarea
       data-slot="textarea"
       className={cn(
-        // Existing styles
         "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex field-sizing-content min-h-10 w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        // Glassy background for both light and dark
         "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50",
-        // Subtle shadow for scroll effect
         "shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] dark:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
-        // Enable vertical scroll when overflowing
         "overflow-y-auto overscroll-auto",
         className
       )}
-      style={{ ...props.style, maxHeight: 320 }}
-      {...props}
+      style={{ ...props.style, maxHeight: 320 }} // Ensure this maxHeight is appropriate
+      {...props} // Spread other props like value, onChange, disabled
     />
   )
 }
@@ -170,24 +169,27 @@ export function ReasonButton({
   isReasonEnabled,
   setIsReasonEnabled,
   hideTextOnMobile,
+  disabled, // Added disabled prop
 }: {
   isReasonEnabled: boolean;
   setIsReasonEnabled: (enabled: boolean) => void;
   hideTextOnMobile?: boolean;
+  disabled?: boolean; // Optional disabled prop
 }) {
   const isReasoning = isReasonEnabled;
-
-  const handleClick = () => {
-    setIsReasonEnabled(!isReasoning);
-  };
-
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
+
   React.useEffect(() => {
     const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
+
+  const handleClick = () => {
+    if (disabled) return; // Do nothing if disabled
+    setIsReasonEnabled(!isReasoning);
+  };
 
   return (
     <Tooltip>
@@ -196,12 +198,14 @@ export function ReasonButton({
           type="button"
           aria-pressed={isReasoning}
           onClick={handleClick}
+          disabled={disabled} // Apply disabled state
           className={
             cn(
-              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full  text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2",
-              isReasoning
+              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2",
+              isReasoning && !disabled // Apply active styles only if not disabled
                 ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
-                : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                : "hover:bg-zinc-100 dark:hover:bg-zinc-800",
+              disabled ? "opacity-50 cursor-not-allowed" : "" // Styles for disabled state
             )
           }
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 36 : 0 }}
@@ -215,7 +219,7 @@ export function ReasonButton({
             className={
               cn(
                 "h-[18px] w-[18px]",
-                isReasoning
+                isReasoning && !disabled // Apply active styles only if not disabled
                   ? "fill-[#1e93ff] text-[#1e93ff]"
                   : "fill-none text-zinc-400"
               )
@@ -224,7 +228,7 @@ export function ReasonButton({
             <path
               d="m12 3c-3.585 0-6.5 2.9225-6.5 6.5385 0 2.2826 1.162 4.2913 2.9248 5.4615h7.1504c1.7628-1.1702 2.9248-3.1789 2.9248-5.4615 0-3.6159-2.915-6.5385-6.5-6.5385zm2.8653 14h-5.7306v1h5.7306v-1zm-1.1329 3h-3.4648c0.3458 0.5978 0.9921 1 1.7324 1s1.3866-0.4022 1.7324-1zm-5.6064 0c0.44403 1.7252 2.0101 3 3.874 3s3.43-1.2748 3.874-3c0.5483-0.0047 0.9913-0.4506 0.9913-1v-2.4593c2.1969-1.5431 3.6347-4.1045 3.6347-7.0022 0-4.7108-3.8008-8.5385-8.5-8.5385-4.6992 0-8.5 3.8276-8.5 8.5385 0 2.8977 1.4378 5.4591 3.6347 7.0022v2.4593c0 0.5494 0.44301 0.9953 0.99128 1z"
               clipRule="evenodd"
-              fill={isReasoning ? "#1e93ff" : "currentColor"}
+              fill={(isReasoning && !disabled) ? "#1e93ff" : "currentColor"} // Adjusted fill for disabled state
               fillRule="evenodd"
             />
           </svg>
@@ -234,7 +238,7 @@ export function ReasonButton({
         </button>
       </TooltipTrigger>
       <TooltipContent side={isMobileOrTablet ? "top" : "bottom"} className="select-none">
-        Think before responding
+        {disabled ? "Processing..." : "Think before responding"}
       </TooltipContent>
     </Tooltip>
   );

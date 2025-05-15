@@ -1,19 +1,18 @@
-// src/app/chat.tsx
 "use client";
 
-import { useMobile } from "../hooks/use-mobile";
+import { useMobile } from "../hooks/use-mobile"; // Assuming path
 import { defaultModel } from "@/ai/providers";
-import { SEARCH_MODE } from "@/components/ui/textarea"; // Make sure this path is correct
+import { SEARCH_MODE } from "@/components/ui/textarea"; // Ensure this is the correct path
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState } from "react";
-import { Textarea } from "./textarea"; // Make sure this path is correct
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Textarea as CustomTextareaWrapper } from "./textarea"; // Renamed to avoid confusion with Shadcn Textarea
 import { ProjectOverview } from "./project-overview";
 import { Messages } from "./messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "./header";
 import React from "react";
 import { toast } from "sonner";
-import { DiscordIconSvg, Github, InstagramIcon, LinkedInIcon, XIcon } from "./icons";
+import { DiscordIconSvg, Github, InstagramIcon, LinkedInIcon, XIcon } from "./icons"; // Assuming path
 
 async function generateAndSetTitle(firstUserMessageContent: string) {
   try {
@@ -29,7 +28,7 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
     const data = await response.json();
     if (data.title) {
       document.title = data.title;
-      console.log("Chat title updated to:", data.title);
+      // console.log("Chat title updated to:", data.title);
     }
   } catch (error) {
     console.error("Error generating title:", error);
@@ -41,14 +40,19 @@ export default function Chat() {
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
   const titleGeneratedRef = useRef(false);
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
-  const inputAreaRef = useRef<HTMLDivElement>(null); // Ref for the entire fixed bottom area
+  const inputAreaRef = useRef<HTMLDivElement>(null);
 
   const [isDesktop, setIsDesktop] = useState<undefined | boolean>(undefined);
   const [showMobileInfoMessage, setShowMobileInfoMessage] = useState(false);
   const [hasShownMobileInfoMessageOnce, setHasShownMobileInfoMessageOnce] = useState(false);
 
   const textareaFormRef = useRef<HTMLFormElement>(null);
-  const [textareaComputedHeight, setTextareaComputedHeight] = useState(0); // Store measured height of textarea form
+  const [textareaComputedHeight, setTextareaComputedHeight] = useState(0);
+
+  const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
+  // This ref will store the model intended for the CURRENT submission
+  const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
+
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
@@ -62,7 +66,7 @@ export default function Chat() {
     input,
     handleInputChange,
     handleSubmit: originalHandleSubmit,
-    status,
+    status, // 'idle', 'submitted', 'streaming', 'error'
     stop,
     setMessages,
     reload,
@@ -70,20 +74,27 @@ export default function Chat() {
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
-    body: { selectedModel },
+    // The `body` here uses the `selectedModel` state.
+    // We will override this with `modelForCurrentSubmissionRef` specifically when calling `originalHandleSubmit`.
+    body: { selectedModel }, 
     initialMessages: [],
-    onFinish: () => {
-      if (selectedModel === SEARCH_MODE) {
-        setSelectedModel(defaultModel);
-      }
+    onFinish: (_message, _options) => {
+      // console.log("useChat: onFinish. Resetting selectedModel from:", selectedModel, "to defaultModel. Clearing isSubmittingSearch.");
+      setSelectedModel(defaultModel); 
+      setIsSubmittingSearch(false);
+      modelForCurrentSubmissionRef.current = defaultModel;
     },
     onError: (error) => {
       toast.error(
-        error.message.length > 0
+        error.message && error.message.length > 0
           ? error.message
           : "An error occurred, please try again later.",
         { position: "top-center", richColors: true },
       );
+      console.error("useChat: onError. Resetting selectedModel and isSubmittingSearch.", error);
+      setSelectedModel(defaultModel);
+      setIsSubmittingSearch(false);
+      modelForCurrentSubmissionRef.current = defaultModel;
     },
   });
 
@@ -99,18 +110,51 @@ export default function Chat() {
     }
   }, [messages]);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    originalHandleSubmit(e);
+    // console.log(`handleSubmit: Current selectedModel (state): ${selectedModel}, isSubmittingSearch: ${isSubmittingSearch}, input: "${input}"`);
+
+    if (!input.trim()) {
+      // console.log("handleSubmit: Input is empty, aborting.");
+      return;
+    }
+    
+    // Determine the model to use for *this* specific submission
+    // This should be based on the `selectedModel` state at the moment of this function call.
+    const modelForThisSubmit = selectedModel;
+    modelForCurrentSubmissionRef.current = modelForThisSubmit; // Store it in the ref
+
+    if (modelForThisSubmit === SEARCH_MODE) {
+      if (isSubmittingSearch) {
+        // console.warn("handleSubmit: Search submission (SEARCH_MODE) already in progress (isSubmittingSearch is true). New submission blocked.");
+        return;
+      }
+      // console.log("handleSubmit: Initiating SEARCH_MODE submission. Setting isSubmittingSearch to true.");
+      setIsSubmittingSearch(true); // Set flag specifically for search
+    } else if (isSubmittingSearch && modelForCurrentSubmissionRef.current === SEARCH_MODE) {
+        // This case should ideally not be hit if the above check for SEARCH_MODE is comprehensive
+        // but acts as a safeguard: if we somehow think we're submitting non-search but a search is flagged.
+        // console.warn("handleSubmit: A search is flagged (isSubmittingSearch), but current model is not SEARCH_MODE. Blocking to prevent conflict.");
+        return;
+    }
+
+
+    // console.log(`handleSubmit: Proceeding with submission. Model for this call (from ref): ${modelForCurrentSubmissionRef.current}`);
+    originalHandleSubmit(e, {
+        // Pass the model that was determined *at the start of this handleSubmit call*
+        // This ensures the backend gets the intended model for THIS specific request.
+        body: { selectedModel: modelForCurrentSubmissionRef.current } 
+    });
+
     if (showMobileInfoMessage) {
         setShowMobileInfoMessage(false);
     }
     setTimeout(() => {
       scrollToBottom();
     }, 200);
-  };
+  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom]);
 
-  // Effect for measuring the height of the entire fixed input area (for scroll padding)
+
   useEffect(() => {
     const measureAndUpdateHeight = () => {
       if (inputAreaRef.current) {
@@ -118,12 +162,11 @@ export default function Chat() {
         setInputAreaHeight(newHeight);
       }
     };
-    measureAndUpdateHeight(); // Initial measurement
+    measureAndUpdateHeight();
     const observer = new ResizeObserver(measureAndUpdateHeight);
     if (inputAreaRef.current) {
       observer.observe(inputAreaRef.current);
     }
-    // Also listen to window resize for broader layout changes
     window.addEventListener('resize', measureAndUpdateHeight);
     return () => {
       if (inputAreaRef.current) {
@@ -132,9 +175,8 @@ export default function Chat() {
       observer.disconnect();
       window.removeEventListener('resize', measureAndUpdateHeight);
     };
-  }, [showMobileInfoMessage]); // Re-measure when banner visibility changes, as it affects total height
+  }, [showMobileInfoMessage]);
 
-  // Effect for managing the mobile/tablet info message visibility
   useEffect(() => {
     const onMobileOrTablet = typeof isDesktop !== 'undefined' && !isDesktop;
     if (onMobileOrTablet) {
@@ -158,14 +200,13 @@ export default function Chat() {
     }
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
 
-  // Effect for measuring the height of the textarea form to apply to the banner
   useEffect(() => {
     const measureTextareaFormHeight = () => {
       if (textareaFormRef.current) {
         setTextareaComputedHeight(textareaFormRef.current.offsetHeight);
       }
     };
-    measureTextareaFormHeight(); // Measure initially and when input changes (textarea might grow)
+    measureTextareaFormHeight();
     const observer = new ResizeObserver(measureTextareaFormHeight);
     if (textareaFormRef.current) {
       observer.observe(textareaFormRef.current);
@@ -178,16 +219,14 @@ export default function Chat() {
       observer.disconnect();
       window.removeEventListener('resize', measureTextareaFormHeight);
     };
-  }, [input]); // Re-measure if input changes, as textarea might auto-grow
+  }, [input]);
 
+  // isLoading state for disabling UI elements.
+  // It's true if the chat is generally active OR if we've specifically flagged a search is submitting.
+  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
 
-  const isLoading = status === "streaming" || status === "submitted";
-
-  // Buffer for input area for mobile and tablet
-  // Use useMobile hook to detect mobile/tablet and adjust buffer accordingly
- 
   const isMobileOrTablet = useMobile();
-  const bufferForInputArea = isMobileOrTablet ? 200 : 100; // Increase buffer for mobile/tablet
+  const bufferForInputArea = isMobileOrTablet ? 200 : 100;
   const currentYear = new Date().getFullYear();
 
   return (
@@ -213,16 +252,16 @@ export default function Chat() {
               <ProjectOverview />
               {isDesktop && (
                 <form
-                  onSubmit={handleSubmit}
+                  onSubmit={handleSubmit} // This is the useCallback version
                   className="w-full max-w-3xl mx-auto mt-6 "
                 >
-                  <Textarea
+                  <CustomTextareaWrapper
                     selectedModel={selectedModel}
-                    setSelectedModel={setSelectedModel}
+                    setSelectedModel={setSelectedModel} // This function will update selectedModel state
                     handleInputChange={handleInputChange}
                     input={input}
-                    isLoading={isLoading}
-                    status={status}
+                    isLoading={uiIsLoading} // Pass the comprehensive loading state
+                    status={status} // Pass original status for UI like PauseIcon
                     stop={stop}
                   />
                 </form>
@@ -254,27 +293,30 @@ export default function Chat() {
             </div>
           </div>
         ) : (
-          <Messages messages={messages} isLoading={isLoading} status={status as any} endRef={endRef as React.RefObject<HTMLDivElement>} />
+          <Messages
+            messages={messages}
+            isLoading={uiIsLoading} // Pass comprehensive loading state
+            status={status as any} // Pass original status for detailed UI states in Messages
+            endRef={endRef as React.RefObject<HTMLDivElement>}
+          />
         )}
         <div ref={endRef as React.RefObject<HTMLDivElement>} style={{ height: 1 }} />
       </div>
 
-      {/* FIXED INPUT AREA CONTAINER */}
       {(typeof isDesktop === "undefined") ? null : (!isDesktop || messages.length > 0) && (
         <div
-          ref={inputAreaRef} // This ref measures the height of the entire content here
+          ref={inputAreaRef}
           className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
         >
           <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4">
-            {/* Mobile/Tablet Info Message - Positioned ABOVE the form */}
             {showMobileInfoMessage && (
               <div
                 className="text-left text-xs text-zinc-700 dark:text-zinc-400 mb-2 mx-0.5 p-3 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl flex flex-col justify-center"
                 style={{
-                  minHeight: textareaComputedHeight > 0 ? `${textareaComputedHeight}px` : 'auto', // Match textarea height
+                  minHeight: textareaComputedHeight > 0 ? `${textareaComputedHeight}px` : 'auto',
                 }}
               >
-                <div> {/* Inner div for text content */}
+                <div>
                   <p>
                     By messaging Atlas you agree with our{' '}
                     <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Terms</a>
@@ -290,25 +332,23 @@ export default function Chat() {
             )}
             
             <form
-              ref={textareaFormRef} // Ref to measure the form for the banner height
-              onSubmit={handleSubmit}
+              ref={textareaFormRef}
+              onSubmit={handleSubmit} // This is the useCallback version
               className="w-full" 
-              // No opacity/pointer-events changes needed here, it's always visible
             >
-              <Textarea
+              <CustomTextareaWrapper
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 handleInputChange={handleInputChange}
                 input={input}
-                isLoading={isLoading}
-                status={status}
+                isLoading={uiIsLoading} // Pass the comprehensive loading state
+                status={status} // Pass original status for UI like PauseIcon
                 stop={stop}
               />
             </form>
 
-            {/* AI disclaimer under textarea when there are messages */}
             {(messages.length > 0) && !showMobileInfoMessage && (
-              <div className="text-center mt-1.5"> {/* Simplified positioning */}
+              <div className="text-center mt-1.5">
                 <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
                   Atlas uses AI. Double check response.
                 </span>
