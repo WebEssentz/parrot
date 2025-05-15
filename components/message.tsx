@@ -657,44 +657,46 @@ const PurePreviewMessage = ({
                                   transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
                                   onClick={isLongUserMessage && !expanded ? () => setExpanded(true) : undefined}
                                 >
-                                  <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
-                                  {/* Expand/collapse chevron for long user messages */}
-                                  {isLongUserMessage && (
-                                    <div
-                                      style={{
-                                        position: 'absolute',
-                                        top: 32, // push icon further down
-                                        right: 16, // more space from the right
-                                        zIndex: 10,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                      }}
-                                    >
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            type="button"
-                                            aria-label={expanded ? "Collapse message" : "Expand message"}
-                                            className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-                                            onClick={e => {
-                                              e.stopPropagation();
-                                              setExpanded(v => !v);
-                                            }}
-                                            tabIndex={0}
-                                          >
-                                            {expanded ? (
-                                              <ChevronUpIcon className="h-4 w-4" />
-                                            ) : (
-                                              <ChevronDownIcon className="h-4 w-4" />
-                                            )}
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">
-                                          {expanded ? "Collapse message" : "Expand message"}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  )}
+                                  <div style={{ paddingRight: 36, position: 'relative' }}>
+                                    <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                                    {/* Expand/collapse chevron for long user messages */}
+                                    {isLongUserMessage && (
+                                      <div
+                                        style={{
+                                          position: 'absolute',
+                                          top: 32, // push icon further down
+                                          right: 8, // slightly more space from the right edge
+                                          zIndex: 10,
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                        }}
+                                      >
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              type="button"
+                                              aria-label={expanded ? "Collapse message" : "Expand message"}
+                                              className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+                                              onClick={e => {
+                                                e.stopPropagation();
+                                                setExpanded(v => !v);
+                                              }}
+                                              tabIndex={0}
+                                            >
+                                              {expanded ? (
+                                                <ChevronUpIcon className="h-4 w-4" />
+                                              ) : (
+                                                <ChevronDownIcon className="h-4 w-4" />
+                                              )}
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">
+                                            {expanded ? "Collapse message" : "Expand message"}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </div>
+                                    )}
+                                  </div>
                                 </motion.div>
                               </div>
                             )}
