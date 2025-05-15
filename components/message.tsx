@@ -558,6 +558,14 @@ const PurePreviewMessage = ({
                         isLatestMessage &&        // This is the last message in the chat
                         isEffectivelyLastPart;    // This is the current text part being streamed
 
+                      // Desktop: Expand/collapse UI for long user messages
+                      const LONG_MESSAGE_CHAR_LIMIT = 400; // Adjust as needed
+                      const isUserMessage = message.role === "user";
+                      const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT && !isMobile;
+                      const [expanded, setExpanded] = useState(false);
+                      const [hovered, setHovered] = useState(false);
+
+                      // Only show expand/collapse for long user messages on desktop
                       return (
                         <motion.div
                           initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
@@ -567,13 +575,14 @@ const PurePreviewMessage = ({
                           className="flex flex-row items-start w-full pb-4"
                         >
                           <div
-                            className="flex flex-col gap-4 px-4 py-2 w-full" // Added w-full for consistency
+                            className="flex flex-col gap-4 px-4 py-2 w-full"
                             style={{
                               marginLeft: 0,
                               alignItems: 'flex-start',
                               background: 'none',
                               border: 'none',
                               boxShadow: 'none',
+                              position: 'relative',
                             }}
                           >
                             {isLatestActivelyStreamingTextPart ? (
@@ -583,11 +592,11 @@ const PurePreviewMessage = ({
                                 wordSpeed={20}
                               />
                             ) : (
-                              // Render full Markdown for:
-                              // - User messages
-                              // - Assistant messages that are not the latest actively streaming part
-                              // - The final "ready" state of any assistant message part
-                              <div className="group/user-message w-fit mx-auto flex flex-row items-center gap-2 relative">
+                              <div
+                                className="group/user-message w-fit mx-auto flex flex-row items-center gap-2 relative"
+                                onMouseEnter={() => setHovered(true)}
+                                onMouseLeave={() => setHovered(false)}
+                              >
                                 {/* Copy icon to the left of the user message (desktop only) */}
                                 {!isMobile ? (
                                   <Tooltip>
@@ -616,24 +625,77 @@ const PurePreviewMessage = ({
                                   </Tooltip>
                                 ) : null}
                                 {/* === THIS IS THE USER MESSAGE BUBBLE TO STYLE === */}
-                                <div
+                                <motion.div
                                   className={cn(
                                     "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
-                                    "px-5 py-3",     // Generous horizontal padding, standard vertical
+                                    "px-5 py-3",
                                     "mt-2",
-                                    "rounded-2xl",    // Or rounded-3xl, or e.g. rounded-[22px]
+                                    "rounded-2xl",
                                     "w-fit",
-                                    "max-w-[70vw] md:max-w-md", // Max widths
+                                    isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md",
                                     "text-left",
-                                    "break-words"
+                                    "break-words",
+                                    isLongUserMessage ? "relative" : "",
+                                    isLongUserMessage && !expanded ? "cursor-pointer" : ""
                                   )}
                                   style={{
                                     minHeight: '40px',
-                                    lineHeight: '1.5'
+                                    lineHeight: '1.5',
+                                    WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                                    maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                                    overflow: isLongUserMessage ? 'hidden' : undefined,
+                                    cursor: isLongUserMessage && !expanded ? 'pointer' : undefined,
                                   }}
+                                  initial={false}
+                                  animate={{
+                                    maxHeight: isLongUserMessage
+                                      ? expanded
+                                        ? 1000 // px, large enough for most messages
+                                        : 120
+                                      : 'none',
+                                  }}
+                                  transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+                                  onClick={isLongUserMessage && !expanded ? () => setExpanded(true) : undefined}
                                 >
-                                  <Markdown>{part.text}</Markdown>
-                                </div>
+                                  <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                                  {/* Expand/collapse chevron for long user messages */}
+                                  {isLongUserMessage && (
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        top: 32, // push icon further down
+                                        right: 16, // more space from the right
+                                        zIndex: 10,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                      }}
+                                    >
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            aria-label={expanded ? "Collapse message" : "Expand message"}
+                                            className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              setExpanded(v => !v);
+                                            }}
+                                            tabIndex={0}
+                                          >
+                                            {expanded ? (
+                                              <ChevronUpIcon className="h-4 w-4" />
+                                            ) : (
+                                              <ChevronDownIcon className="h-4 w-4" />
+                                            )}
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={6} align="end">
+                                          {expanded ? "Collapse message" : "Expand message"}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  )}
+                                </motion.div>
                               </div>
                             )}
                           </div>
