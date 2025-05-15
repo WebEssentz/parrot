@@ -616,8 +616,8 @@ const PurePreviewMessage = ({
                                   </Tooltip>
                                 ) : null}
                                 <div
-                                  className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-4 py-2 pt-5 mt-2 rounded-3xl w-fit max-w-full sm:max-w-2xl"
-                                  style={{ minHeight: 44 }}
+                                  className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-6 py-3 mt-2 rounded-full w-fit max-w-[60vw] sm:max-w-xs text-left"
+                                  style={{ minHeight: 40, lineHeight: '1.4' }}
                                 >
                                   <Markdown>{part.text}</Markdown>
                                 </div>
