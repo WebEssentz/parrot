@@ -9,8 +9,8 @@ import {
 
 // meta-llama/llama-4-scout-17b-16e-instruct
 const languageModels = {
-  "meta-llama/llama-4-scout-17b-16e-instruct": groq(
-    "meta-llama/llama-4-scout-17b-16e-instruct",
+  "gemini-2.0-flash": google(
+    "gemini-2.0-flash",
   ),
   "llama-3.1-8b-instant": groq("llama-3.1-8b-instant"),
   "qwen-qwq-32b": wrapLanguageModel({
@@ -30,4 +30,4 @@ export type modelID = keyof typeof languageModels;
 
 export const MODELS = Object.keys(languageModels);
 
-export const defaultModel: modelID = "meta-llama/llama-4-scout-17b-16e-instruct";
+export const defaultModel: modelID = "gemini-2.0-flash";

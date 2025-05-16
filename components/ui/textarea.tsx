@@ -143,8 +143,7 @@ export function AttachButton({
   );
 }
 
-// Ensure REASON_MODEL is defined if used, or remove if not relevant to this file
-const REASON_MODEL = "qwen-qwq-32b";
+
 
 // Textarea (ShadcnTextarea) definition
 function Textarea({ className, rows = 1, ...props }: React.ComponentProps<"textarea"> & { rows?: number }) {
