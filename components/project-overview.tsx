@@ -1,9 +1,10 @@
 import NextLink from "next/link";
-
 import React, { useEffect, useState } from "react";
+import { useMobile } from "../hooks/use-mobile";
 
 export const ProjectOverview = () => {
   const [isTablet, setIsTablet] = useState(false);
+  const isMobile = useMobile();
   useEffect(() => {
     const check = () => setIsTablet(window.innerWidth >= 640 && window.innerWidth < 1024);
     check();
@@ -11,8 +12,16 @@ export const ProjectOverview = () => {
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // Enterprise: Only push down on mobile (not tablet)
+  // useMobile returns true for <768px, so we want <640px for mobile only
+  // We'll use isMobile && !isTablet
+  const pushDown = isMobile && !isTablet;
+
   return (
-    <div className={`flex flex-col items-center justify-end ${isTablet ? 'pb-64' : 'pb-44'} sm:pb-0`}>
+    <div
+      className={`flex flex-col items-center justify-end ${isTablet ? 'pb-64' : 'pb-44'} sm:pb-0`}
+      style={pushDown ? { marginTop: '25vh' } : undefined}
+    >
       <h1 className="w-full text-2xl sm:text-3xl text-primary flex flex-col items-center tracking-tight text-center">
         {/* Wrapper for the first line to make "Hi, I'm Atlas" a single flex item */}
         <div className="flex items-baseline"> {/* Aligns "Hi, I'm" and "Atlas" along their text baseline */}

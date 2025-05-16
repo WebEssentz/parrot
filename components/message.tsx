@@ -482,14 +482,23 @@ const PurePreviewMessage = ({
                 })}
               </div>
               {/* Desktop: Action icons (copy, etc) at the left start of the AI message bubble, matching mobile layout */}
-              {/* Show copy icon row on desktop when hovering any part of the AI message */}
+              {/* Show copy icon row on desktop: always visible for latest assistant message, hover for previous */}
               {!isMobileOrTablet && isAssistant && status === "ready" && (
                 (() => {
                   const { theme } = useTheme();
+                  // Always visible (faded in) for latest assistant message, hover for previous
+                  // Use isLatestMessage to determine persistent visibility
                   return (
-                    <div className="w-full flex flex-row items-center mt-0 relative"> {/* Removed group/ai-message-hoverable from here; it's now on the parent AI message block */}
+                    <div className="w-full flex flex-row items-center mt-0 relative">
                       <div
-                        className="flex items-center gap-0.5 p-0 -mt-5 select-none pointer-events-auto opacity-0 transition-opacity duration-200 delay-75 ml-2"
+                        className={
+                          cn(
+                            "flex items-center gap-0.5 p-0 -mt-5 select-none pointer-events-auto transition-opacity duration-200 delay-75 ml-2",
+                            isLatestMessage
+                              ? "opacity-100"
+                              : "opacity-0 group-hover/ai-message-hoverable:opacity-100"
+                          )
+                        }
                         data-ai-action
                         style={{ position: 'absolute', left: 0, top: 0 }}
                       >
@@ -672,65 +681,171 @@ const PurePreviewMessage = ({
                                        ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
                                     {/* Mobile/Tablet: See more fade and chevron UI */}
                                     {shouldCollapse && isCollapsed && (
-                                      <div
-                                        style={{
-                                          position: 'absolute',
-                                          left: 0,
-                                          right: 0,
-                                          bottom: 0,
-                                          height: 70,
-                                          display: 'flex',
-                                          flexDirection: 'column',
-                                          alignItems: 'center',
-                                          justifyContent: 'flex-end',
-                                          pointerEvents: 'none',
-                                        }}
-                                      >
-                                        {/* Faded overlay */}
+                                      <>
+                                        {/* COLLAPSED: See more UI */}
                                         <div
                                           style={{
                                             position: 'absolute',
                                             left: 0,
                                             right: 0,
                                             bottom: 0,
-                                            height: 70,
-                                            background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(245,245,245,0.85) 60%, rgba(245,245,245,1) 100%)',
-                                            filter: 'blur(0.5px)',
-                                            zIndex: 1,
-                                            borderBottomLeftRadius: 16,
-                                            borderBottomRightRadius: 16,
-                                            pointerEvents: 'none',
-                                          }}
-                                        />
-                                        {/* See more text and chevron */}
-                                        <div
-                                          style={{
-                                            position: 'relative',
-                                            zIndex: 2,
-                                            display: 'flex',
+                                            height: 80,
+                                            display: isCollapsed ? 'flex' : 'none',
                                             flexDirection: 'column',
                                             alignItems: 'center',
-                                            justifyContent: 'center',
-                                            width: '100%',
-                                            pointerEvents: 'auto',
-                                            marginBottom: 4,
-                                            cursor: 'pointer',
-                                          }}
-                                          onClick={e => {
-                                            e.stopPropagation();
-                                            setExpanded(true);
+                                            justifyContent: 'flex-end',
+                                            // pointerEvents: 'none', // Remove this line to allow interaction
                                           }}
                                         >
-                                          <span style={{
-                                            color: '#666',
-                                            fontWeight: 500,
-                                            fontSize: 14,
-                                            marginBottom: 2,
-                                            textShadow: '0 2px 8px rgba(255,255,255,0.7)',
-                                          }}>See more</span>
-                                          <ChevronDownIcon className="h-5 w-5 text-zinc-400" />
+                                          {/* Faded overlay with blur and shadow for premium look */}
+                                          <div
+                                            style={{
+                                              position: 'absolute',
+                                              left: 0,
+                                              right: 0,
+                                              bottom: 0,
+                                              height: 80,
+                                              background: theme === 'dark'
+                                                ? 'linear-gradient(180deg, rgba(24,24,27,0) 0%, rgba(24,24,27,0.85) 60%, rgba(24,24,27,1) 100%)'
+                                                : 'linear-gradient(180deg, rgba(245,245,245,0) 0%, rgba(245,245,245,0.85) 60%, rgba(245,245,245,1) 100%)',
+                                              filter: 'blur(2.5px)',
+                                              boxShadow: '0 8px 24px 0 rgba(0,0,0,0.10)',
+                                              zIndex: 1,
+                                              borderBottomLeftRadius: 16,
+                                              borderBottomRightRadius: 16,
+                                              pointerEvents: 'none',
+                                              transition: 'background 0.2s',
+                                            }}
+                                          />
+                                          {/* See more text and chevron, premium style */}
+                                          <div
+                                            style={{
+                                              position: 'relative',
+                                              zIndex: 2,
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              width: '100%',
+                                              pointerEvents: 'auto',
+                                              marginBottom: 8,
+                                              cursor: 'pointer',
+                                              userSelect: 'none',
+                                              touchAction: 'manipulation',
+                                            }}
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-label="Expand message"
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              setExpanded(true);
+                                            }}
+                                            onKeyDown={e => {
+                                              if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                setExpanded(true);
+                                              }
+                                            }}
+                                          >
+                                            <span style={{
+                                              color: theme === 'dark' ? '#d4d4d8' : '#666',
+                                              fontWeight: 600,
+                                              fontSize: 15,
+                                              marginBottom: 2,
+                                              textShadow: theme === 'dark'
+                                                ? '0 2px 8px rgba(24,24,27,0.7)'
+                                                : '0 2px 8px rgba(255,255,255,0.7)',
+                                              letterSpacing: 0.1,
+                                              lineHeight: 1.2,
+                                              background: 'rgba(255,255,255,0.15)',
+                                              borderRadius: 8,
+                                              padding: '2px 12px',
+                                              boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
+                                              transition: 'color 0.2s',
+                                            }}>See more</span>
+                                            <ChevronDownIcon className="h-6 w-6 text-zinc-400" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.10))' }} />
+                                          </div>
                                         </div>
-                                      </div>
+                                        {/* EXPANDED: See less UI */}
+                                        <div
+                                          style={{
+                                            position: 'absolute',
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            height: 80,
+                                            display: !isCollapsed ? 'flex' : 'none',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'flex-end',
+                                            // pointerEvents: 'none', // Remove this line to allow interaction
+                                          }}
+                                        >
+                                          {/* Faded overlay for expanded state (optional, can be transparent) */}
+                                          <div
+                                            style={{
+                                              position: 'absolute',
+                                              left: 0,
+                                              right: 0,
+                                              bottom: 0,
+                                              height: 80,
+                                              background: 'transparent',
+                                              zIndex: 1,
+                                              borderBottomLeftRadius: 16,
+                                              borderBottomRightRadius: 16,
+                                              pointerEvents: 'none',
+                                            }}
+                                          />
+                                          {/* See less chevron and text */}
+                                          <div
+                                            style={{
+                                              position: 'relative',
+                                              zIndex: 2,
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              width: '100%',
+                                              pointerEvents: 'auto',
+                                              marginBottom: 8,
+                                              cursor: 'pointer',
+                                              userSelect: 'none',
+                                              touchAction: 'manipulation',
+                                            }}
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-label="Collapse message"
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              setExpanded(false);
+                                            }}
+                                            onKeyDown={e => {
+                                              if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                setExpanded(false);
+                                              }
+                                            }}
+                                          >
+                                            <ChevronUpIcon className="h-6 w-6 text-zinc-400 mb-1" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.10))' }} />
+                                            <span style={{
+                                              color: theme === 'dark' ? '#d4d4d8' : '#666',
+                                              fontWeight: 600,
+                                              fontSize: 15,
+                                              marginTop: 2,
+                                              textShadow: theme === 'dark'
+                                                ? '0 2px 8px rgba(24,24,27,0.7)'
+                                                : '0 2px 8px rgba(255,255,255,0.7)',
+                                              letterSpacing: 0.1,
+                                              lineHeight: 1.2,
+                                              background: 'rgba(255,255,255,0.15)',
+                                              borderRadius: 8,
+                                              padding: '2px 12px',
+                                              boxShadow: '0 2px 8px 0 rgba(0,0,0,0.04)',
+                                              transition: 'color 0.2s',
+                                            }}>See less</span>
+                                          </div>
+                                        </div>
+                                      </>
                                     )}
                                     {/* Desktop: Expand/collapse chevron for long user messages */}
                                     {!shouldCollapse && isLongUserMessage && (
