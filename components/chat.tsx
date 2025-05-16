@@ -1,24 +1,22 @@
 "use client";
 
-import { useMobile } from "../hooks/use-mobile"; // Assuming path
+import { useMobile } from "../hooks/use-mobile";
 import { defaultModel } from "@/ai/providers";
-import { SEARCH_MODE } from "@/components/ui/textarea"; // Ensure this is the correct path
+import { SEARCH_MODE } from "@/components/ui/textarea";
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Textarea as CustomTextareaWrapper } from "./textarea"; // Renamed to avoid confusion with Shadcn Textarea
+import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { ProjectOverview } from "./project-overview";
 import { Messages } from "./messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "./header";
 import React from "react";
 import { toast } from "sonner";
-import { Github, LinkedInIcon, XIcon } from "./icons"; // Assuming path
-
-
-// const REASON_MODEL_ID = "qwen-qwq-32b"; // Consistent definition
+import { Github, LinkedInIcon, XIcon } from "./icons";
 
 
 async function generateAndSetTitle(firstUserMessageContent: string) {
+  // ... (existing function)
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -32,7 +30,6 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
     const data = await response.json();
     if (data.title) {
       document.title = data.title;
-      // console.log("Chat title updated to:", data.title);
     }
   } catch (error) {
     console.error("Error generating title:", error);
@@ -54,9 +51,7 @@ export default function Chat() {
   const [textareaComputedHeight, setTextareaComputedHeight] = useState(0);
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
-  // This ref will store the model intended for the CURRENT submission
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
-
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
@@ -68,23 +63,21 @@ export default function Chat() {
   const {
     messages,
     input,
-    handleInputChange,
+    handleInputChange, // Keep for direct typing
+    setInput,         // Add this from useChat
     handleSubmit: originalHandleSubmit,
-    status, // 'idle', 'submitted', 'streaming', 'error'
+    status,
     stop,
     setMessages,
-    reload,
-    append,
+    // reload, // Not used in current snippet but part of useChat
+    // append, // Not used in current snippet but part of useChat
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
-    // The `body` here uses the `selectedModel` state.
-    // We will override this with `modelForCurrentSubmissionRef` specifically when calling `originalHandleSubmit`.
-    body: { selectedModel }, 
+    body: { selectedModel },
     initialMessages: [],
     onFinish: (_message, _options) => {
-      // console.log("useChat: onFinish. Resetting selectedModel from:", selectedModel, "to defaultModel. Clearing isSubmittingSearch.");
-      setSelectedModel(defaultModel); 
+      setSelectedModel(defaultModel);
       setIsSubmittingSearch(false);
       modelForCurrentSubmissionRef.current = defaultModel;
     },
@@ -95,7 +88,6 @@ export default function Chat() {
           : "An error occurred, please try again later.",
         { position: "top-center", richColors: true },
       );
-      console.error("useChat: onError. Resetting selectedModel and isSubmittingSearch.", error);
       setSelectedModel(defaultModel);
       setIsSubmittingSearch(false);
       modelForCurrentSubmissionRef.current = defaultModel;
@@ -114,11 +106,11 @@ export default function Chat() {
     }
   }, [messages]);
 
-   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+    // ... (existing handleSubmit logic)
     e.preventDefault();
     if (!input.trim()) return;
     
-    // `selectedModel` (state) here reflects the user's current toggle combination from textarea.tsx
     const intendedModelForThisSubmit = selectedModel; 
     modelForCurrentSubmissionRef.current = intendedModelForThisSubmit;
 
@@ -126,7 +118,6 @@ export default function Chat() {
       if (isSubmittingSearch) return;
       setIsSubmittingSearch(true);
     } else if (isSubmittingSearch && modelForCurrentSubmissionRef.current === SEARCH_MODE) {
-        // This means a previous submission was a search and isSubmittingSearch is still true
         return; 
     }
 
@@ -138,8 +129,8 @@ export default function Chat() {
     setTimeout(() => scrollToBottom(), 200);
   }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom]);
 
-
   useEffect(() => {
+    // ... (existing inputAreaRef useEffect)
     const measureAndUpdateHeight = () => {
       if (inputAreaRef.current) {
         const newHeight = inputAreaRef.current.offsetHeight;
@@ -162,6 +153,7 @@ export default function Chat() {
   }, [showMobileInfoMessage]);
 
   useEffect(() => {
+    // ... (existing mobile info message useEffect)
     const onMobileOrTablet = typeof isDesktop !== 'undefined' && !isDesktop;
     if (onMobileOrTablet) {
       if (
@@ -185,6 +177,7 @@ export default function Chat() {
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
 
   useEffect(() => {
+    // ... (existing textareaFormRef useEffect)
     const measureTextareaFormHeight = () => {
       if (textareaFormRef.current) {
         setTextareaComputedHeight(textareaFormRef.current.offsetHeight);
@@ -205,13 +198,12 @@ export default function Chat() {
     };
   }, [input]);
 
-  // isLoading state for disabling UI elements.
-  // It's true if the chat is generally active OR if we've specifically flagged a search is submitting.
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
-
-  const isMobileOrTablet = useMobile();
-  const bufferForInputArea = isMobileOrTablet ? 200 : 100;
+  const isMobileOrTabletHook = useMobile(); // Renamed to avoid conflict if isMobileOrTablet state exists
+  const bufferForInputArea = isMobileOrTabletHook ? 200 : 100;
   const currentYear = new Date().getFullYear();
+
+  const hasSentMessage = messages.length > 0;
 
   return (
     <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
@@ -221,7 +213,7 @@ export default function Chat() {
         ref={containerRef}
         className={
           `flex-1 w-full pt-8 sm:pt-12 scrollbar-thin ` +
-          ((messages.length > 0) ? "overflow-y-auto overscroll-auto" : "overflow-y-hidden overscroll-none")
+          (hasSentMessage ? "overflow-y-auto overscroll-auto" : "overflow-y-hidden overscroll-none")
         }
         style={{
           paddingBottom:
@@ -230,25 +222,29 @@ export default function Chat() {
               : `${bufferForInputArea}px`,
         }}
       >
-        {typeof isDesktop === "undefined" ? null : messages.length === 0 ? (
+        {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (
           <div className="flex h-full items-center justify-center">
             <div className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-3xl">
               <ProjectOverview />
               {isDesktop && (
                 <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto mt-6 ">
                   <CustomTextareaWrapper
-                    selectedModel={selectedModel} // Pass current operation mode (resets to default after op)
-                    setSelectedModel={setSelectedModel} // Allow textarea to set next operation mode
+                    selectedModel={selectedModel}
+                    setSelectedModel={setSelectedModel}
                     handleInputChange={handleInputChange}
+                    setInput={setInput} // Pass setInput
                     input={input}
                     isLoading={uiIsLoading}
                     status={status}
                     stop={stop}
+                    hasSentMessage={hasSentMessage} // Pass hasSentMessage
+                    isDesktop={isDesktop}           // Pass isDesktop
                   />
                 </form>
               )}
               {isDesktop && (
                 <>
+                  {/* ... (existing footer links and terms) ... */}
                   <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
                     <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
                       By messaging Atlas, you agree to our{' '}
@@ -276,15 +272,15 @@ export default function Chat() {
         ) : (
           <Messages
             messages={messages}
-            isLoading={uiIsLoading} // Pass comprehensive loading state
-            status={status as any} // Pass original status for detailed UI states in Messages
+            isLoading={uiIsLoading}
+            status={status as any}
             endRef={endRef as React.RefObject<HTMLDivElement>}
           />
         )}
         <div ref={endRef as React.RefObject<HTMLDivElement>} style={{ height: 1 }} />
       </div>
 
-      {(typeof isDesktop === "undefined") ? null : (!isDesktop || messages.length > 0) && (
+      {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && ( // Show if not desktop OR if messages exist
         <div
           ref={inputAreaRef}
           className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
@@ -312,19 +308,22 @@ export default function Chat() {
               </div>
             )}
             
-            <form ref={textareaFormRef} onSubmit={handleSubmit} className="w-full">
+             <form ref={textareaFormRef} onSubmit={handleSubmit} className="w-full">
               <CustomTextareaWrapper
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 handleInputChange={handleInputChange}
+                setInput={setInput} // Pass setInput
                 input={input}
                 isLoading={uiIsLoading}
                 status={status}
                 stop={stop}
+                hasSentMessage={hasSentMessage} // Pass hasSentMessage
+                isDesktop={isDesktop === undefined ? false : isDesktop} // Pass isDesktop, handle undefined
               />
             </form>
 
-            {(messages.length > 0) && !showMobileInfoMessage && (
+            {(hasSentMessage) && !showMobileInfoMessage && (
               <div className="text-center mt-1.5">
                 <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
                   Atlas uses AI. Double check response.

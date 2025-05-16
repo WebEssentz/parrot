@@ -1,22 +1,41 @@
-import { defaultModel, model, modelID } from "@/ai/providers"; // Assuming this path is correct
+// app/api/chat/route.ts
+// Add "use client"; if it were a client component, but API routes are server-side.
+// No "use client" here.
+
+import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
 import { smoothStream, streamText, UIMessage } from "ai";
-import { SEARCH_MODE } from "@/components/ui/textarea"; // Make sure this path is correct
+import { SEARCH_MODE } from "@/components/ui/textarea";
 import { generateText } from 'ai';
 
-// Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
+const REASON_MODEL_ID = "qwen-qwq-32b";
 
-// Define REASON_MODEL ID if it's used as a flag or specific model
-const REASON_MODEL_ID = "qwen-qwq-32b"; // Your specific reasoning model ID
+// Define suggested prompts highlighting Atlas capabilities
+const ATLAS_SUGGESTED_PROMPTS = [
+  "Write an async function in JavaScript to fetch data",
+  "Generate an image of a futuristic cityscape with Atlas",
+  "Help me debug this Python code for web scraping",
+  "Explain how Atlas can assist with API integration",
+  "Draft an email to a client using Atlas features",
+  "How can Atlas optimize my project workflow?",
+  "Show me how Atlas can summarize a long document",
+];
 
 export async function POST(req: Request) {
   const requestBody = await req.json();
   const {
     messages,
-    selectedModel, // This comes from the frontend
-    action,
+    selectedModel,
+    action, // Expect 'action' in the request body
   } = requestBody;
+
+  // --- Suggested Prompts Handling ---
+  if (action === 'getSuggestedPrompts') {
+    return new Response(JSON.stringify({ prompts: ATLAS_SUGGESTED_PROMPTS }), {
+      headers: { 'Content-Type': 'application/json' }, status: 200,
+    });
+  }
 
   // --- Title Generation Handling ---
   if (action === 'generateTitle' && messages && messages.length > 0) {
@@ -26,7 +45,7 @@ export async function POST(req: Request) {
     User Message: "${userMessageContent}"`;
     try {
       const response = await generateText({
-        model: model.languageModel(defaultModel), // Use a fast, capable default model for titles
+        model: model.languageModel(defaultModel),
         system: titleSystemPrompt,
         prompt: `Generate a title for the conversation starting with the user message.`
       });
@@ -37,7 +56,6 @@ export async function POST(req: Request) {
       if (!generatedTitle || generatedTitle.length < 3 || generatedTitle.length > 60) {
         generatedTitle = "Atlas AI";
       }
-      // console.log(`Generated title: "${generatedTitle}" for message: "${userMessageContent}"`);
       return new Response(JSON.stringify({ title: generatedTitle }), {
         headers: { 'Content-Type': 'application/json' }, status: 200,
       });
@@ -50,13 +68,14 @@ export async function POST(req: Request) {
   }
 
   // --- Existing Streaming Chat Logic ---
-  if (!messages || typeof selectedModel === 'undefined') { // Check typeof selectedModel
+  if (!messages || typeof selectedModel === 'undefined') {
     return new Response(JSON.stringify({ error: "Missing messages or selectedModel for chat request" }), {
       headers: { 'Content-Type': 'application/json' }, status: 400,
     });
   }
 
   const now = new Date();
+  // ... (rest of your existing system prompt and chat logic) ...
   const currentDate = now.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const birthDate = new Date('2009-06-17T00:00:00Z');
   let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
@@ -68,6 +87,7 @@ export async function POST(req: Request) {
   if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
 
   const systemPrompt = `
+        # Atlas AI System Prompt
         # CRITICAL URL HANDLING POLICY (ENFORCED)
         - If the user provides ANY link (URL) in their message, you MUST ALWAYS call the fetchUrlTool FIRST, before doing anything else, regardless of the link type (image, website, document, etc.).
         - DO NOT use your own knowledge, do not render a Markdown image preview, and do not attempt to answer or analyze the link in any way until AFTER fetchUrlTool has been called and its result has been processed.
@@ -75,7 +95,7 @@ export async function POST(req: Request) {
         - If the user provides multiple links, call fetchUrlTool for each link, one at a time, and process each result before responding.
         - Never skip fetchUrlTool for any user-provided link, even if you think you know what the link is or what it contains.
         - If you ever fail to call fetchUrlTool first for a user link, apologize and immediately call fetchUrlTool for that link before proceeding.
-
+        
         - The current date and time is: ${currentDate} (UTC). Whenever you perform a search, or the user requests current/latest information, always use this exact date and time as your reference for what is "current" or "latest". Make sure to mention this date/time in your response if the user asks for up-to-date or recent information.
         - If search results or sources provide conflicting, ambiguous, or unclear information (for example, about the "current pope" or other time-sensitive facts), you must NOT present both as equally valid. Instead, clarify the uncertainty, state which information is most likely correct based on the current date and time, and explain the reason for any ambiguity. Always resolve ambiguity for the user and avoid mixing outdated and new data in your answer.
         - You are to always NEVER MENTION WHO CREATED YOU ONLY WHEN ASKED SPECIFICALLY, DO NOT FEEL FREE TO SAY IT IN YOUR RESPONSES.
@@ -218,16 +238,12 @@ export async function POST(req: Request) {
     `;
 
   const isFrontendRequestingSearch = selectedModel === SEARCH_MODE;
-
-  // Simplified history check for example
   const lastUserMessage = (messages as UIMessage[]).filter(msg => msg.role === 'user').pop();
   const lastUserMessageContent = lastUserMessage?.content || '';
 
-  // Count previous googleSearchTool calls *for the current lastUserMessageContent* in this turn
   let googleSearchAttemptsForThisQuery = 0;
   if (lastUserMessage) {
     let currentTurnMessages = messages as UIMessage[];
-    // Find the index of the last user message to define the current turn
     const lastUserMessageIndex = messages.map((m: UIMessage) => m.id).lastIndexOf(lastUserMessage.id);
     if (lastUserMessageIndex !== -1) {
       currentTurnMessages = messages.slice(lastUserMessageIndex);
@@ -236,11 +252,9 @@ export async function POST(req: Request) {
     for (const msg of currentTurnMessages) {
       if (msg.role === 'assistant' && msg.toolInvocations) {
         for (const ti of msg.toolInvocations) {
-          // Check if the tool call was for googleSearch and if arguments match the user query
-          // This is a simplified check; actual args might be structured if your tool takes an object.
           if ((ti.toolName === 'googleSearch' || ti.toolName === 'googleSearchTool') &&
-            (typeof ti.args === 'string' && ti.args.includes(lastUserMessageContent)) || // Simple string arg check
-            (typeof ti.args === 'object' && ti.args && JSON.stringify(ti.args).includes(lastUserMessageContent)) // Object arg check
+            (typeof ti.args === 'string' && ti.args.includes(lastUserMessageContent)) ||
+            (typeof ti.args === 'object' && ti.args && JSON.stringify(ti.args).includes(lastUserMessageContent))
           ) {
             googleSearchAttemptsForThisQuery++;
           }
@@ -249,11 +263,6 @@ export async function POST(req: Request) {
     }
   }
 
-
-
-  // Determine if we MUST force the googleSearchTool initially
-  // If it's SEARCH_MODE and it's the first attempt for this query.
-  // The AI's retry logic (prompted) will handle subsequent calls if the first fails.
   const forceInitialGoogleSearch = isFrontendRequestingSearch &&
     googleSearchAttemptsForThisQuery === 0 &&
     messages[messages.length - 1]?.role !== 'function';
@@ -286,7 +295,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: languageModel,
     system: systemPrompt,
-    messages: messages as UIMessage[], // Pass current messages
+    messages: messages as UIMessage[],
     experimental_transform: smoothStream({ delayInMs: 20, chunking: 'word' }),
     tools: {
       getWeather: weatherTool,
@@ -296,7 +305,6 @@ export async function POST(req: Request) {
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
     ...(forceInitialGoogleSearch && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
-    // The AI model itself will decide to call googleSearch again if the first attempt (forced or not) fails, based on the system prompt.
   });
 
   return result.toDataStreamResponse({
@@ -309,7 +317,6 @@ export async function POST(req: Request) {
         if (error.message.includes("Rate limit")) {
           return "Rate limit exceeded. Please try again later.";
         }
-        // Check for AI_NoSuchModelError specifically if it can happen at this stage
         if (error.constructor.name === 'AI_NoSuchModelError') {
           console.error("Error: AI_NoSuchModelError during streaming response.", error);
           return `Error: The AI model specified (${(error as any).modelId}) is not available. Please try again or contact support.`;
