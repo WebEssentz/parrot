@@ -60,16 +60,16 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Utility to detect mobile
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
+// Utility to detect mobile or tablet (width < 1024)
+function useIsMobileOrTablet() {
+  const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-  return isMobile;
+  return isMobileOrTablet;
 }
 
 // Utility to copy text to clipboard
@@ -255,7 +255,7 @@ const PurePreviewMessage = ({
   const sources = extractSourcesFromText(allText);
   const [showSources, setShowSources] = useState(false);
   const isAssistant = message.role === "assistant";
-  const isMobile = useIsMobile();
+  const isMobileOrTablet = useIsMobileOrTablet();
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -483,7 +483,7 @@ const PurePreviewMessage = ({
               </div>
               {/* Desktop: Action icons (copy, etc) at the left start of the AI message bubble, matching mobile layout */}
               {/* Show copy icon row on desktop when hovering any part of the AI message */}
-              {!isMobile && isAssistant && status === "ready" && (
+              {!isMobileOrTablet && isAssistant && status === "ready" && (
                 (() => {
                   const { theme } = useTheme();
                   return (
@@ -523,7 +523,7 @@ const PurePreviewMessage = ({
                 })()
               )}
               {/* Mobile: Copy icon always at the bottom, after the message bubble */}
-              {isMobile && isAssistant && status === "ready" && (
+              {isMobileOrTablet && isAssistant && status === "ready" && (
                 <div className="relative w-full -mt-2">
                   <div className="flex absolute left-0 right-0 justify-start z-10">
                     <div className="flex items-center gap-1 p-1 select-none -mt-3 pointer-events-auto">
@@ -558,14 +558,19 @@ const PurePreviewMessage = ({
                         isLatestMessage &&        // This is the last message in the chat
                         isEffectivelyLastPart;    // This is the current text part being streamed
 
-                      // Desktop: Expand/collapse UI for long user messages
+                      // Expand/collapse UI for long user messages
                       const LONG_MESSAGE_CHAR_LIMIT = 400; // Adjust as needed
                       const isUserMessage = message.role === "user";
-                      const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT && !isMobile;
+                      const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT;
                       const [expanded, setExpanded] = useState(false);
                       const [hovered, setHovered] = useState(false);
 
-                      // Only show expand/collapse for long user messages on desktop
+                      // Only show expand/collapse for long user messages
+                      // On mobile/tablet: collapsed by default, with fade and see more UI
+                      // On desktop: current behavior
+                      const shouldCollapse = isLongUserMessage && isMobileOrTablet;
+                      const isCollapsed = shouldCollapse && !expanded;
+
                       return (
                         <motion.div
                           initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
@@ -598,7 +603,7 @@ const PurePreviewMessage = ({
                                 onMouseLeave={() => setHovered(false)}
                               >
                                 {/* Copy icon to the left of the user message (desktop only) */}
-                                {!isMobile ? (
+                                {!isMobileOrTablet ? (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <button
@@ -636,15 +641,19 @@ const PurePreviewMessage = ({
                                     "text-left",
                                     "break-words",
                                     isLongUserMessage ? "relative" : "",
-                                    isLongUserMessage && !expanded ? "cursor-pointer" : ""
+                                    isCollapsed ? "cursor-pointer" : ""
                                   )}
                                   style={{
                                     minHeight: '40px',
                                     lineHeight: '1.5',
+                                    overflow: isLongUserMessage ? 'hidden' : undefined,
+                                    cursor: isCollapsed ? 'pointer' : undefined,
                                     WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
                                     maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                    overflow: isLongUserMessage ? 'hidden' : undefined,
-                                    cursor: isLongUserMessage && !expanded ? 'pointer' : undefined,
+                                    ...(isLongUserMessage
+                                      ? {} // No extra padding, handled by pr-[56px] above
+                                      : { paddingRight: undefined } // Remove extra right padding for short messages
+                                    )
                                   }}
                                   initial={false}
                                   animate={{
@@ -655,12 +664,76 @@ const PurePreviewMessage = ({
                                       : 'none',
                                   }}
                                   transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-                                  onClick={isLongUserMessage && !expanded ? () => setExpanded(true) : undefined}
+                                  onClick={isCollapsed ? () => setExpanded(true) : undefined}
                                 >
-                                  <div style={{ paddingRight: 36, position: 'relative' }}>
-                                    <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
-                                    {/* Expand/collapse chevron for long user messages */}
-                                    {isLongUserMessage && (
+                                  <div style={{ paddingRight: isLongUserMessage ? 36 : undefined, position: 'relative' }}>
+                                    <Markdown>
+                                      {isLongUserMessage && isCollapsed
+                                       ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                                    {/* Mobile/Tablet: See more fade and chevron UI */}
+                                    {shouldCollapse && isCollapsed && (
+                                      <div
+                                        style={{
+                                          position: 'absolute',
+                                          left: 0,
+                                          right: 0,
+                                          bottom: 0,
+                                          height: 70,
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          justifyContent: 'flex-end',
+                                          pointerEvents: 'none',
+                                        }}
+                                      >
+                                        {/* Faded overlay */}
+                                        <div
+                                          style={{
+                                            position: 'absolute',
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            height: 70,
+                                            background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(245,245,245,0.85) 60%, rgba(245,245,245,1) 100%)',
+                                            filter: 'blur(0.5px)',
+                                            zIndex: 1,
+                                            borderBottomLeftRadius: 16,
+                                            borderBottomRightRadius: 16,
+                                            pointerEvents: 'none',
+                                          }}
+                                        />
+                                        {/* See more text and chevron */}
+                                        <div
+                                          style={{
+                                            position: 'relative',
+                                            zIndex: 2,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: '100%',
+                                            pointerEvents: 'auto',
+                                            marginBottom: 4,
+                                            cursor: 'pointer',
+                                          }}
+                                          onClick={e => {
+                                            e.stopPropagation();
+                                            setExpanded(true);
+                                          }}
+                                        >
+                                          <span style={{
+                                            color: '#666',
+                                            fontWeight: 500,
+                                            fontSize: 14,
+                                            marginBottom: 2,
+                                            textShadow: '0 2px 8px rgba(255,255,255,0.7)',
+                                          }}>See more</span>
+                                          <ChevronDownIcon className="h-5 w-5 text-zinc-400" />
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Desktop: Expand/collapse chevron for long user messages */}
+                                    {!shouldCollapse && isLongUserMessage && (
                                       <div
                                         style={{
                                           position: 'absolute',
