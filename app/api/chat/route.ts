@@ -68,6 +68,14 @@ export async function POST(req: Request) {
   if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
 
   const systemPrompt = `
+        # CRITICAL URL HANDLING POLICY (ENFORCED)
+        - If the user provides ANY link (URL) in their message, you MUST ALWAYS call the fetchUrlTool FIRST, before doing anything else, regardless of the link type (image, website, document, etc.).
+        - DO NOT use your own knowledge, do not render a Markdown image preview, and do not attempt to answer or analyze the link in any way until AFTER fetchUrlTool has been called and its result has been processed.
+        - This rule applies to ALL links, including image URLs. For images, you must call fetchUrlTool first, process its result, and only then display the Markdown preview and analysis as instructed by the tool result.
+        - If the user provides multiple links, call fetchUrlTool for each link, one at a time, and process each result before responding.
+        - Never skip fetchUrlTool for any user-provided link, even if you think you know what the link is or what it contains.
+        - If you ever fail to call fetchUrlTool first for a user link, apologize and immediately call fetchUrlTool for that link before proceeding.
+
         - The current date and time is: ${currentDate} (UTC). Whenever you perform a search, or the user requests current/latest information, always use this exact date and time as your reference for what is "current" or "latest". Make sure to mention this date/time in your response if the user asks for up-to-date or recent information.
         - If search results or sources provide conflicting, ambiguous, or unclear information (for example, about the "current pope" or other time-sensitive facts), you must NOT present both as equally valid. Instead, clarify the uncertainty, state which information is most likely correct based on the current date and time, and explain the reason for any ambiguity. Always resolve ambiguity for the user and avoid mixing outdated and new data in your answer.
         - You are to always NEVER MENTION WHO CREATED YOU ONLY WHEN ASKED SPECIFICALLY, DO NOT FEEL FREE TO SAY IT IN YOUR RESPONSES.
