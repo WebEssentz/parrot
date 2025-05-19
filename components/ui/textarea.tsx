@@ -1,12 +1,12 @@
 "use client"; // Ensure this is at the top if it's a client component
 
-import * as React from "react"
+import * as React from "react";
 import { useRef, useLayoutEffect, useState } from "react";
 import { motion } from "framer-motion";
-// import type { modelID } from "@/ai/providers"; // Not directly used here
-import { defaultModel } from "@/ai/providers"; // Not directly used here, but SEARCH_MODE uses it
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils"
+// defaultModel is used in the other file, not directly here.
+// import { defaultModel } from "@/ai/providers";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"; // Assuming this path is correct
+import { cn } from "@/lib/utils"; // Assuming this path is correct
 import { Paperclip } from "lucide-react";
 
 export const SEARCH_MODE = "__search_mode__"; // Ensure this is consistently defined
@@ -20,7 +20,7 @@ function SearchIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement>)
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={className + " h-[18px] w-[18px]"}
+      className={cn("h-[18px] w-[18px]", className)}
       {...props}
     >
       <path
@@ -36,11 +36,11 @@ function SearchIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement>)
 export function SearchButton({
   isSearchEnabled,
   setIsSearchEnabled,
-  disabled, // Added disabled prop
+  disabled,
 }: {
   isSearchEnabled: boolean;
   setIsSearchEnabled: (enabled: boolean) => void;
-  disabled?: boolean; // Optional disabled prop
+  disabled?: boolean;
 }) {
   const isSearching = isSearchEnabled;
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
@@ -53,7 +53,7 @@ export function SearchButton({
   }, []);
 
   const handleClick = () => {
-    if (disabled) return; // Do nothing if disabled
+    if (disabled) return;
     setIsSearchEnabled(!isSearching);
   };
 
@@ -64,13 +64,13 @@ export function SearchButton({
           type="button"
           aria-pressed={isSearching}
           onClick={handleClick}
-          disabled={disabled} // Apply disabled state
+          disabled={disabled}
           className={cn(
             "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5",
-            isSearching && !disabled // Apply active styles only if not disabled
+            isSearching && !disabled
               ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
               : "hover:bg-zinc-100 dark:hover:bg-zinc-800",
-            disabled ? "opacity-50 cursor-not-allowed" : "" // Styles for disabled state
+            disabled ? "opacity-50 cursor-not-allowed" : ""
           )}
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
           data-testid="composer-button-search"
@@ -78,8 +78,7 @@ export function SearchButton({
         >
           <SearchIcon
             className={cn(
-              "h-[18px] w-[18px]",
-              isSearching && !disabled // Apply active styles only if not disabled
+              isSearching && !disabled
                 ? "text-[#1e93ff]"
                 : "text-zinc-400"
             )}
@@ -98,10 +97,10 @@ export function SearchButton({
 
 export function AttachButton({
   onClick,
-  disabled, // Added disabled prop
+  disabled,
 }: {
   onClick?: () => void;
-  disabled?: boolean; // Optional disabled prop
+  disabled?: boolean;
 }) {
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
   React.useEffect(() => {
@@ -117,21 +116,18 @@ export function AttachButton({
         <button
           type="button"
           onClick={onClick}
-          disabled={disabled} // Apply disabled state
+          disabled={disabled}
           className={cn(
             "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2.5 -ml-2 sm:-ml-2",
             "hover:bg-zinc-100 dark:hover:bg-zinc-800",
-            disabled ? "opacity-50 cursor-not-allowed" : "" // Styles for disabled state
+            disabled ? "opacity-50 cursor-not-allowed" : ""
           )}
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
           data-testid="composer-button-attach"
           aria-label="Attach file"
         >
           <Paperclip
-            className={cn(
-              "h-[18px] w-[18px]",
-              "text-zinc-400"
-            )}
+            className={cn("h-[18px] w-[18px] text-zinc-400")}
           />
           {!isMobileOrTablet && (
             <span className="ml-1 font-medium text-sm">Attach</span>
@@ -145,96 +141,16 @@ export function AttachButton({
   );
 }
 
-
-
-
-// Textarea (ShadcnTextarea) definition - UPDATED
-function Textarea({ 
-  className, 
-  rows = 1, 
-  style, // Destructure style from props
-  ...props 
-}: React.ComponentProps<"textarea"> & { rows?: number }) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [currentTextareaHeight, setCurrentTextareaHeight] = useState<number | undefined>(undefined);
-
-  // Extract maxHeight from style prop for stable dependency in useLayoutEffect
-  const maxHeightFromProps = style?.maxHeight;
-
-  useLayoutEffect(() => {
-    if (textareaRef.current) {
-      const textarea = textareaRef.current;
-
-      // Determine the effective maxHeight for the textarea.
-      // It defaults to 320 if not specified in props.style.maxHeight.
-      let effectiveMaxHeight = 320;
-      if (typeof maxHeightFromProps === 'number') {
-        effectiveMaxHeight = maxHeightFromProps;
-      }
-      
-      // Reset height to 'auto' to accurately measure scrollHeight
-      textarea.style.height = 'auto';
-      const scrollHeight = textarea.scrollHeight;
-      
-      // Calculate the target height: scrollHeight capped by effectiveMaxHeight
-      const targetHeight = Math.min(scrollHeight, effectiveMaxHeight);
-
-      // Update state only if the calculated height differs from the current state
-      if (currentTextareaHeight !== targetHeight) {
-        setCurrentTextareaHeight(targetHeight);
-      }
-    }
-  }, [props.value, rows, maxHeightFromProps, currentTextareaHeight]); // Use stable maxHeightFromProps
-
-  return (
-    <motion.div
-      animate={{ height: currentTextareaHeight === undefined ? 'auto' : currentTextareaHeight }}
-      // Adjusted spring for a slightly softer feel, or use tween for duration-based
-      // transition={{ type: 'spring', stiffness: 170, damping: 26 }} 
-      transition={{ type: 'tween', duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }} // Example: a common ease-out like
-      style={{ overflow: 'hidden', width: '100%' }}
-    >
-      <textarea
-        ref={textareaRef}
-        data-slot="textarea"
-        className={cn(
-          // MODIFIED: Removed "field-sizing-content" from the default classes
-          "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex min-h-10 w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-          "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50",
-          "shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] dark:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
-          // "overflow-y-auto overscroll-auto", // Keep this, but inline style below will provide finer control
-          className
-        )}
-        style={{ 
-          ...style, // Spread incoming style prop first
-          height: currentTextareaHeight, // Set height from state; if undefined, CSS min-height/rows will apply initially
-          // Override maxHeight from incoming style if present, otherwise default to 320
-          maxHeight: maxHeightFromProps || 320, 
-          // Control overflow: show scrollbar only when content reaches maxHeight
-          overflowY: (
-            typeof currentTextareaHeight === "number" &&
-            typeof maxHeightFromProps === "number" &&
-            currentTextareaHeight >= maxHeightFromProps
-          ) ? 'auto' : 'hidden',
-        }}
-        rows={rows}
-        {...props}
-      />
-    </motion.div>
-  );
-}
-export { Textarea }// This is the ShadcnTextarea, re-exported
-
 export function ReasonButton({
   isReasonEnabled,
   setIsReasonEnabled,
   hideTextOnMobile,
-  disabled, // Added disabled prop
+  disabled,
 }: {
   isReasonEnabled: boolean;
   setIsReasonEnabled: (enabled: boolean) => void;
   hideTextOnMobile?: boolean;
-  disabled?: boolean; // Optional disabled prop
+  disabled?: boolean;
 }) {
   const isReasoning = isReasonEnabled;
   const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
@@ -247,7 +163,7 @@ export function ReasonButton({
   }, []);
 
   const handleClick = () => {
-    if (disabled) return; // Do nothing if disabled
+    if (disabled) return;
     setIsReasonEnabled(!isReasoning);
   };
 
@@ -258,16 +174,14 @@ export function ReasonButton({
           type="button"
           aria-pressed={isReasoning}
           onClick={handleClick}
-          disabled={disabled} // Apply disabled state
-          className={
-            cn(
-              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2",
-              isReasoning && !disabled // Apply active styles only if not disabled
-                ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
-                : "hover:bg-zinc-100 dark:hover:bg-zinc-800",
-              disabled ? "opacity-50 cursor-not-allowed" : "" // Styles for disabled state
-            )
-          }
+          disabled={disabled}
+          className={cn(
+            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-background font-medium px-2",
+            isReasoning && !disabled
+              ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
+              : "hover:bg-zinc-100 dark:hover:bg-zinc-800",
+            disabled ? "opacity-50 cursor-not-allowed" : ""
+          )}
           style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 36 : 0 }}
           data-testid="composer-button-reason"
           aria-label="Reason"
@@ -276,23 +190,21 @@ export function ReasonButton({
             fill="none"
             viewBox="0 0 24 24"
             xmlns="http://www.w3.org/2000/svg"
-            className={
-              cn(
-                "h-[18px] w-[18px]",
-                isReasoning && !disabled // Apply active styles only if not disabled
-                  ? "fill-[#1e93ff] text-[#1e93ff]"
-                  : "fill-none text-zinc-400"
-              )
-            }
+            className={cn(
+              "h-[18px] w-[18px]",
+              isReasoning && !disabled
+                ? "fill-[#1e93ff] text-[#1e93ff]"
+                : "fill-none text-zinc-400"
+            )}
           >
             <path
               d="m12 3c-3.585 0-6.5 2.9225-6.5 6.5385 0 2.2826 1.162 4.2913 2.9248 5.4615h7.1504c1.7628-1.1702 2.9248-3.1789 2.9248-5.4615 0-3.6159-2.915-6.5385-6.5-6.5385zm2.8653 14h-5.7306v1h5.7306v-1zm-1.1329 3h-3.4648c0.3458 0.5978 0.9921 1 1.7324 1s1.3866-0.4022 1.7324-1zm-5.6064 0c0.44403 1.7252 2.0101 3 3.874 3s3.43-1.2748 3.874-3c0.5483-0.0047 0.9913-0.4506 0.9913-1v-2.4593c2.1969-1.5431 3.6347-4.1045 3.6347-7.0022 0-4.7108-3.8008-8.5385-8.5-8.5385-4.6992 0-8.5 3.8276-8.5 8.5385 0 2.8977 1.4378 5.4591 3.6347 7.0022v2.4593c0 0.5494 0.44301 0.9953 0.99128 1z"
               clipRule="evenodd"
-              fill={(isReasoning && !disabled) ? "#1e93ff" : "currentColor"} // Adjusted fill for disabled state
+              fill={(isReasoning && !disabled) ? "#1e93ff" : "currentColor"}
               fillRule="evenodd"
             />
           </svg>
-          {!isMobileOrTablet && ( 
+          {!isMobileOrTablet && (
             <span className="ml-1 font-medium text-sm">Reason</span>
           )}
         </button>
@@ -303,3 +215,111 @@ export function ReasonButton({
     </Tooltip>
   );
 }
+
+// Framer Motion Animated Textarea - FULLY UPDATED
+function Textarea({
+  className,
+  rows = 1,
+  style,
+  ...props
+}: React.ComponentProps<"textarea"> & { rows?: number }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Initialize animatedHeight. Prefer style.minHeight if numeric, else use a default
+  // that matches min-h-10 (40px if 1rem=16px and rows=1).
+  // For rows > 1, 'auto' might be better initially if minHeight isn't explicit.
+  const initialMinHeight = typeof style?.minHeight === 'number' 
+    ? style.minHeight 
+    : (rows > 1 ? undefined : 40); // 40px for min-h-10
+  const [animatedHeight, setAnimatedHeight] = useState<number | string>(initialMinHeight || 'auto');
+
+
+  const value = props.value;
+  const minHeightFromStyle = style?.minHeight;
+  const maxHeightFromStyle = style?.maxHeight;
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const computedStyle = window.getComputedStyle(textarea);
+      const computedMinHeight = parseFloat(computedStyle.minHeight);
+      
+      const effectiveMaxHeight = typeof maxHeightFromStyle === 'number' ? maxHeightFromStyle : Infinity;
+
+      // Store current inline height, reset to 'auto' for measurement, then restore if no change
+      const prevHeight = textarea.style.height;
+      textarea.style.height = 'auto';
+      const scrollHeight = textarea.scrollHeight;
+      
+      let targetHeight = scrollHeight;
+      if (effectiveMaxHeight !== Infinity) {
+        targetHeight = Math.min(targetHeight, effectiveMaxHeight);
+      }
+      targetHeight = Math.max(targetHeight, computedMinHeight);
+
+      // Only update state if the calculated targetHeight is different from current animatedHeight
+      // or if animatedHeight is 'auto' (initial state for multi-row without explicit minHeight)
+      if (animatedHeight !== targetHeight || typeof animatedHeight === 'string') {
+        setAnimatedHeight(targetHeight);
+      }
+      
+      // After potential state update, ensure the textarea's DOM height is correctly set
+      // for the current frame. This is important if animatedHeight didn't change but
+      // was 'auto' or if we want to ensure consistency.
+      if (textarea.style.height !== `${targetHeight}px`) {
+         textarea.style.height = `${targetHeight}px`;
+      }
+      if (prevHeight !== textarea.style.height && animatedHeight === targetHeight && typeof animatedHeight !== 'string') {
+        // If we restored prevHeight because targetHeight was same as animatedHeight string,
+        // but targetHeight is now a number, ensure it's set.
+        // This case is less common with the improved logic but good for robustness.
+      } else if (animatedHeight === targetHeight && typeof animatedHeight === 'string') {
+        // If still 'auto' and matches targetHeight (which should be a number now),
+        // it means scrollHeight was likely equal to computedMinHeight.
+        // We set it to the numeric value to make `animatedHeight` numeric.
+        textarea.style.height = `${targetHeight}px`;
+      }
+
+    }
+  }, [value, rows, minHeightFromStyle, maxHeightFromStyle, animatedHeight]);
+
+  return (
+    <motion.div
+      animate={{ height: animatedHeight }}
+      transition={{ type: "tween", duration: 0.2, ease: "circOut" }} // Using a common ease-out
+      style={{ overflow: "hidden", width: "100%" }}
+    >
+      <textarea
+        ref={textareaRef}
+        data-slot="textarea"
+        className={cn(
+          // CRITICAL CHANGE: Removed "flex" from this list.
+          // Removed "field-sizing-content" as JS handles height.
+          "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          // Base visual styles:
+          "min-h-10", // This sets the CSS minimum height
+          "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50",
+          "shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] dark:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
+          className // Allow overriding classes from parent
+        )}
+        style={{
+          ...style, // Apply styles passed from parent (like maxHeight, specific minHeight)
+          // Ensure textarea's rendering height matches the animated height of the motion.div.
+          height: typeof animatedHeight === "number" ? `${animatedHeight}px` : "auto",
+          // Dynamic overflow for the textarea:
+          overflowY:
+            textareaRef.current &&
+            typeof maxHeightFromStyle === "number" &&
+            typeof animatedHeight === "number" && // Ensure animatedHeight is a number
+            animatedHeight >= maxHeightFromStyle && // Check if we are at max height
+            textareaRef.current.scrollHeight > animatedHeight // Check if content *actually* overflows
+              ? "auto"
+              : "hidden",
+        }}
+        rows={rows}
+        {...props}
+      />
+    </motion.div>
+  );
+}
+export { Textarea };

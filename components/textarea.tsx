@@ -1,10 +1,10 @@
 "use client";
 
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea"; // This now refers to your updated Textarea
-import { defaultModel } from "@/ai/providers";
+import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea"; // Ensure this path is correct
+import { defaultModel } from "@/ai/providers"; // Ensure this path is correct and defaultModel is a string
 import { ArrowUp } from "lucide-react";
-import { PauseIcon } from "./icons"; // Assuming this exists
-import React from "react"; // Removed useMemo for simplicity here, can be added if needed
+import { PauseIcon } from "./icons"; // Ensure this path is correct
+import React from "react";
 
 interface InputProps {
   input: string;
@@ -19,14 +19,14 @@ interface InputProps {
   isDesktop: boolean;
 }
 
-export const Textarea = ({ 
+export const Textarea = ({ // Consider renaming this if it's not THE Textarea but a composer
   input,
   handleInputChange,
   setInput,
   isLoading,
   status,
   stop,
-  selectedModel,
+  selectedModel, // This prop is present but not directly used in the JSX below for selectedModel
   setSelectedModel,
   hasSentMessage,
   isDesktop,
@@ -34,7 +34,6 @@ export const Textarea = ({
   const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
   const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
 
-  // ... (rest of your state and useEffect hooks for suggestions - unchanged)
   const [staticPlaceholderAnimatesOut, setStaticPlaceholderAnimatesOut] = React.useState(false);
   const [suggestedPrompts, setSuggestedPrompts] = React.useState<string[]>([]);
   const [currentPromptIndex, setCurrentPromptIndex] = React.useState(0);
@@ -43,7 +42,7 @@ export const Textarea = ({
   const [isTabToAcceptEnabled, setIsTabToAcceptEnabled] = React.useState(true);
   const [promptVisible, setPromptVisible] = React.useState(false);
 
-  const REASON_MODEL_ID = "qwen-qwq-32b";
+  const REASON_MODEL_ID = "qwen-qwq-32b"; // Example
   const featureActive = isDesktop && !hasSentMessage;
 
   React.useEffect(() => {
@@ -155,7 +154,8 @@ export const Textarea = ({
   const determineEffectiveModel = (currentSearchState: boolean, currentReasonState: boolean): string => {
     if (currentSearchState) return SEARCH_MODE;
     if (currentReasonState) return REASON_MODEL_ID;
-    return defaultModel;
+    // Assuming defaultModel is a string. If it's an object, use defaultModel.id or similar
+    return typeof defaultModel === 'string' ? defaultModel : (defaultModel as any).id; 
   };
 
   const handleSetSearchEnabled = (enabled: boolean) => {
@@ -177,9 +177,11 @@ export const Textarea = ({
   
   const showTabBadge = showAnimatedSuggestions && isTabToAcceptEnabled && promptVisible;
 
-  // The style object for ShadcnTextarea. Consider memoizing if PageTextarea re-renders often.
-  // For now, direct object is fine.
-  const textareaStyle = { minHeight: 40, maxHeight: 208 };
+  // Memoize textareaStyle to prevent unnecessary re-renders of the child if this component updates.
+  const textareaStyle = React.useMemo(() => ({ 
+    minHeight: 40, // Corresponds to min-h-10 if 1rem=16px (2.5rem)
+    maxHeight: 208 // Corresponds to max-h-52 if 1rem=16px (13rem)
+  }), []);
 
   return (
     <div className="relative flex w-full items-end px-3 py-3">
@@ -188,7 +190,7 @@ export const Textarea = ({
         {shouldShowCustomPlaceholderElements && (
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-3 z-10 overflow-hidden"
-              style={{ height: '40px' }}
+              style={{ height: '40px' }} // Matches minHeight of textarea
           >
               <div
                   className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
@@ -199,15 +201,15 @@ export const Textarea = ({
               </div>
               {showAnimatedSuggestions && activePromptText && (
                    <div 
-                      key={currentPromptIndex}
+                      key={currentPromptIndex} // Key helps React correctly animate transitions
                       className={`text-zinc-500 dark:text-zinc-400 text-md absolute inset-x-0 w-full flex items-center justify-between transition-all duration-300 ease-in-out ${
                         promptVisible 
                             ? 'opacity-100 translate-y-0' 
                             : (previousPromptIndex !== null 
-                                ? 'opacity-0 -translate-y-3' 
-                                : 'opacity-0 translate-y-3') 
+                                ? 'opacity-0 -translate-y-3' // Animate out upwards
+                                : 'opacity-0 translate-y-3') // Initial animate in from downwards
                       }`}
-                      style={{ marginLeft: '15px' }}
+                      style={{ marginLeft: '15px' }} // Adjust as needed
                     >
                       <span className="truncate">
                           {activePromptText}
@@ -215,7 +217,7 @@ export const Textarea = ({
                       {showTabBadge && (
                         <span 
                           className="ml-1.5 flex-shrink-0 text-[10px] leading-tight text-zinc-400 dark:text-zinc-500 border border-zinc-300 dark:border-zinc-600 rounded-sm px-1 py-[1px] bg-transparent"
-                          style={{ marginRight: '32px' }}
+                          style={{ marginRight: '32px' }} // Space from the edge
                         >
                             TAB
                         </span>
@@ -226,33 +228,34 @@ export const Textarea = ({
         )}
 
         <ShadcnTextarea 
-          // MODIFIED: Removed "transition-[min-height] duration-200"
-          className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal min-h-[40px] max-h-52 placeholder:text-base md:placeholder:text-base placeholder:pl-1 flex-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
+          className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
+          // min-h-[40px] and max-h-52 are applied via style prop and base class in Textarea definition now
           value={input}
           autoFocus
           placeholder={shadcnTextareaNativePlaceholder}
-          style={textareaStyle} // Use the style object
+          style={textareaStyle} // Pass the minHeight and maxHeight here
           onChange={(e) => {
             handleInputChange(e);
             if (e.target.value) {
                 setIsTabToAcceptEnabled(false);
-                setPromptVisible(false);
+                setPromptVisible(false); // Hide prompts when user starts typing
             } else {
-                setIsTabToAcceptEnabled(true); 
+                // Only re-enable TAB if feature is active and no input
+                if (featureActive) setIsTabToAcceptEnabled(true); 
             }
           }}
           disabled={isLoading}
           onKeyDown={handleKeyDown}
         />
-        <div style={{paddingBottom: '48px'}} /> {/* Spacer for buttons */}
+        {/* This div acts as a spacer for the absolutely positioned buttons */}
+        <div style={{paddingBottom: '48px'}} /> 
         
         <div className="bg-primary-surface-primary absolute start-3 end-0 bottom-3 z-20 flex items-center">
-          {/* ... (rest of your buttons and footer actions - unchanged) ... */}
           <div className="w-full">
             <div
               data-testid="composer-footer-actions"
               className="flex items-center max-xs:gap-1 gap-2 overflow-x-auto [scrollbar-width:none]"
-              style={{ marginRight: 98 }} 
+              style={{ marginRight: 98 }} // Space for the send/stop button
             >
               <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isLoading} />
               <SearchButton isSearchEnabled={searchToggleIsOn} setIsSearchEnabled={handleSetSearchEnabled} disabled={isLoading} />
@@ -277,10 +280,10 @@ export const Textarea = ({
                 {(status === "streaming" || status === "submitted") && (
                   <button
                     type="button"
-                    onClick={status === "streaming" ? stop : undefined}
-                    disabled={isLoading} // Should be disabled={status === "submitted"} if stop is only for streaming
+                    onClick={status === "streaming" ? stop : undefined} // Only allow stop if actually streaming
+                    disabled={status === "submitted"} // Disable if submitted but not yet streaming, or if isLoading general
                     className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
-                      status === "submitted" // Check if it should be disabled when submitted too
+                      status === "submitted" // More specific disabled style
                       ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                       : 'bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
                     }`}
