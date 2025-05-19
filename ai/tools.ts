@@ -125,6 +125,171 @@ export const weatherTool = tool({
   }),
 });
 
+// EXPLAIN Recursive Link Following (with safeguards):
+
+// Allow the tool to recursively follow links within the initial page, up to a certain depth, to gather more comprehensive information.
+// Add a recursionDepth parameter to the fetchUrlTool's parameters schema, limiting the depth of recursion to prevent infinite loops.
+// Implement logic to recursively call the fetchUrlTool for each link found on the page, up to the specified depth.
+// Add safeguards to prevent the tool from getting stuck in infinite loops or consuming excessive resources (e.g., by limiting the number of pages fetched and the total execution time). AND Content Summarization with Abstractive Summarization:
+
+// Instead of just extracting snippets of text, use an abstractive summarization technique to generate a concise and coherent summary of the web page content.
+// Integrate a summarization model (e.g., using the transformers library) to generate the summary.
+// Replace the summary field in the fetchUrlTool's output with the generated abstractive summary. AND Automatic Language Detection:
+
+// Use a language detection library (e.g., franc) to automatically detect the language of the web page content.
+// Add a language field to the fetchUrlTool's output, indicating the detected language code (e.g., "en" for English, "es" for Spanish).
+
+// Alright, let's dive deep into these three SUPER features: Recursive Link Following, Abstractive Summarization, and Automatic Language Detection! 🤩
+
+// ### 1. Recursive Link Following (with Safeguards) 🔗
+
+// Imagine your web scraping tool as a curious explorer. Instead of just looking at the surface (the initial web page), it can venture deeper by following links to related pages. This is what recursive link following does.
+
+// *   **The Idea:** The tool starts at a given URL, extracts all the links, and then *automatically* visits those links, extracting information from them as well. This process can repeat, creating a "tree" of visited pages.
+// *   **Why it's SUPER:**
+//     *   **Comprehensive Data:** Get a much broader understanding of a topic by gathering information from multiple related pages.
+//     *   **Discover Hidden Content:** Find content that might not be directly linked from the homepage but is still relevant.
+//     *   **Automated Exploration:** Automate the process of exploring a website's structure and content.
+// *   **The Code (Conceptual):**
+
+//     ```typescript
+//     async function fetchUrlToolExecute({ url, recursionDepth = 0 }: { url: string, recursionDepth: number }) {
+//         // 1. Fetch and analyze the initial page (as before)
+//         const initialResult = await analyzePage(url);
+
+//         if (recursionDepth > 0) {
+//             // 2. Extract links from the initial page
+//             const links = initialResult.navLinks.map(l => l.href); // Assuming navLinks contains the URLs
+
+//             // 3. Recursively call fetchUrlTool for each link (with reduced depth)
+//             const childResults = await Promise.all(
+//                 links.map(link =>
+//                     fetchUrlToolExecute({ url: link, recursionDepth: recursionDepth - 1 })
+//                 )
+//             );
+
+//             // 4. Combine the results (e.g., merge extracted tables, summaries, etc.)
+//             return combineResults(initialResult, childResults);
+//         } else {
+//             return initialResult; // Base case: no more recursion
+//         }
+//     }
+//     ```
+// *   **The Safeguards (CRITICAL):**
+//     *   **`recursionDepth` Parameter:** Limits how many levels deep the tool will go. A depth of 0 means no recursion, 1 means follow links on the initial page only, 2 means follow links on those pages, and so on.
+//     *   **Maximum Pages Fetched:** Set a hard limit on the total number of pages the tool will fetch to prevent it from running indefinitely.
+//     *   **Timeout:** Implement a timeout mechanism to stop the tool if it takes too long to process a single page or the entire process.
+//     *   **Visited Links Tracking:** Keep track of the links that have already been visited to avoid infinite loops (e.g., if page A links to page B, and page B links back to page A).
+//     *   **Domain Restriction:** Only follow links within the same domain as the initial URL to prevent the tool from wandering off to unrelated websites.
+// *   **Example:**
+
+//     > User: "Fetch and analyze [https://example.com](https://example.com) with a recursion depth of 2."
+//     >
+//     > The tool would:
+//     >
+//     > 1.  Fetch and analyze [https://example.com](https://example.com).
+//     > 2.  Extract all links from [https://example.com](https://example.com).
+//     > 3.  Fetch and analyze each of those links.
+//     > 4.  Extract all links from those pages.
+//     > 5.  Fetch and analyze each of *those* links (depth of 2 reached).
+//     > 6.  Combine all the extracted information into a single result.
+
+// ### 2. Content Summarization with Abstractive Summarization 📝
+
+// Instead of just grabbing snippets of text from a web page (like the `summary` field currently does), abstractive summarization aims to generate a *new*, concise, and coherent summary that captures the main points of the content.
+
+// *   **The Idea:** Use a machine learning model to understand the meaning of the text and then re-write it in a shorter form, using different words and sentence structures.
+// *   **Why it's SUPER:**
+//     *   **More Readable Summaries:** Abstractive summaries are typically more fluent and easier to understand than extractive summaries (which just pull out existing sentences).
+//     *   **Better at Capturing the Essence:** The model can identify the most important information and discard irrelevant details.
+//     *   **Handles Complex Text:** Can summarize text that is difficult to summarize using simple techniques.
+// *   **The Code (Conceptual):**
+
+//     ```typescript
+//     import { pipeline } from '@xenova/transformers';
+
+//     let summarizer = null;
+
+//     async function initializeSummarizer() {
+//         summarizer = await pipeline('summarization', 'Xenova/distilbart-cnn-12-6');
+//     }
+
+//     async function generateAbstractiveSummary(text: string) {
+//         if (!summarizer) {
+//             await initializeSummarizer();
+//         }
+//         const output = await summarizer(text, {
+//             max_length: 130,
+//             min_length: 30,
+//             do_sample: false
+//         });
+//         return output[0].summary_text;
+//     }
+
+//     async function fetchUrlToolExecute({ url }: { url: string }) {
+//         // ...
+//         const html = await res.text();
+//         const mainText = extractMainText(html); // Function to extract the main content
+//         const abstractiveSummary = await generateAbstractiveSummary(mainText);
+
+//         return {
+//             // ...
+//             summary: abstractiveSummary // Replace the old summary with the new one
+//         };
+//     }
+//     ```
+
+//     *   **Note:** This example uses the `transformers` library (specifically, the `@xenova/transformers` version for browser/serverless environments) and a pre-trained summarization model. You'll need to install the library (`npm install @xenova/transformers`).
+// *   **Example:**
+
+//     > Original Text: "The quick brown rabbit jumps over the lazy frogs with no effort. The frogs are tired and sleepy. The rabbit is very fast."
+//     >
+//     > Abstractive Summary: "A fast rabbit effortlessly jumps over tired, sleepy frogs."
+
+// ### 3. Automatic Language Detection 🌐
+
+// Knowing the language of a web page can be useful for a variety of reasons, such as:
+
+// *   **Filtering Content:** Only process pages in a specific language.
+// *   **Translation:** Automatically translate content into the user's preferred language.
+// *   **Improved Analysis:** Use language-specific NLP techniques for better analysis.
+// *   **The Idea:** Use a language detection library to analyze the text content of the web page and identify the language it's written in.
+// *   **Why it's SUPER:**
+//     *   **Automatic Identification:** No need to manually specify the language of each page.
+//     *   **Enables Language-Specific Processing:** Allows you to tailor your analysis and processing based on the detected language.
+//     *   **Improved Accuracy:** Language detection libraries are typically very accurate.
+// *   **The Code (Conceptual):**
+
+//     ```typescript
+//     import franc from 'franc';
+
+//     async function fetchUrlToolExecute({ url }: { url: string }) {
+//         // ...
+//         const html = await res.text();
+//         const mainText = extractMainText(html); // Function to extract the main content
+//         const language = franc(mainText, { minLength: 3 }); // Detect the language
+
+//         return {
+//             // ...
+//             language // Add the language code to the output
+//         };
+//     }
+//     ```
+
+//     *   **Note:** This example uses the `franc` library. You'll need to install it (`npm install franc`). The `minLength` option is used to ensure that the text is long enough for accurate detection.
+// *   **Example:**
+
+//     > Text: "This is an English sentence."
+//     >
+//     > Language Code: "eng"
+//     >
+//     > Text: "Esta es una frase en español."
+//     >
+//     > Language Code: "spa"
+
+// By combining these three SUPER features, you can create a web scraping tool that is not only powerful but also intelligent and adaptable! 🚀 Let me know if you have any more questions.
+
+
 export const fetchUrlTool = tool({
   description: // UPDATED description
     "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries.",
