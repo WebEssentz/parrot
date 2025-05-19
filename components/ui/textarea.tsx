@@ -292,6 +292,7 @@ function Textarea({
         style={{
           ...style, // Apply styles passed from parent (like maxHeight, specific minHeight)
           height: typeof animatedHeight === "number" ? `${animatedHeight}px` : "auto",
+          minHeight: 64,
           overflowY:
             textareaRef.current &&
             typeof maxHeightFromStyle === "number" &&
