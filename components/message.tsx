@@ -263,11 +263,19 @@ const PurePreviewMessage = ({
   const aiMessageText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
 
   const handleCopy = () => {
-    copyToClipboard(aiMessageText);
+    copyToClipboard(aiMessageText); // For AI messages
     setCopied(true);
     if (copyTimeout.current) clearTimeout(copyTimeout.current);
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
+  
+  const handleUserMessageCopy = (textToCopy: string) => {
+    copyToClipboard(textToCopy);
+    setCopied(true); // This state is shared, might be fine or might need separate states if interactions overlap
+    if (copyTimeout.current) clearTimeout(copyTimeout.current);
+    copyTimeout.current = setTimeout(() => setCopied(false), 1000);
+  };
+
 
   useEffect(() => () => { if (copyTimeout.current) clearTimeout(copyTimeout.current); }, []);
   return (
@@ -288,7 +296,7 @@ const PurePreviewMessage = ({
               type="button"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.333A6.667 6.667 0 1 0 8 14.667 6.667 6.667 0 0 0 8 1.333Zm0 12A5.333 5.333 0 1 1 8 2.667a5.333 5.333 0 0 1 0 10.666Zm.667-8H7.333v3.334l2.834 1.7.666-1.1-2.166-1.3V5.333Z" fill="currentColor" /></svg>
-              Sources ({sources.length})
+              {sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})
             </button>
           </div>
         )}
@@ -485,7 +493,7 @@ const PurePreviewMessage = ({
               {/* Show copy icon row on desktop: always visible for latest assistant message, hover for previous */}
               {!isMobileOrTablet && isAssistant && status === "ready" && (
                 (() => {
-                  const { theme } = useTheme();
+                  const { theme } = useTheme(); // theme is already available at PurePreviewMessage scope
                   // Always visible (faded in) for latest assistant message, hover for previous
                   // Use isLatestMessage to determine persistent visibility
                   return (
@@ -509,12 +517,11 @@ const PurePreviewMessage = ({
                               aria-label="Copy message"
                               className="rounded-lg focus:outline-none flex h-[32px] w-[32px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
                               style={{
-                                color: theme === 'dark' ? '#fff' : '#828282',
+                                color: theme === 'dark' ? '#fff' : '#828282', // Keeping original AI copy icon colors for now
                                 background: 'transparent',
                                 marginTop: '-6px',
                               }}
-                              onClick={handleCopy}
-                              onMouseLeave={() => setCopied(false)}
+                              onClick={handleCopy} // Uses generic handleCopy for AI message text
                             >
                               {copied ? (
                                 <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
@@ -541,7 +548,7 @@ const PurePreviewMessage = ({
                         aria-label="Copy message"
                         className="text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center"
                         style={{ color: '#828282', background: 'transparent' }}
-                        onClick={handleCopy}
+                        onClick={handleCopy} // Uses generic handleCopy for AI message text
                       >
                         {copied ? <CheckIcon style={{ color: '#828282', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: '#828282', transition: 'all 0.2s' }} />}
                       </button>
@@ -552,141 +559,108 @@ const PurePreviewMessage = ({
               )}
             </div>
           ) : (
+            // User messages
             <div className="flex flex-col w-full space-y-4">
-              {/* Get theme at the top of the component scope */}
               {(() => {
-                const { theme } = useTheme();
+                // theme is already defined in PurePreviewMessage scope
                 return message.parts?.map((part, i) => {
                   switch (part.type) {
                     case "text":
                       const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-                      // This is the flag that determines if we should use the StreamingTextRenderer
                       const isLatestActivelyStreamingTextPart =
-                        isAssistant &&
-                        status === "streaming" && // The overall stream is active (or this message's specific stream status)
-                        isLatestMessage &&        // This is the last message in the chat
-                        isEffectivelyLastPart;    // This is the current text part being streamed
+                        isAssistant && // This will always be false here, as we are in the !isAssistant branch
+                        status === "streaming" &&
+                        isLatestMessage &&
+                        isEffectivelyLastPart;
 
-                      // Expand/collapse UI for long user messages
-                      const LONG_MESSAGE_CHAR_LIMIT = 400; // Adjust as needed
-                      const isUserMessage = message.role === "user";
+                      const LONG_MESSAGE_CHAR_LIMIT = 400;
+                      const isUserMessage = message.role === "user"; // Always true here
                       const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT;
                       const [expanded, setExpanded] = useState(false);
-                      const [hovered, setHovered] = useState(false);
+                      // const [hovered, setHovered] = useState(false); // No longer needed for copy icon
 
-                      // Only show expand/collapse for long user messages
-                      // Use desktop expand/collapse chevron for all devices (no mobile-specific collapse)
-                      const shouldCollapse = false;
-                      const isCollapsed = false;
+                      const shouldCollapse = false; // Original logic, seems unused for actual collapse
+                      const isCollapsed = false; // Original logic, seems unused for actual collapse, expand/collapse is via `expanded` state
 
                       return (
                         <motion.div
-                          initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
+                          initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }} // isLatestActivelyStreamingTextPart is effectively false here
                           animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
                           transition={{ duration: 0.2 }}
                           key={`message-${message.id}-part-${i}`}
                           className="flex flex-row items-start w-full pb-4"
                         >
                           <div
-                            className="flex flex-col gap-4 px-4 py-2 w-full"
+                            className="flex flex-col w-full" // Removed: gap-4 px-4 py-2. Will be handled by inner group.
+                                                            // alignItems: 'flex-start' (original style) is overridden by group's items-end or not applicable.
                             style={{
-                              marginLeft: 0,
-                              alignItems: 'flex-start',
+                              // marginLeft: 0, // Default
                               background: 'none',
                               border: 'none',
                               boxShadow: 'none',
-                              position: 'relative',
+                              position: 'relative', // Original
                             }}
                           >
-                            {isLatestActivelyStreamingTextPart ? (
+                            {isLatestActivelyStreamingTextPart ? ( // This block is effectively never reached for user messages
                               <StreamingTextRenderer
                                 animationStyle="typewriter"
                                 fullText={part.text}
                                 wordSpeed={20}
                               />
                             ) : (
+                              // Container for user message bubble and its copy icon
                               <div
-                                className="group/user-message w-fit mx-auto flex flex-row items-center gap-2 relative"
-                                onMouseEnter={() => setHovered(true)}
-                                onMouseLeave={() => setHovered(false)}
+                                className="group/user-message ml-auto w-fit flex flex-col items-end"
+                                // ml-auto: aligns this block to the right within its parent (which is w-full)
+                                // w-fit: takes the width of its content (bubble)
+                                // flex-col: stacks bubble and icon vertically
+                                // items-end: aligns icon to the right end of the bubble
                               >
-                                {/* Copy icon to the left of the user message (desktop only) */}
-                                {!isMobileOrTablet ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        type="button"
-                                        aria-label="Copy message"
-                                        className="opacity-0 group-hover/user-message:opacity-100 transition-opacity duration-200 rounded-full p-2 flex items-center justify-center select-none border-none shadow-none bg-transparent cursor-pointer"
-                                        style={{ background: 'none', border: 'none', boxShadow: 'none', marginRight: 4 }}
-                                        onClick={() => {
-                                          copyToClipboard(part.text);
-                                          setCopied(true);
-                                          if (copyTimeout.current) clearTimeout(copyTimeout.current);
-                                          copyTimeout.current = setTimeout(() => setCopied(false), 1000);
-                                        }}
-                                        onMouseLeave={() => setCopied(false)}
-                                      >
-                                        {copied ? (
-                                          <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#000', transition: 'all 0.2s' }} />
-                                        ) : (
-                                          <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#000', transition: 'all 0.2s' }} />
-                                        )}
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom" className="select-none">Copy</TooltipContent>
-                                  </Tooltip>
-                                ) : null}
-                                {/* === THIS IS THE USER MESSAGE BUBBLE TO STYLE === */}
+                                {/* User Message Bubble */}
                                 <motion.div
                                   className={cn(
                                     "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
                                     "px-5 py-3",
-                                    "mt-2",
+                                    "mt-2", // Original margin for the bubble
                                     "rounded-2xl",
-                                    "w-fit",
+                                    "w-fit", // Bubble takes width of its text
                                     isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md",
-                                    "text-left",
+                                    "text-left", // Text inside bubble is left-aligned
                                     "break-words",
-                                    isLongUserMessage ? "relative" : "",
-                                    isCollapsed ? "cursor-pointer" : ""
+                                    isLongUserMessage ? "relative" : "", // For expand/collapse icon positioning
+                                    isCollapsed ? "cursor-pointer" : "" // isCollapsed seems part of older logic
                                   )}
                                   style={{
                                     minHeight: '40px',
                                     lineHeight: '1.5',
                                     overflow: isLongUserMessage ? 'hidden' : undefined,
-                                    cursor: isCollapsed ? 'pointer' : undefined,
+                                    cursor: isCollapsed ? 'pointer' : undefined, // isCollapsed seems part of older logic
                                     WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
                                     maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                    ...(isLongUserMessage
-                                      ? {} // No extra padding, handled by pr-[56px] above
-                                      : { paddingRight: undefined } // Remove extra right padding for short messages
-                                    )
                                   }}
                                   initial={false}
                                   animate={{
                                     maxHeight: isLongUserMessage
                                       ? expanded
-                                        ? 1000 // px, large enough for most messages
+                                        ? 1000 
                                         : 120
                                       : 'none',
                                   }}
                                   transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-                                  onClick={isCollapsed ? () => setExpanded(true) : undefined}
+                                  onClick={isCollapsed ? () => setExpanded(true) : undefined} // isCollapsed seems part of older logic
                                 >
                                   <div style={{ paddingRight: isLongUserMessage ? 36 : undefined, position: 'relative' }}>
                                     <Markdown>
-                                      {isLongUserMessage && isCollapsed
-                                       ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
-                                    {/* Mobile/Tablet: See more fade and chevron UI */}
-                                    {/* No mobile/tablet see more/less UI. Use desktop chevron for all. */}
-                                    {/* Desktop: Expand/collapse chevron for long user messages */}
+                                      {isLongUserMessage && !expanded // Use !expanded for collapsed text
+                                       ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}
+                                    </Markdown>
+                                    {/* Expand/collapse chevron for long user messages */}
                                     {!shouldCollapse && isLongUserMessage && (
                                       <div
                                         style={{
                                           position: 'absolute',
-                                          top: 32, // push icon further down
-                                          right: 8, // slightly more space from the right edge
+                                          top: 32, 
+                                          right: 8, 
                                           zIndex: 10,
                                           display: 'flex',
                                           alignItems: 'center',
@@ -719,6 +693,34 @@ const PurePreviewMessage = ({
                                     )}
                                   </div>
                                 </motion.div>
+
+                                {/* New Copy Icon for User Messages (Desktop Only) */}
+                                {!isMobileOrTablet && (
+                                  <div
+                                    className={cn(
+                                      "mt-1 mr-1", // Margin top to place it below, margin right to align with bubble edge
+                                      "opacity-0 group-hover/user-message:opacity-100 transition-opacity duration-200"
+                                    )}
+                                  >
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          aria-label="Copy message"
+                                          className="rounded-md p-1.5 flex items-center justify-center select-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer focus:outline-none"
+                                          onClick={() => handleUserMessageCopy(part.text)}
+                                        >
+                                          {copied ? (
+                                            <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                          ) : (
+                                            <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                          )}
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                                    </Tooltip>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -740,8 +742,8 @@ const PurePreviewMessage = ({
 // Message.tsx (memo comparison)
 export const Message = memo(PurePreviewMessage, (prevProps, nextProps) => {
   if (prevProps.status !== nextProps.status) return false;
-  if (prevProps.isLoading !== nextProps.isLoading) return false; // Add this
-  if (prevProps.isLatestMessage !== nextProps.isLatestMessage) return false; // Add this
+  if (prevProps.isLoading !== nextProps.isLoading) return false; 
+  if (prevProps.isLatestMessage !== nextProps.isLatestMessage) return false; 
   if (prevProps.message.annotations !== nextProps.message.annotations) return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
   // if (prevProps.message.id !== nextProps.message.id) return false; // Key change handles this

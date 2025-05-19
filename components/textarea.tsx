@@ -1,11 +1,10 @@
-// textarea.tsx
 "use client";
 
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea";
+import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea"; // This now refers to your updated Textarea
 import { defaultModel } from "@/ai/providers";
 import { ArrowUp } from "lucide-react";
-import { PauseIcon } from "./icons";
-import React from "react";
+import { PauseIcon } from "./icons"; // Assuming this exists
+import React from "react"; // Removed useMemo for simplicity here, can be added if needed
 
 interface InputProps {
   input: string;
@@ -35,13 +34,14 @@ export const Textarea = ({
   const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
   const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
 
+  // ... (rest of your state and useEffect hooks for suggestions - unchanged)
   const [staticPlaceholderAnimatesOut, setStaticPlaceholderAnimatesOut] = React.useState(false);
   const [suggestedPrompts, setSuggestedPrompts] = React.useState<string[]>([]);
   const [currentPromptIndex, setCurrentPromptIndex] = React.useState(0);
-  const [previousPromptIndex, setPreviousPromptIndex] = React.useState<number | null>(null); // To manage initial animation direction
-  const [showAnimatedSuggestions, setShowAnimatedSuggestions] = React.useState(false); // Controls visibility of the suggestion area
+  const [previousPromptIndex, setPreviousPromptIndex] = React.useState<number | null>(null);
+  const [showAnimatedSuggestions, setShowAnimatedSuggestions] = React.useState(false);
   const [isTabToAcceptEnabled, setIsTabToAcceptEnabled] = React.useState(true);
-  const [promptVisible, setPromptVisible] = React.useState(false); // Controls animation of individual prompts
+  const [promptVisible, setPromptVisible] = React.useState(false);
 
   const REASON_MODEL_ID = "qwen-qwq-32b";
   const featureActive = isDesktop && !hasSentMessage;
@@ -93,10 +93,9 @@ export const Textarea = ({
           setShowAnimatedSuggestions(true); 
           setCurrentPromptIndex(0);
           setPreviousPromptIndex(null); 
-          // Delay making the first prompt visible slightly to allow "Ask Atlas" to clear
-          setTimeout(() => setPromptVisible(true), 50); // Small delay
+          setTimeout(() => setPromptVisible(true), 50);
         }
-      }, 1000); // Start suggestions slightly after "Ask Atlas" is gone (700ms + 300ms animation)
+      }, 1000); 
     } else {
       setStaticPlaceholderAnimatesOut(false);
       setShowAnimatedSuggestions(false);
@@ -115,15 +114,14 @@ export const Textarea = ({
 
     if (showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && featureActive) {
       promptInterval = setInterval(() => {
-        setPromptVisible(false); // Current prompt fades out
+        setPromptVisible(false); 
 
-        setTimeout(() => { // After fade-out duration
+        setTimeout(() => { 
           setPreviousPromptIndex(currentPromptIndex); 
           setCurrentPromptIndex(prevIndex => (prevIndex + 1) % suggestedPrompts.length);
-          // New prompt becomes visible (fades in)
-          setTimeout(() => setPromptVisible(true), 50); // Small delay for state update
-        }, 300); // CSS transition duration
-      }, 2000 + 300); // 2s display + 300ms transition out
+          setTimeout(() => setPromptVisible(true), 50); 
+        }, 300); 
+      }, 2000 + 300); 
     }
     return () => clearInterval(promptInterval);
   }, [showAnimatedSuggestions, suggestedPrompts.length, isTabToAcceptEnabled, featureActive, currentPromptIndex]);
@@ -179,33 +177,26 @@ export const Textarea = ({
   
   const showTabBadge = showAnimatedSuggestions && isTabToAcceptEnabled && promptVisible;
 
+  // The style object for ShadcnTextarea. Consider memoizing if PageTextarea re-renders often.
+  // For now, direct object is fine.
+  const textareaStyle = { minHeight: 40, maxHeight: 208 };
+
   return (
     <div className="relative flex w-full items-end px-3 py-3">
       <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
         
         {shouldShowCustomPlaceholderElements && (
-          // Main container for custom placeholders. It sets the bounds and base alignment.
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-3 z-10 overflow-hidden"
-              // Using h-full and pt-3 from parent, items-center will vertically align content within the top part of the textarea.
-              // height: '40px' with pt-3 would also work.
-              style={{ 
-                  height: '40px' // Explicit height matching textarea's min-height
-              }}
+              style={{ height: '40px' }}
           >
-              {/* 1. Static "Ask Atlas..." Text */}
               <div
                   className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
                       staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
                   }`}
-                  // This text is absolute, positioned at the top-left of its parent (the main placeholder container).
-                  // The parent's pl-4 and pt-3 will apply to its content box.
-                  // `w-full` is important if we want it to occupy the same horizontal space as suggestions might.
               >
                   Ask Atlas...
               </div>
-
-              {/* 2. Animating Suggested Prompt - This should also be absolute and overlay "Ask Atlas..." when active */}
               {showAnimatedSuggestions && activePromptText && (
                    <div 
                       key={currentPromptIndex}
@@ -235,11 +226,12 @@ export const Textarea = ({
         )}
 
         <ShadcnTextarea 
-          className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal min-h-[40px] max-h-52 placeholder:text-base md:placeholder:text-base placeholder:pl-1 flex-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none transition-[min-height] duration-200"
+          // MODIFIED: Removed "transition-[min-height] duration-200"
+          className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal min-h-[40px] max-h-52 placeholder:text-base md:placeholder:text-base placeholder:pl-1 flex-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
           value={input}
           autoFocus
           placeholder={shadcnTextareaNativePlaceholder}
-          style={{ minHeight: 40, maxHeight: 208 }}
+          style={textareaStyle} // Use the style object
           onChange={(e) => {
             handleInputChange(e);
             if (e.target.value) {
@@ -252,9 +244,10 @@ export const Textarea = ({
           disabled={isLoading}
           onKeyDown={handleKeyDown}
         />
-        <div style={{paddingBottom: '48px'}} />
+        <div style={{paddingBottom: '48px'}} /> {/* Spacer for buttons */}
         
         <div className="bg-primary-surface-primary absolute start-3 end-0 bottom-3 z-20 flex items-center">
+          {/* ... (rest of your buttons and footer actions - unchanged) ... */}
           <div className="w-full">
             <div
               data-testid="composer-footer-actions"
@@ -285,15 +278,15 @@ export const Textarea = ({
                   <button
                     type="button"
                     onClick={status === "streaming" ? stop : undefined}
-                    disabled={isLoading}
+                    disabled={isLoading} // Should be disabled={status === "submitted"} if stop is only for streaming
                     className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
-                      isLoading 
+                      status === "submitted" // Check if it should be disabled when submitted too
                       ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                       : 'bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
                     }`}
                     title={status === "streaming" ? "Stop generating" : "Processing..."} style={{ minWidth: 40, minHeight: 40 }}
                   >
-                    <PauseIcon size={28} className={`h-6 w-6 transition-colors duration-300 ${ isLoading ? 'text-zinc-400 dark:text-zinc-500' : 'text-white dark:text-black' }`} />
+                    <PauseIcon size={28} className={`h-6 w-6 transition-colors duration-300 ${ status === "submitted" ? 'text-zinc-400 dark:text-zinc-500' : 'text-white dark:text-black' }`} />
                   </button>
                 )}
               </div>
@@ -304,4 +297,3 @@ export const Textarea = ({
     </div>
   );
 };
-

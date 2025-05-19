@@ -1,6 +1,8 @@
 "use client"; // Ensure this is at the top if it's a client component
 
 import * as React from "react"
+import { useRef, useLayoutEffect, useState } from "react";
+import { motion } from "framer-motion";
 // import type { modelID } from "@/ai/providers"; // Not directly used here
 import { defaultModel } from "@/ai/providers"; // Not directly used here, but SEARCH_MODE uses it
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -145,24 +147,83 @@ export function AttachButton({
 
 
 
-// Textarea (ShadcnTextarea) definition
-function Textarea({ className, rows = 1, ...props }: React.ComponentProps<"textarea"> & { rows?: number }) {
+
+// Textarea (ShadcnTextarea) definition - UPDATED
+function Textarea({ 
+  className, 
+  rows = 1, 
+  style, // Destructure style from props
+  ...props 
+}: React.ComponentProps<"textarea"> & { rows?: number }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [currentTextareaHeight, setCurrentTextareaHeight] = useState<number | undefined>(undefined);
+
+  // Extract maxHeight from style prop for stable dependency in useLayoutEffect
+  const maxHeightFromProps = style?.maxHeight;
+
+  useLayoutEffect(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+
+      // Determine the effective maxHeight for the textarea.
+      // It defaults to 320 if not specified in props.style.maxHeight.
+      let effectiveMaxHeight = 320;
+      if (typeof maxHeightFromProps === 'number') {
+        effectiveMaxHeight = maxHeightFromProps;
+      }
+      
+      // Reset height to 'auto' to accurately measure scrollHeight
+      textarea.style.height = 'auto';
+      const scrollHeight = textarea.scrollHeight;
+      
+      // Calculate the target height: scrollHeight capped by effectiveMaxHeight
+      const targetHeight = Math.min(scrollHeight, effectiveMaxHeight);
+
+      // Update state only if the calculated height differs from the current state
+      if (currentTextareaHeight !== targetHeight) {
+        setCurrentTextareaHeight(targetHeight);
+      }
+    }
+  }, [props.value, rows, maxHeightFromProps, currentTextareaHeight]); // Use stable maxHeightFromProps
+
   return (
-    <textarea
-      data-slot="textarea"
-      className={cn(
-        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex field-sizing-content min-h-10 w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50",
-        "shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] dark:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
-        "overflow-y-auto overscroll-auto",
-        className
-      )}
-      style={{ ...props.style, maxHeight: 320 }} // Ensure this maxHeight is appropriate
-      {...props} // Spread other props like value, onChange, disabled
-    />
-  )
+    <motion.div
+      animate={{ height: currentTextareaHeight === undefined ? 'auto' : currentTextareaHeight }}
+      // Adjusted spring for a slightly softer feel, or use tween for duration-based
+      // transition={{ type: 'spring', stiffness: 170, damping: 26 }} 
+      transition={{ type: 'tween', duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }} // Example: a common ease-out like
+      style={{ overflow: 'hidden', width: '100%' }}
+    >
+      <textarea
+        ref={textareaRef}
+        data-slot="textarea"
+        className={cn(
+          // MODIFIED: Removed "field-sizing-content" from the default classes
+          "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex min-h-10 w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50",
+          "shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] dark:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
+          // "overflow-y-auto overscroll-auto", // Keep this, but inline style below will provide finer control
+          className
+        )}
+        style={{ 
+          ...style, // Spread incoming style prop first
+          height: currentTextareaHeight, // Set height from state; if undefined, CSS min-height/rows will apply initially
+          // Override maxHeight from incoming style if present, otherwise default to 320
+          maxHeight: maxHeightFromProps || 320, 
+          // Control overflow: show scrollbar only when content reaches maxHeight
+          overflowY: (
+            typeof currentTextareaHeight === "number" &&
+            typeof maxHeightFromProps === "number" &&
+            currentTextareaHeight >= maxHeightFromProps
+          ) ? 'auto' : 'hidden',
+        }}
+        rows={rows}
+        {...props}
+      />
+    </motion.div>
+  );
 }
-export { Textarea } // This is the ShadcnTextarea, re-exported
+export { Textarea }// This is the ShadcnTextarea, re-exported
 
 export function ReasonButton({
   isReasonEnabled,
