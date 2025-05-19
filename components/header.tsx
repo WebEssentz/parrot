@@ -85,11 +85,13 @@ export const Header = () => {
               </Link>
             ) : (
               <span
-                className="text-[20px] font-leading select-none -mt-2 font-medium"
+                className={
+                  `text-[20px] font-leading select-none -mt-2 font-medium transition-colors duration-200 ` +
+                  (theme === 'dark' ? 'text-white' : 'text-black')
+                }
                 style={{
-                  color: `${theme == "dark" ? "white" : "black"}`,
                   lineHeight: '22px',
-                  fontFamily: 'Google Sans, \"Helvetica Neue\", sans-serif',
+                  fontFamily: 'Google Sans, "Helvetica Neue", sans-serif',
                   letterSpacing: 'normal',
                 }}
               >
