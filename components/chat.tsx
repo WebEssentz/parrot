@@ -12,11 +12,44 @@ import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "./header";
 import React from "react";
 import { toast } from "sonner";
+
 import { Github, LinkedInIcon, XIcon } from "./icons";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Move FadeMobileInfo OUTSIDE of Chat to prevent remounting on every render
+// Updated FadeMobileInfo: minHeight prop is now optional and defaults to 'auto' if not a positive number.
+function FadeMobileInfo({ show, minHeight }: { show: boolean; minHeight?: number }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+          className="text-left text-base sm:text-lg text-zinc-700 dark:text-zinc-400 mb-2 mx-0.5 p-4 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl flex flex-col justify-center shadow-lg"
+          style={{ minHeight: (minHeight && minHeight > 0) ? `${minHeight}px` : 'auto' }}
+        >
+          <div>
+            <p>
+              By messaging Atlas you agree with our{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Terms</a>
+              {' '}and have read our{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Privacy Policy</a>.
+            </p>
+            <p className="mt-1">
+              We recommend checking out our{' '}
+              <a href="/community-guidelines" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">community guidelines</a>.
+            </p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 
 async function generateAndSetTitle(firstUserMessageContent: string) {
-  // ... (existing function)
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -47,11 +80,13 @@ export default function Chat() {
   const [showMobileInfoMessage, setShowMobileInfoMessage] = useState(false);
   const [hasShownMobileInfoMessageOnce, setHasShownMobileInfoMessageOnce] = useState(false);
 
-  const textareaFormRef = useRef<HTMLFormElement>(null);
-  const [textareaComputedHeight, setTextareaComputedHeight] = useState(0);
+  // Removed textareaFormRef and textareaComputedHeight as they are no longer needed
+  // const textareaFormRef = useRef<HTMLFormElement>(null); // No longer needed
+  // const [textareaComputedHeight, setTextareaComputedHeight] = useState(0); // No longer needed
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
+
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
@@ -63,14 +98,12 @@ export default function Chat() {
   const {
     messages,
     input,
-    handleInputChange, // Keep for direct typing
-    setInput,         // Add this from useChat
+    handleInputChange,
+    setInput,
     handleSubmit: originalHandleSubmit,
     status,
     stop,
     setMessages,
-    // reload, // Not used in current snippet but part of useChat
-    // append, // Not used in current snippet but part of useChat
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
@@ -107,7 +140,6 @@ export default function Chat() {
   }, [messages]);
 
   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
-    // ... (existing handleSubmit logic)
     e.preventDefault();
     if (!input.trim()) return;
     
@@ -130,7 +162,6 @@ export default function Chat() {
   }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom]);
 
   useEffect(() => {
-    // ... (existing inputAreaRef useEffect)
     const measureAndUpdateHeight = () => {
       if (inputAreaRef.current) {
         const newHeight = inputAreaRef.current.offsetHeight;
@@ -153,7 +184,6 @@ export default function Chat() {
   }, [showMobileInfoMessage]);
 
   useEffect(() => {
-    // ... (existing mobile info message useEffect)
     const onMobileOrTablet = typeof isDesktop !== 'undefined' && !isDesktop;
     if (onMobileOrTablet) {
       if (
@@ -176,30 +206,18 @@ export default function Chat() {
     }
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
 
-  useEffect(() => {
-    // ... (existing textareaFormRef useEffect)
-    const measureTextareaFormHeight = () => {
-      if (textareaFormRef.current) {
-        setTextareaComputedHeight(textareaFormRef.current.offsetHeight);
-      }
-    };
-    measureTextareaFormHeight();
-    const observer = new ResizeObserver(measureTextareaFormHeight);
-    if (textareaFormRef.current) {
-      observer.observe(textareaFormRef.current);
-    }
-    window.addEventListener('resize', measureTextareaFormHeight);
-    return () => {
-      if (textareaFormRef.current) {
-        observer.unobserve(textareaFormRef.current);
-      }
-      observer.disconnect();
-      window.removeEventListener('resize', measureTextareaFormHeight);
-    };
-  }, [input]);
+  // Removed useEffect that calculated textareaComputedHeight as it's no longer needed
+  // useEffect(() => {
+  //   const measureTextareaFormHeight = () => {
+  //     if (textareaFormRef.current) {
+  //       setTextareaComputedHeight(textareaFormRef.current.offsetHeight);
+  //     }
+  //   };
+  //   // ... observer logic ...
+  // }, [input]);
 
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
-  const isMobileOrTabletHook = useMobile(); // Renamed to avoid conflict if isMobileOrTablet state exists
+  const isMobileOrTabletHook = useMobile();
   const bufferForInputArea = isMobileOrTabletHook ? 200 : 100;
   const currentYear = new Date().getFullYear();
 
@@ -212,19 +230,19 @@ export default function Chat() {
       <div
         ref={containerRef}
         className={
-          `flex-1 w-full pt-8 sm:pt-12 scrollbar-thin ` +
+          `flex-1 w-full sm:mb-12 scrollbar-thin ` +
           (hasSentMessage ? "overflow-y-auto overscroll-auto" : "overflow-y-hidden overscroll-none")
         }
         style={{
           paddingBottom:
             typeof isDesktop !== 'undefined' && isDesktop
-              ? (inputAreaHeight > 0 ? `${inputAreaHeight + bufferForInputArea}px` : `${100 + bufferForInputArea}px`)
+              ? `${inputAreaHeight + bufferForInputArea}px`
               : `${bufferForInputArea}px`,
         }}
       >
         {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (
           <div className="flex h-full items-center justify-center">
-            <div className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-3xl">
+            <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-3xl">
               <ProjectOverview />
               {isDesktop && (
                 <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto mt-6 ">
@@ -232,19 +250,18 @@ export default function Chat() {
                     selectedModel={selectedModel}
                     setSelectedModel={setSelectedModel}
                     handleInputChange={handleInputChange}
-                    setInput={setInput} // Pass setInput
+                    setInput={setInput}
                     input={input}
                     isLoading={uiIsLoading}
                     status={status}
                     stop={stop}
-                    hasSentMessage={hasSentMessage} // Pass hasSentMessage
-                    isDesktop={isDesktop}           // Pass isDesktop
+                    hasSentMessage={hasSentMessage}
+                    isDesktop={isDesktop}
                   />
                 </form>
               )}
               {isDesktop && (
                 <>
-                  {/* ... (existing footer links and terms) ... */}
                   <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
                     <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
                       By messaging Atlas, you agree to our{' '}
@@ -280,46 +297,33 @@ export default function Chat() {
         <div ref={endRef as React.RefObject<HTMLDivElement>} style={{ height: 1 }} />
       </div>
 
-      {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && ( // Show if not desktop OR if messages exist
+      {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (
         <div
           ref={inputAreaRef}
           className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
         >
           <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4">
-            {showMobileInfoMessage && (
+            <div className="relative w-full">
               <div
-                className="text-left text-xs text-zinc-700 dark:text-zinc-400 mb-2 mx-0.5 p-3 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl flex flex-col justify-center"
-                style={{
-                  minHeight: textareaComputedHeight > 0 ? `${textareaComputedHeight}px` : 'auto',
-                }}
+                style={{ position: 'absolute', left: 0, right: 0, bottom: '100%', zIndex: 20 }}
               >
-                <div>
-                  <p>
-                    By messaging Atlas you agree with our{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Terms</a>
-                    {' '}and have read our{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Privacy Policy</a>.
-                  </p>
-                  <p className="mt-1">
-                    We recommend checking out our{' '}
-                    <a href="/community-guidelines" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">community guidelines</a>.
-                  </p>
-                </div>
+                {/* Updated: minHeight prop removed from FadeMobileInfo call */}
+                <FadeMobileInfo show={showMobileInfoMessage} />
               </div>
-            )}
-            
-             <form ref={textareaFormRef} onSubmit={handleSubmit} className="w-full">
+            </div>         
+             {/* Updated: ref={textareaFormRef} removed from form tag */}
+             <form onSubmit={handleSubmit} className="w-full">
               <CustomTextareaWrapper
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
                 handleInputChange={handleInputChange}
-                setInput={setInput} // Pass setInput
+                setInput={setInput}
                 input={input}
                 isLoading={uiIsLoading}
                 status={status}
                 stop={stop}
-                hasSentMessage={hasSentMessage} // Pass hasSentMessage
-                isDesktop={isDesktop === undefined ? false : isDesktop} // Pass isDesktop, handle undefined
+                hasSentMessage={hasSentMessage}
+                isDesktop={isDesktop === undefined ? false : isDesktop}
               />
             </form>
 
