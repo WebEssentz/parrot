@@ -647,28 +647,38 @@ const PurePreviewMessage = ({
                             ) : (
                               // Container for user message bubble and its copy icon
                               <div
-                                className="group/user-message w-fit flex flex-col items-end"
+                                className="group/user-message flex flex-col items-end w-full gap-1 relative justify-center max-w-3xl md:px-4 pb-2"
                                 // ml-auto: aligns this block to the right within its parent (which is w-full)
                                 // w-fit: takes the width of its content (bubble)
                                 // flex-col: stacks bubble and icon vertically
                                 // items-end: aligns icon to the right end of the bubble
                               >
-                                {/* User Message Bubble */}
-                                <motion.div
-                                  className={cn(
-                                    "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
-                                    "px-5 py-3",
-                                    "mt-2", // Original margin for the bubble
-                                    "rounded-2xl",
-                                    "w-fit", // Bubble takes width of its text
+                                  {/* User Message Bubble */}
+                                  <motion.div
+                                    className={cn(
+                                      "prose-p:opacity-95",
+                                      "prose-strong:opacity-100",
+                                      "border",
+                                      "border-border-l1",
+                                      "max-w-[100%]",
+                                      "sm:max-w-[90%]",
+                                      "rounded-br-lg",
+                                      "message-bubble",
+                                      "prose",
+                                      "min-h-7",
+                                      "text-primary",
+                                      "dark:prose-invert",
+                                      "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
+                                      "px-5 py-2.5",                        
+                                      "rounded-3xl",          
+                                      "relative",                        
                                     isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md",
                                     "text-left", // Text inside bubble is left-aligned
                                     "break-words",
                                     isLongUserMessage ? "relative" : "", // For expand/collapse icon positioning
                                     isCollapsed ? "cursor-pointer" : "" // isCollapsed seems part of older logic
                                   )}
-                                  style={{
-                                    minHeight: '40px',
+                                  style={{                                 
                                     lineHeight: '1.5',
                                     overflow: isLongUserMessage ? 'hidden' : undefined,
                                     cursor: isCollapsed ? 'pointer' : undefined, // isCollapsed seems part of older logic
