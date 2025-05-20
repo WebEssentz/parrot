@@ -374,7 +374,12 @@ const PurePreviewMessage = ({
                 "group/ai-message-hoverable",
                 isMobileOrTablet ? "w-full pl-10" : "w-fit"
               )}
-              style={{ marginLeft: 0, paddingLeft: 0 }}
+              style={{
+                marginLeft: 0,
+                paddingLeft: 0,
+                // Add extra top margin on mobile/tablet if previous message is from user
+                marginTop: isMobileOrTablet ? 32 : undefined // 32px = 2rem, adjust as needed
+              }}
             >
               <div className={isMobileOrTablet ? "flex flex-col space-y-4" : "flex flex-col space-y-4 w-fit"} style={{ alignItems: 'flex-start' }}>
                 {message.parts?.map((part, i) => {
