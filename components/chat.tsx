@@ -80,20 +80,14 @@ export default function Chat() {
   const [showMobileInfoMessage, setShowMobileInfoMessage] = useState(false);
   const [hasShownMobileInfoMessageOnce, setHasShownMobileInfoMessageOnce] = useState(false);
 
-  // Removed textareaFormRef and textareaComputedHeight as they are no longer needed
-  // const textareaFormRef = useRef<HTMLFormElement>(null); // No longer needed
-  // const [textareaComputedHeight, setTextareaComputedHeight] = useState(0); // No longer needed
-
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
 
-  // Safearea tap outside logic
   useEffect(() => {
     if (!showMobileInfoMessage || isDesktop) return;
     function handleTapOutside(e: MouseEvent | TouchEvent) {
       const safearea = document.getElementById("safearea");
       if (!safearea) return;
-      // If the click/tap is outside the safearea, hide the privacy message
       if (!safearea.contains(e.target as Node)) {
         setShowMobileInfoMessage(false);
       }
@@ -179,27 +173,37 @@ export default function Chat() {
     setTimeout(() => scrollToBottom(), 200);
   }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom]);
 
+  const hasSentMessage = messages.length > 0;
+
   useEffect(() => {
-    const measureAndUpdateHeight = () => {
-      if (inputAreaRef.current) {
-        const newHeight = inputAreaRef.current.offsetHeight;
-        setInputAreaHeight(newHeight);
-      }
-    };
-    measureAndUpdateHeight();
-    const observer = new ResizeObserver(measureAndUpdateHeight);
-    if (inputAreaRef.current) {
-      observer.observe(inputAreaRef.current);
+    const elementToObserve = inputAreaRef.current;
+
+    if (!elementToObserve) {
+      // Optionally, consider if inputAreaHeight should be reset if the element is not present.
+      // setInputAreaHeight(0); 
+      return;
     }
+
+    const measureAndUpdateHeight = () => {
+      const newHeight = elementToObserve.offsetHeight;
+      setInputAreaHeight(newHeight);
+    };
+
+    measureAndUpdateHeight(); // Measure immediately
+
+    const observer = new ResizeObserver(measureAndUpdateHeight);
+    observer.observe(elementToObserve);
+    
+    // Keep window resize listener if it's meant to trigger remeasurement
+    // for reasons beyond the element's own ResizeObserver capabilities.
     window.addEventListener('resize', measureAndUpdateHeight);
+
     return () => {
-      if (inputAreaRef.current) {
-        observer.unobserve(inputAreaRef.current);
-      }
-      observer.disconnect();
+      observer.unobserve(elementToObserve);
       window.removeEventListener('resize', measureAndUpdateHeight);
     };
-  }, [showMobileInfoMessage]);
+    // --- Critical Change: Updated dependency array ---
+  }, [isDesktop, hasSentMessage, showMobileInfoMessage]); // Added isDesktop and hasSentMessage
 
   useEffect(() => {
     const onMobileOrTablet = typeof isDesktop !== 'undefined' && !isDesktop;
@@ -229,8 +233,6 @@ export default function Chat() {
   const bufferForInputArea = isMobileOrTabletHook ? 200 : 50;
   const currentYear = new Date().getFullYear();
 
-  const hasSentMessage = messages.length > 0;
-
   return (
     <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
       <Header />
@@ -244,7 +246,7 @@ export default function Chat() {
         style={{
           paddingTop:
             typeof isDesktop !== 'undefined' && !isDesktop
-              ? '18px' // Add top padding for mobile/tablet to clear header
+              ? '18px' 
               : undefined,
           paddingBottom:
             typeof isDesktop !== 'undefined' && isDesktop
@@ -310,7 +312,6 @@ export default function Chat() {
       </div>
 
       {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (
-        // Safearea wrapper for mobile: wraps privacy message, textarea, and disclaimer
         !isDesktop ? (
           <div
             className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
