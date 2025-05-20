@@ -87,6 +87,24 @@ export default function Chat() {
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
 
+  // Safearea tap outside logic
+  useEffect(() => {
+    if (!showMobileInfoMessage || isDesktop) return;
+    function handleTapOutside(e: MouseEvent | TouchEvent) {
+      const safearea = document.getElementById("safearea");
+      if (!safearea) return;
+      // If the click/tap is outside the safearea, hide the privacy message
+      if (!safearea.contains(e.target as Node)) {
+        setShowMobileInfoMessage(false);
+      }
+    }
+    document.addEventListener("mousedown", handleTapOutside);
+    document.addEventListener("touchstart", handleTapOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleTapOutside);
+      document.removeEventListener("touchstart", handleTapOutside);
+    };
+  }, [showMobileInfoMessage, isDesktop]);
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
@@ -206,16 +224,6 @@ export default function Chat() {
     }
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
 
-  // Removed useEffect that calculated textareaComputedHeight as it's no longer needed
-  // useEffect(() => {
-  //   const measureTextareaFormHeight = () => {
-  //     if (textareaFormRef.current) {
-  //       setTextareaComputedHeight(textareaFormRef.current.offsetHeight);
-  //     }
-  //   };
-  //   // ... observer logic ...
-  // }, [input]);
-
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
   const bufferForInputArea = isMobileOrTabletHook ? 200 : 100;
@@ -298,39 +306,72 @@ export default function Chat() {
       </div>
 
       {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (
-        <div
-          ref={inputAreaRef}
-          className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
-        >
-          <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative">
-            {/* FadeMobileInfo is now directly above the textarea */}
-            {!isDesktop && (
+        // Safearea wrapper for mobile: wraps privacy message, textarea, and disclaimer
+        !isDesktop ? (
+          <div
+            className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
+            style={{ pointerEvents: showMobileInfoMessage ? 'auto' : undefined }}
+          >
+            <div
+              id="safearea"
+              ref={inputAreaRef}
+              className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative"
+              style={{ pointerEvents: 'auto' }}
+            >
               <FadeMobileInfo show={showMobileInfoMessage} />
-            )}
-            <form onSubmit={handleSubmit} className="w-full relative z-10">
-              <CustomTextareaWrapper
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                handleInputChange={handleInputChange}
-                setInput={setInput}
-                input={input}
-                isLoading={uiIsLoading}
-                status={status}
-                stop={stop}
-                hasSentMessage={hasSentMessage}
-                isDesktop={isDesktop === undefined ? false : isDesktop}
-              />
-            </form>
-
-            {(hasSentMessage) && (
-              <div className="text-center mt-1.5">
-                <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
-                  Atlas uses AI. Double check response.
-                </span>
-              </div>
-            )}
+              <form onSubmit={handleSubmit} className="w-full relative z-10">
+                <CustomTextareaWrapper
+                  selectedModel={selectedModel}
+                  setSelectedModel={setSelectedModel}
+                  handleInputChange={handleInputChange}
+                  setInput={setInput}
+                  input={input}
+                  isLoading={uiIsLoading}
+                  status={status}
+                  stop={stop}
+                  hasSentMessage={hasSentMessage}
+                  isDesktop={false}
+                />
+              </form>
+              {(hasSentMessage) && (
+                <div className="text-center mt-1.5">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
+                    Atlas uses AI. Double check response.
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div
+            ref={inputAreaRef}
+            className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
+          >
+            <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative">
+              <form onSubmit={handleSubmit} className="w-full relative z-10">
+                <CustomTextareaWrapper
+                  selectedModel={selectedModel}
+                  setSelectedModel={setSelectedModel}
+                  handleInputChange={handleInputChange}
+                  setInput={setInput}
+                  input={input}
+                  isLoading={uiIsLoading}
+                  status={status}
+                  stop={stop}
+                  hasSentMessage={hasSentMessage}
+                  isDesktop={true}
+                />
+              </form>
+              {(hasSentMessage) && (
+                <div className="text-center mt-1.5">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
+                    Atlas uses AI. Double check response.
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )
       )}
     </div>
   );
