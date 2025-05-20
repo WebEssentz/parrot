@@ -142,19 +142,19 @@ export default function Chat() {
   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
-    
-    const intendedModelForThisSubmit = selectedModel; 
+
+    const intendedModelForThisSubmit = selectedModel;
     modelForCurrentSubmissionRef.current = intendedModelForThisSubmit;
 
     if (intendedModelForThisSubmit === SEARCH_MODE) {
       if (isSubmittingSearch) return;
       setIsSubmittingSearch(true);
     } else if (isSubmittingSearch && modelForCurrentSubmissionRef.current === SEARCH_MODE) {
-        return; 
+      return;
     }
 
     originalHandleSubmit(e, {
-        body: { selectedModel: modelForCurrentSubmissionRef.current } 
+      body: { selectedModel: modelForCurrentSubmissionRef.current }
     });
 
     if (showMobileInfoMessage) setShowMobileInfoMessage(false);
@@ -277,9 +277,9 @@ export default function Chat() {
                   </div>
                   <div className="fixed right-4 bottom-0 z-30 py-2">
                     <div className="inline-flex items-center gap-x-3">
-                      <a href="https://x.com/YourXProfile" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our X profile"><XIcon size={18}/></a>
-                      <a href="https://linkedin.com/company/YourLinkedIn" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn profile"><LinkedInIcon size={18}/></a>
-                      <a href="https://github.com/YourGithub" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our GitHub"><Github className="size-[18px]"/></a>
+                      <a href="https://x.com/YourXProfile" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our X profile"><XIcon size={18} /></a>
+                      <a href="https://linkedin.com/company/YourLinkedIn" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn profile"><LinkedInIcon size={18} /></a>
+                      <a href="https://github.com/YourGithub" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our GitHub"><Github className="size-[18px]" /></a>
                     </div>
                   </div>
                 </>
@@ -302,17 +302,12 @@ export default function Chat() {
           ref={inputAreaRef}
           className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
         >
-          <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4">
-            <div className="relative w-full">
-              <div
-                style={{ position: 'absolute', left: 0, right: 0, bottom: '100%', zIndex: 20 }}
-              >
-                {/* Updated: minHeight prop removed from FadeMobileInfo call */}
-                <FadeMobileInfo show={showMobileInfoMessage} />
-              </div>
-            </div>         
-             {/* Updated: ref={textareaFormRef} removed from form tag */}
-             <form onSubmit={handleSubmit} className="w-full">
+          <div className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative">
+            {/* FadeMobileInfo is now directly above the textarea */}
+            {!isDesktop && (
+              <FadeMobileInfo show={showMobileInfoMessage} />
+            )}
+            <form onSubmit={handleSubmit} className="w-full relative z-10">
               <CustomTextareaWrapper
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
@@ -327,7 +322,7 @@ export default function Chat() {
               />
             </form>
 
-            {(hasSentMessage) && !showMobileInfoMessage && (
+            {(hasSentMessage) && (
               <div className="text-center mt-1.5">
                 <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
                   Atlas uses AI. Double check response.
