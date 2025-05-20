@@ -226,7 +226,7 @@ export default function Chat() {
 
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
-  const bufferForInputArea = isMobileOrTabletHook ? 200 : 100;
+  const bufferForInputArea = isMobileOrTabletHook ? 200 : 50;
   const currentYear = new Date().getFullYear();
 
   const hasSentMessage = messages.length > 0;

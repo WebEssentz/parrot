@@ -347,17 +347,31 @@ const PurePreviewMessage = ({
           {/* Desktop: Copy icon at the bottom of the AI message bubble */}
           {/* AI icon remains at the top left, copy icon moves to bottom of bubble on desktop */}
           {/* AI icon */}
-          {isAssistant && (
+          {/* AI icon: show only on desktop, comment out on mobile/tablet */}
+          {isAssistant && !isMobileOrTablet && (
             <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
               <div>
                 <SparklesIcon size={14} />
               </div>
             </div>
           )}
+          {/*
+          {isAssistant && isMobileOrTablet && (
+            <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
+              <div>
+                <SparklesIcon size={14} />
+              </div>
+            </div>
+          )}
+          */}
+          {/* On mobile/tablet, add left margin to AI message to align with where the icon would be */}
 
           {isAssistant ? (
             <div
-              className="w-full group/ai-message-hoverable" // Apply group for hover effect over the entire AI message block
+              className={cn(
+                "w-full group/ai-message-hoverable",
+                isMobileOrTablet ? "pl-10" : ""
+              )} // Add left padding on mobile/tablet to align with icon
               style={{ marginLeft: 0, paddingLeft: 0 }}
             >
               <div className="flex flex-col space-y-4" style={{ alignItems: 'flex-start' }}>
@@ -379,7 +393,7 @@ const PurePreviewMessage = ({
                           className="flex flex-row items-start w-full pb-4"
                         >
                           <div
-                            className="flex flex-col gap-4 px-4 py-2"
+                            className="flex flex-col gap-4"
                             style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
                           >
                             <Markdown>{part.text}</Markdown> {/* Investigate this component's performance */}
@@ -497,54 +511,50 @@ const PurePreviewMessage = ({
                   // Always visible (faded in) for latest assistant message, hover for previous
                   // Use isLatestMessage to determine persistent visibility
                   return (
-                    <div className="w-full flex flex-row items-center mt-0 relative">
-                      <div
-                        className={
-                          cn(
-                            "flex items-center gap-0.5 p-0 -mt-5 select-none pointer-events-auto transition-opacity duration-200 delay-75 ml-2",
-                            isLatestMessage
-                              ? "opacity-100"
-                              : "opacity-0 group-hover/ai-message-hoverable:opacity-100"
-                          )
-                        }
-                        data-ai-action
-                        style={{ position: 'absolute', left: 0, top: 0 }}
-                      >
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label="Copy message"
-                              className="rounded-lg focus:outline-none flex h-[32px] w-[32px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                              style={{
-                                color: theme === 'dark' ? '#fff' : '#828282', // Keeping original AI copy icon colors for now
-                                background: 'transparent',
-                                marginTop: '-6px',
-                              }}
-                              onClick={handleCopy} // Uses generic handleCopy for AI message text
-                            >
-                              {copied ? (
-                                <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                              ) : (
-                                <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                              )}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                        </Tooltip>
-                        {/* Future action icons can be added here, will align left */}
-                      </div>
+                    <div className="w-full flex flex-row items-center mt-2">
+        <div
+          className={cn(
+            "flex items-center gap-1 p-1 select-none pointer-events-auto transition-opacity duration-200 delay-75",
+            !isMobileOrTablet && !isLatestMessage
+              ? "opacity-0 group-hover/ai-message-hoverable:opacity-100"
+              : "opacity-100"
+          )}
+          data-ai-action
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Copy message"
+                className="rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                style={{
+                  color: theme === 'dark' ? '#fff' : '#828282',
+                  background: 'transparent',
+                }}
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                ) : (
+                  <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+          </Tooltip>
+          {/* Future action icons can be added here */}
+        </div>
                     </div>
                   );
                 })()
               )}
               {/* Mobile: Copy icon always at the bottom, after the message bubble */}
               {isMobileOrTablet && isAssistant && status === "ready" && (
-                <div className="relative w-full -mt-2">
+                <div className="relative w-full">
                   <div className="flex absolute left-0 right-0 justify-start z-10">
                     <div
                       className="flex items-center gap-1 p-1 select-none pointer-events-auto"
-                      style={{ marginTop: '-28px' }} // Increased negative margin for mobile icon row
+                      style={{ marginTop: '-28px'}} // Increased negative margin for mobile icon row
                     >
                       <button
                         type="button"
@@ -566,7 +576,12 @@ const PurePreviewMessage = ({
             <div className="flex flex-col w-full space-y-4">
               {(() => {
                 // theme is already defined in PurePreviewMessage scope
+                // Mobile-only detection (not tablet): width < 640px (Tailwind 'sm' breakpoint)
+                const isMobileOnly = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
+                const isMobileOrTabletLocal = isMobileOrTablet; // for clarity
                 return message.parts?.map((part, i) => {
+                  // Add extra bottom margin after the last part of a user message on mobile/tablet only
+                  const isLastPart = i === (message.parts?.length || 0) - 1;
                   switch (part.type) {
                     case "text":
                       const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
@@ -579,8 +594,7 @@ const PurePreviewMessage = ({
                       const LONG_MESSAGE_CHAR_LIMIT = 400;
                       const isUserMessage = message.role === "user"; // Always true here
                       const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT;
-                      const [expanded, setExpanded] = useState(false);
-                      // const [hovered, setHovered] = useState(false); // No longer needed for copy icon
+                      const [expanded, setExpanded] = useState(false); // State for expand/collapse
 
                       const shouldCollapse = false; // Original logic, seems unused for actual collapse
                       const isCollapsed = false; // Original logic, seems unused for actual collapse, expand/collapse is via `expanded` state
@@ -591,7 +605,13 @@ const PurePreviewMessage = ({
                           animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
                           transition={{ duration: 0.2 }}
                           key={`message-${message.id}-part-${i}`}
-                          className="flex flex-row items-start w-full pb-4"
+                          className={
+                            isMobileOnly
+                              ? "flex flex-row items-start w-full pb-4 mt-6 px-0 sm:px-0"
+                              : isMobileOrTabletLocal && isLastPart
+                                ? "flex flex-row items-start w-full pb-4 mt-6"
+                                : "flex flex-row items-start w-full pb-4"
+                          }
                         >
                           <div
                             className="flex flex-col w-full" // Removed: gap-4 px-4 py-2. Will be handled by inner group.
@@ -613,7 +633,7 @@ const PurePreviewMessage = ({
                             ) : (
                               // Container for user message bubble and its copy icon
                               <div
-                                className="group/user-message ml-auto w-fit flex flex-col items-end"
+                                className="group/user-message w-fit flex flex-col items-end"
                                 // ml-auto: aligns this block to the right within its parent (which is w-full)
                                 // w-fit: takes the width of its content (bubble)
                                 // flex-col: stacks bubble and icon vertically

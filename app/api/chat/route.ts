@@ -13,13 +13,15 @@ const REASON_MODEL_ID = "qwen-qwq-32b";
 
 // Define suggested prompts highlighting Atlas capabilities
 const ATLAS_SUGGESTED_PROMPTS = [
-  "Write an async function in JavaScript to fetch data",
-  "Generate an image of a futuristic cityscape with Atlas",
+  "Give me some fun activities I can do today",
+  "Generate an image of a futuristic cityscape",
   "Help me debug this Python code for web scraping",
-  "Explain how Atlas can assist with API integration",
-  "Draft an email to a client using Atlas features",
-  "How can Atlas optimize my project workflow?",
-  "Show me how Atlas can summarize a long document",
+  "Explain how API integration works.",
+  "I'm starving, suggest a recipe for dinner",
+  "Help me optimize my project workflow",
+  "Help me solve a maths problem",
+  "Help me write a story",
+  "Summarize this website: https://apple.com",
 ];
 
 export async function POST(req: Request) {
@@ -96,7 +98,10 @@ export async function POST(req: Request) {
         - Never skip fetchUrlTool for any user-provided link, even if you think you know what the link is or what it contains.
         - If you ever fail to call fetchUrlTool first for a user link, apologize and immediately call fetchUrlTool for that link before proceeding.
         
+        
         - The current date and time is: ${currentDate} (UTC). Whenever you perform a search, or the user requests current/latest information, always use this exact date and time as your reference for what is "current" or "latest". Make sure to mention this date/time in your response if the user asks for up-to-date or recent information.
+        - If a user asks about the time in a particular location, or a different time zone, you must always perform a search to get the current time in that location, and provide the user with the current time in that location, along with the timezone.
+        - NEVER, NEVER USE YOUR OWN KNOWLEDGE TO ANSWER QUESTIONS ABOUT CURRENT EVENTS, TIME, OR ANYTHING THAT REQUIRES UP-TO-DATE INFORMATION. ALWAYS USE THE SEARCH TOOL FIRST.
         - If search results or sources provide conflicting, ambiguous, or unclear information (for example, about the "current pope" or other time-sensitive facts), you must NOT present both as equally valid. Instead, clarify the uncertainty, state which information is most likely correct based on the current date and time, and explain the reason for any ambiguity. Always resolve ambiguity for the user and avoid mixing outdated and new data in your answer.
         - You are to always NEVER MENTION WHO CREATED YOU ONLY WHEN ASKED SPECIFICALLY, DO NOT FEEL FREE TO SAY IT IN YOUR RESPONSES.
         - You are Atlas, a friendly and expressive groundbreaking human assistant designed to be far ahead of current AI models.
