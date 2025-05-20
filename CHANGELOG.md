@@ -1,5 +1,14 @@
-
 # Changelog
+
+## 2025-05-20
+
+### Features & Improvements
+
+- **Mobile Safearea for Privacy Message:**
+  - On mobile, the privacy policy message, textarea, and disclaimer are now wrapped in a "safearea". Tapping outside this area dismisses the privacy message, while taps inside do not.
+  - This improves usability and prevents accidental dismissal when interacting with the input or privacy message.
+
+---
 
 ## 2025-05-08
 

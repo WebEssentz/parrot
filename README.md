@@ -8,14 +8,12 @@
 
 </p>
 
-## 🚀 2025-05-08: Bug Fixes & Improvements
 
-- **Chat Scroll Behavior:**
-  - Improved auto-scroll logic: chat only auto-scrolls if the user is at the bottom or if the AI is not generating (not streaming/submitted).
-  - User scroll position is preserved if the user scrolls up during AI streaming.
-  - No forced scroll to bottom until AI is done or the user is already at the bottom.
-- **SSR/CSR Hydration Fix:**
-  - Bar chart generator now uses deterministic number formatting to prevent hydration mismatches between server and client.
+## 🚀 2025-05-20: Features & Improvements
+
+- **Mobile Safearea for Privacy Message:**
+  - On mobile, the privacy policy message, textarea, and disclaimer are now wrapped in a "safearea". Tapping outside this area dismisses the privacy message, while taps inside do not.
+  - This improves usability and prevents accidental dismissal when interacting with the input or privacy message.
 
 ## 🚀 Major 2025 Updates
 
