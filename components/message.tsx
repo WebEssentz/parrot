@@ -542,7 +542,10 @@ const PurePreviewMessage = ({
               {isMobileOrTablet && isAssistant && status === "ready" && (
                 <div className="relative w-full -mt-2">
                   <div className="flex absolute left-0 right-0 justify-start z-10">
-                    <div className="flex items-center gap-1 p-1 select-none -mt-3 pointer-events-auto">
+                    <div
+                      className="flex items-center gap-1 p-1 select-none pointer-events-auto"
+                      style={{ marginTop: '-28px' }} // Increased negative margin for mobile icon row
+                    >
                       <button
                         type="button"
                         aria-label="Copy message"
@@ -550,7 +553,7 @@ const PurePreviewMessage = ({
                         style={{ color: '#828282', background: 'transparent' }}
                         onClick={handleCopy} // Uses generic handleCopy for AI message text
                       >
-                        {copied ? <CheckIcon style={{ color: '#828282', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: '#828282', transition: 'all 0.2s' }} />}
+                        {copied ? <CheckIcon style={{ color: 'white', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: 'white', transition: 'all 0.2s' }} />}
                       </button>
                       {/* Future action buttons can be added here as more icons */}
                     </div>
@@ -592,7 +595,7 @@ const PurePreviewMessage = ({
                         >
                           <div
                             className="flex flex-col w-full" // Removed: gap-4 px-4 py-2. Will be handled by inner group.
-                                                            // alignItems: 'flex-start' (original style) is overridden by group's items-end or not applicable.
+                            // alignItems: 'flex-start' (original style) is overridden by group's items-end or not applicable.
                             style={{
                               // marginLeft: 0, // Default
                               background: 'none',
@@ -637,7 +640,7 @@ const PurePreviewMessage = ({
                                     cursor: isCollapsed ? 'pointer' : undefined, // isCollapsed seems part of older logic
                                     WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
                                     maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                    paddingTop: !isLongUserMessage ? '12px' : undefined, // <-- Add this line
+                                    paddingTop: !isLongUserMessage ? '12px' : undefined, // <-- Add this line                                  
                                   }}
                                   initial={false}
                                   animate={{
