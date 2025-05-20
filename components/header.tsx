@@ -11,21 +11,21 @@ export const Header = () => {
   const { theme } = useTheme();
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Set header text color CSS variable for light/dark mode
-  useEffect(() => {
-    const setAtlasHeaderColor = () => {
-      const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.style.setProperty('--atlas-header-color', isDark ? '#bdbdbd' : '#5d5d5d');
-    };
-    setAtlasHeaderColor();
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAtlasHeaderColor);
-    const observer = new MutationObserver(setAtlasHeaderColor);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => {
-      window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', setAtlasHeaderColor);
-      observer.disconnect();
-    };
-  }, []);
+  // // Set header text color CSS variable for light/dark mode
+  // useEffect(() => {
+  //   const setAtlasHeaderColor = () => {
+  //     const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
+  //     document.documentElement.style.setProperty('--atlas-header-color', isDark ? '#bdbdbd' : '#5d5d5d');
+  //   };
+  //   setAtlasHeaderColor();
+  //   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAtlasHeaderColor);
+  //   const observer = new MutationObserver(setAtlasHeaderColor);
+  //   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  //   return () => {
+  //     window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', setAtlasHeaderColor);
+  //     observer.disconnect();
+  //   };
+  // }, []);
 
   useEffect(() => {
     const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
@@ -52,7 +52,7 @@ export const Header = () => {
   return (
     <div
       className={
-        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#171717] z-50` +
+        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#1f2023] z-50` +
         (showBorder ? " border-b-4 border-zinc-200 dark:border-zinc-800" : " border-b-0")
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}

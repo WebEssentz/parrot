@@ -637,6 +637,7 @@ const PurePreviewMessage = ({
                                     cursor: isCollapsed ? 'pointer' : undefined, // isCollapsed seems part of older logic
                                     WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
                                     maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                                    paddingTop: !isLongUserMessage ? '12px' : undefined, // <-- Add this line
                                   }}
                                   initial={false}
                                   animate={{
