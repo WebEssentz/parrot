@@ -742,33 +742,43 @@ const PurePreviewMessage = ({
                                   </div>
                                 </motion.div>
 
-                                {/* New Copy Icon for User Messages (Desktop Only) */}
-                                {!isMobileOrTablet && (
-                                  <div
-                                    className={cn(
-                                      "mt-1 mr-1", // Margin top to place it below, margin right to align with bubble edge
-                                      "opacity-0 group-hover/user-message:opacity-100 transition-opacity duration-200"
-                                    )}
-                                  >
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button
-                                          type="button"
-                                          aria-label="Copy message"
-                                          className="rounded-md p-1.5 flex items-center justify-center select-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer focus:outline-none"
-                                          onClick={() => handleUserMessageCopy(part.text)}
-                                        >
-                                          {copied ? (
-                                            <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                          ) : (
-                                            <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                          )}
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                                    </Tooltip>
-                                  </div>
-                                )}
+                                {/* Copy Icon for User Messages (Desktop and Mobile) */}
+                                <div
+                                  className={cn(
+                                    "mt-1 mr-1", // Margin top to place it below, margin right to align with bubble edge
+                                    isMobileOrTablet
+                                      ? "opacity-100 flex"
+                                      : "opacity-0 group-hover/user-message:opacity-100 transition-opacity duration-200 flex"
+                                  )}
+                                  style={
+                                    isMobileOrTablet
+                                      ? { justifyContent: 'flex-start', marginLeft: '-8px', marginRight: '10px' }
+                                      : undefined
+                                  }
+                                >
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        aria-label="Copy message"
+                                        className={cn(
+                                          "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none",
+                                          isMobileOrTablet
+                                            ? "bg-transparent text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                            : "bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                        )}
+                                        onClick={() => handleUserMessageCopy(part.text)}
+                                      >
+                                        {copied ? (
+                                          <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                        ) : (
+                                          <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                        )}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                                  </Tooltip>
+                                </div>
                               </div>
                             )}
                           </div>
