@@ -75,7 +75,7 @@ export const Messages = ({
       onScroll={handleScroll}
       style={{ position: 'relative' }}
     >
-      <div className="w-full px-2 sm:px-4 sm:max-w-4xl mx-auto pt-8">
+      <div className="w-full px-2 sm:px-4 sm:max-w-3xl mx-auto pt-8">
         {messages.map((m, i) => {
           const isLatest = i === messages.length - 1;
           let messageStatus: "error" | "submitted" | "streaming" | "ready" = "ready";
