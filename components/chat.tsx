@@ -242,6 +242,10 @@ export default function Chat() {
           (hasSentMessage ? "overflow-y-auto overscroll-auto" : "overflow-y-hidden overscroll-none")
         }
         style={{
+          paddingTop:
+            typeof isDesktop !== 'undefined' && !isDesktop
+              ? '18px' // Add top padding for mobile/tablet to clear header
+              : undefined,
           paddingBottom:
             typeof isDesktop !== 'undefined' && isDesktop
               ? `${inputAreaHeight + bufferForInputArea}px`
