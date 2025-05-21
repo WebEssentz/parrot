@@ -32,7 +32,7 @@ function FadeMobileInfo({ show, minHeight }: { show: boolean; minHeight?: number
         >
           <div>
             <p>
-              By messaging Atlas you agree with our{' '}
+              By messaging Avurna you agree with our{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Terms</a>
               {' '}and have read our{' '}
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Privacy Policy</a>.
@@ -147,7 +147,7 @@ export default function Chat() {
     }
     if (messages.length === 0 && titleGeneratedRef.current) {
       titleGeneratedRef.current = false;
-      document.title = "Atlas AI";
+      document.title = "Avurna AI";
     }
   }, [messages]);
 
@@ -278,7 +278,7 @@ export default function Chat() {
                 <>
                   <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
                     <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
-                      By messaging Atlas, you agree to our{' '}
+                      By messaging Avurna, you agree to our{' '}
                       <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
                       {' '}and our{' '}
                       <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Privacy Policy</a>.
@@ -341,7 +341,7 @@ export default function Chat() {
               {(hasSentMessage) && (
                 <div className="text-center mt-1.5">
                   <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
-                    Atlas uses AI. Double check response.
+                    Avurna uses AI. Double check response.
                   </span>
                 </div>
               )}
@@ -370,7 +370,7 @@ export default function Chat() {
               {(hasSentMessage) && (
                 <div className="text-center mt-1.5">
                   <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
-                    Atlas uses AI. Double check response.
+                    Avurna uses AI. Double check response.
                   </span>
                 </div>
               )}

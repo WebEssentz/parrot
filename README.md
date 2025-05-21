@@ -1,8 +1,8 @@
 
-<h1 align="center">🦜 Atlas AI Chatbot</h1>
+<h1 align="center">Avurna AI Chatbot</h1>
 
 <p align="center">
-  Atlas is an open-source, privacy-focused AI chatbot built with Next.js, the Vercel AI SDK, and Groq—customized for a modern, delightful, and transparent chat experience.
+  Avurna is an open-source, privacy-focused AI chatbot built with Next.js, the Vercel AI SDK, and Groq—customized for a modern, delightful, and transparent chat experience.
 
 ---
 
@@ -18,8 +18,8 @@
 ## 🚀 Major 2025 Updates
 
 - **One-Shot Search Mode:** When the Search button is selected, the next message always uses real-time web search, then reverts to the default model. No more infinite search loops.
-- **Privacy & Transparency:** Atlas never mentions its training data, internal tools, or the ages of its creators unless specifically asked. Capabilities are described in plain language (e.g., "I can search Google").
-- **Modern UI:** The header now displays "Atlas" in a semibold, modern font on desktop, and the original icon on mobile/tablet. The search button's lit state is user-controlled and visually consistent. The textarea input is cleared after sending a message.
+- **Privacy & Transparency:** Avurna never mentions its training data, internal tools, or the ages of its creators unless specifically asked. Capabilities are described in plain language (e.g., "I can search Google").
+- **Modern UI:** The header now displays "Avurna" in a semibold, modern font on desktop, and the original icon on mobile/tablet. The search button's lit state is user-controlled and visually consistent. The textarea input is cleared after sending a message.
 - **Robust Model Handling:** Improved code structure for model selection and POST handling to avoid race conditions and ensure correct model usage.
 - **Responsive Design:** Enhanced experience for both desktop and mobile users.
 
@@ -101,7 +101,7 @@ You can deploy your own version to Vercel by clicking the button below:
 
 ## Authors
 
-Atlas AI is maintained by:
+Avurna AI is maintained by:
 
 - Godwin (Lead Developer)
 - Charles (UI/UX & Training)

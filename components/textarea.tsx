@@ -169,7 +169,7 @@ export const Textarea = ({ // Consider renaming this if it's not THE Textarea bu
   };
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
-  const shadcnTextareaNativePlaceholder = shouldShowCustomPlaceholderElements ? "" : "Ask Atlas...";
+  const shadcnTextareaNativePlaceholder = shouldShowCustomPlaceholderElements ? "" : "Ask Avurna...";
   
   const activePromptText = (showAnimatedSuggestions && suggestedPrompts.length > 0)
     ? suggestedPrompts[currentPromptIndex]
@@ -197,7 +197,7 @@ export const Textarea = ({ // Consider renaming this if it's not THE Textarea bu
                       staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
                   }`}
               >
-                  Ask Atlas...
+                  Ask Avurna...
               </div>
               {showAnimatedSuggestions && activePromptText && (
                    <div 

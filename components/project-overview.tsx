@@ -28,7 +28,7 @@ export const ProjectOverview = () => {
           <div className="flex items-baseline">
             Hi, I'm&nbsp;
             <span className="font-bold bg-gradient-to-r from-red-500 via-purple-500 to-blue-500 text-transparent bg-clip-text">
-              Atlas
+              Avurna
             </span>
           </div>
         )}

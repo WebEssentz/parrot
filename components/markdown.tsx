@@ -194,10 +194,10 @@ const components: Partial<Components> = {
 const remarkPlugins = [remarkGfm]
 
 function stripSourcesBlock(markdown: string): string {
-  const start = markdown.indexOf("<!-- ATLAS_SOURCES_START -->")
-  const end = markdown.indexOf("<!-- ATLAS_SOURCES_END -->")
+  const start = markdown.indexOf("<!-- AVURNA_SOURCES_START -->")
+  const end = markdown.indexOf("<!-- AVURNA_SOURCES_END -->")
   if (start === -1 || end === -1 || end < start) return markdown
-  return markdown.slice(0, start) + markdown.slice(end + "<!-- ATLAS_SOURCES_END -->".length)
+  return markdown.slice(0, start) + markdown.slice(end + "<!-- AVURNA_SOURCES_END -->".length)
 }
 
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {

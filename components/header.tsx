@@ -13,16 +13,16 @@ export const Header = () => {
 
   // // Set header text color CSS variable for light/dark mode
   // useEffect(() => {
-  //   const setAtlasHeaderColor = () => {
+  //   const setAvurnaHeaderColor = () => {
   //     const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
-  //     document.documentElement.style.setProperty('--atlas-header-color', isDark ? '#bdbdbd' : '#5d5d5d');
+  //     document.documentElement.style.setProperty('--Avurna-header-color', isDark ? '#bdbdbd' : '#5d5d5d');
   //   };
-  //   setAtlasHeaderColor();
-  //   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAtlasHeaderColor);
-  //   const observer = new MutationObserver(setAtlasHeaderColor);
+  //   setAvurnaHeaderColor();
+  //   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAvurnaHeaderColor);
+  //   const observer = new MutationObserver(setAvurnaHeaderColor);
   //   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   //   return () => {
-  //     window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', setAtlasHeaderColor);
+  //     window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', setAvurnaHeaderColor);
   //     observer.disconnect();
   //   };
   // }, []);
@@ -95,7 +95,7 @@ export const Header = () => {
                   letterSpacing: 'normal',
                 }}
               >
-                Atlas
+                Avurna
               </span>
 
             )}

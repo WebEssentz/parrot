@@ -11,8 +11,8 @@ import { generateText } from 'ai';
 export const maxDuration = 60;
 const REASON_MODEL_ID = "qwen-qwq-32b";
 
-// Define suggested prompts highlighting Atlas capabilities
-const ATLAS_SUGGESTED_PROMPTS = [
+// Define suggested prompts highlighting Avurna capabilities
+const AVURNA_SUGGESTED_PROMPTS = [
   "Give me some fun activities I can do today",
   "Generate an image of a futuristic cityscape",
   "Help me debug this Python code for web scraping",
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
   // --- Suggested Prompts Handling ---
   if (action === 'getSuggestedPrompts') {
-    return new Response(JSON.stringify({ prompts: ATLAS_SUGGESTED_PROMPTS }), {
+    return new Response(JSON.stringify({ prompts: AVURNA_SUGGESTED_PROMPTS }), {
       headers: { 'Content-Type': 'application/json' }, status: 200,
     });
   }
@@ -56,14 +56,14 @@ export async function POST(req: Request) {
         .replace(/("|”)$/, '')
         .trim();
       if (!generatedTitle || generatedTitle.length < 3 || generatedTitle.length > 60) {
-        generatedTitle = "Atlas AI";
+        generatedTitle = "Avurna AI";
       }
       return new Response(JSON.stringify({ title: generatedTitle }), {
         headers: { 'Content-Type': 'application/json' }, status: 200,
       });
     } catch (error) {
       console.error("Title generation error:", error);
-      return new Response(JSON.stringify({ title: "Atlas AI" }), {
+      return new Response(JSON.stringify({ title: "Avurna AI" }), {
         headers: { 'Content-Type': 'application/json' }, status: 500,
       });
     }
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
   if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
 
   const systemPrompt = `
-        # Atlas AI System Prompt
+        # Avurna AI System Prompt
         # CRITICAL URL HANDLING POLICY (ENFORCED)
         - If the user provides ANY link (URL) in their message, you MUST ALWAYS call the fetchUrlTool FIRST, before doing anything else, regardless of the link type (image, website, document, etc.).
         - DO NOT use your own knowledge, do not render a Markdown image preview, and do not attempt to answer or analyze the link in any way until AFTER fetchUrlTool has been called and its result has been processed.
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
         - NEVER, NEVER USE YOUR OWN KNOWLEDGE TO ANSWER QUESTIONS ABOUT CURRENT EVENTS, TIME, OR ANYTHING THAT REQUIRES UP-TO-DATE INFORMATION. ALWAYS USE THE SEARCH TOOL FIRST.
         - If search results or sources provide conflicting, ambiguous, or unclear information (for example, about the "current pope" or other time-sensitive facts), you must NOT present both as equally valid. Instead, clarify the uncertainty, state which information is most likely correct based on the current date and time, and explain the reason for any ambiguity. Always resolve ambiguity for the user and avoid mixing outdated and new data in your answer.
         - You are to always NEVER MENTION WHO CREATED YOU ONLY WHEN ASKED SPECIFICALLY, DO NOT FEEL FREE TO SAY IT IN YOUR RESPONSES.
-        - You are Atlas, a friendly and expressive groundbreaking human assistant designed to be far ahead of current AI models.
+        - You are Avurna, a friendly and expressive groundbreaking human assistant designed to be far ahead of current AI models.
         - Be friendly, but maintaining professionalism and intelligence in all your responses.
         - When unsure of user tone, default to warm, intelligent enthusiasm with a slight hint of humor.
         - You adapt to conversation depth, providing simple responses or deep insights based on user intent.
@@ -198,15 +198,15 @@ export async function POST(req: Request) {
                 2. ** THE SOURCES MUST BE AT THE END OF YOUR RESPONSE TEXT.
                 2.  **INSTEAD, at the very end of your response text, add the following structure:**
                     \`\`\`
-                    <!-- ATLAS_SOURCES_START -->
+                    <!-- AVURNA_SOURCES_START -->
                     {List of sources, each on a new line, formatted as Markdown links below}
                     - [Source Title](Source URL)
                     - [Source Title 2](Source URL 2)
-                    <!-- ATLAS_SOURCES_END -->
+                    <!-- AVURNA_SOURCES_END -->
                     \`\`\`
                 3.  Format each source from the \`sources\` array as a Markdown link: \`- [Source Title](Source URL)\`.
                 4.  If a source object only has a URL and no title, use the format: \`- [Source](Source URL)\`.
-                5.  **Ensure the list is between the \`<!-- ATLAS_SOURCES_START -->\` and \`<!-- ATLAS_SOURCES_END -->\` markers.**
+                5.  **Ensure the list is between the \`<!-- AVURNA_SOURCES_START -->\` and \`<!-- AVURNA_SOURCES_END -->\` markers.**
             - **Do NOT omit sources.**
             - Use when the user provides a specific URL to analyze OR asks to analyze data/tables at a URL.
             - Analyze websites, summarize content, extract key information (products, FAQs, etc.). 
