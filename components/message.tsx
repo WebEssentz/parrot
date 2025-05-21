@@ -743,42 +743,74 @@ const PurePreviewMessage = ({
                                 </motion.div>
 
                                 {/* Copy Icon for User Messages (Desktop and Mobile) */}
-                                <div
-                                  className={cn(
-                                    "mt-1 mr-1", // Margin top to place it below, margin right to align with bubble edge
-                                    isMobileOrTablet
-                                      ? "opacity-100 flex"
-                                      : "opacity-0 group-hover/user-message:opacity-100 transition-opacity duration-200 flex"
-                                  )}
-                                  style={
-                                    isMobileOrTablet
-                                      ? { justifyContent: 'flex-start', marginLeft: '-8px', marginRight: '10px' }
-                                      : undefined
-                                  }
-                                >
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        type="button"
-                                        aria-label="Copy message"
+                                {/* User message action row (copy icon) - desktop and mobile unified logic */}
+                                {(() => {
+                                  // State for mobile: show/hide icons row on tap for previous messages
+                                  const [showIcons, setShowIcons] = useState(isLatestMessage);
+                                  const isCurrentLatest = isLatestMessage;
+                                  // On mobile: tap to toggle icons row for previous messages
+                                  useEffect(() => {
+                                    if (isMobileOrTablet && isCurrentLatest) setShowIcons(true);
+                                    if (isMobileOrTablet && !isCurrentLatest) setShowIcons(false);
+                                  }, [isMobileOrTablet, isCurrentLatest]);
+
+                                  // Handler for toggling icons row on tap (mobile, previous messages)
+                                  const handleBubbleTap = (e: React.MouseEvent) => {
+                                    if (!isMobileOrTablet || isCurrentLatest) return;
+                                    e.stopPropagation();
+                                    setShowIcons((v) => !v);
+                                  };
+
+                                  // Fade in/out logic for icons row
+                                  const iconsRowVisible = isMobileOrTablet ? showIcons : isLatestMessage;
+
+                                  return (
+                                    <>
+                                      {/* Overlay for previous messages on mobile to toggle icons row */}
+                                      {isMobileOrTablet && !isCurrentLatest && (
+                                        <div
+                                          className="absolute inset-0 z-10 cursor-pointer"
+                                          style={{ borderRadius: 24 }}
+                                          onClick={handleBubbleTap}
+                                        />
+                                      )}
+                                      <div
                                         className={cn(
-                                          "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none",
+                                          "mt-1 mr-1 flex transition-opacity duration-200",
+                                          iconsRowVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+                                        )}
+                                        style={
                                           isMobileOrTablet
-                                            ? "bg-transparent text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                            : "bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                        )}
-                                        onClick={() => handleUserMessageCopy(part.text)}
+                                            ? { justifyContent: 'flex-start', marginLeft: '-8px', marginRight: '10px' }
+                                            : undefined
+                                        }
                                       >
-                                        {copied ? (
-                                          <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                        ) : (
-                                          <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                        )}
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                                  </Tooltip>
-                                </div>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              type="button"
+                                              aria-label="Copy message"
+                                              className={cn(
+                                                "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none",
+                                                isMobileOrTablet
+                                                  ? "bg-transparent text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                                  : "bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                              )}
+                                              onClick={() => handleUserMessageCopy(part.text)}
+                                            >
+                                              {copied ? (
+                                                <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                              ) : (
+                                                <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                              )}
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                                        </Tooltip>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>
