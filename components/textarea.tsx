@@ -244,7 +244,7 @@ export const Textarea = ({ // Consider renaming this if it's not THE Textarea bu
                 if (featureActive) setIsTabToAcceptEnabled(true); 
             }
           }}
-          disabled={isLoading}
+          disabled={false}
           onKeyDown={handleKeyDown}
         />
         {/* This div acts as a spacer for the absolutely positioned buttons */}
