@@ -278,6 +278,27 @@ const PurePreviewMessage = ({
 
 
   useEffect(() => () => { if (copyTimeout.current) clearTimeout(copyTimeout.current); }, []);
+  // --- Fix: Per-part state for user message copy icon row ---
+  // Only relevant for user messages, so we only create state if needed
+  const userMessageParts = message.role === "user" ? message.parts?.filter((p: any) => p.type === "text") : [];
+  // For each user message part, track showIcons state (for mobile copy row)
+  const [userShowIcons, setUserShowIcons] = useState(() =>
+    userMessageParts ? userMessageParts.map((_, i) => isLatestMessage && i === userMessageParts.length - 1) : []
+  );
+
+  // Keep showIcons in sync if message count or latest changes
+  useEffect(() => {
+    if (!userMessageParts) return;
+    setUserShowIcons(userMessageParts.map((_, i) => isMobileOrTablet && isLatestMessage && i === userMessageParts.length - 1));
+  }, [isMobileOrTablet, isLatestMessage, userMessageParts?.length]);
+
+  // Handler for toggling icons row on tap (mobile, previous messages)
+  const handleUserBubbleTap = (partIdx: number, e: React.MouseEvent) => {
+    if (!isMobileOrTablet || (isLatestMessage && userMessageParts && partIdx === userMessageParts.length - 1)) return;
+    e.stopPropagation();
+    setUserShowIcons((prev) => prev.map((v, i) => (i === partIdx ? !v : v)));
+  };
+
   return (
     <AnimatePresence key={message.id}>
       <motion.div
@@ -520,20 +541,52 @@ const PurePreviewMessage = ({
               {/* Desktop: Action icons (copy, etc) at the left start of the AI message bubble, matching mobile layout */}
               {/* Show copy icon row on desktop: always visible for latest assistant message, hover for previous */}
               {/* Desktop: Copy icon row is always left-aligned under the AI message bubble, but moved up closer to the bubble and shifted left with margin-right */}
-              {!isMobileOrTablet && isAssistant && status === "ready" && (
-                (() => {
+              {/*
+                To avoid "Rendered more hooks than during the previous render" error,
+                move the stateful logic for the icon row outside of the conditional rendering block.
+                This ensures hooks are always called in the same order.
+              */}
+              {(() => {
+                // Only used for desktop, assistant, and status === "ready"
+                // But always call the hook to preserve order
+                const [showIconRow, setShowIconRow] = useState(isLatestMessage ? false : true);
+                // Only run the effect for desktop, assistant, and status === "ready"
+                useEffect(() => {
+                  if (!isMobileOrTablet && isAssistant && status === "ready") {
+                    if (isLatestMessage) {
+                      const timer = setTimeout(() => setShowIconRow(true), 450);
+                      return () => clearTimeout(timer);
+                    } else {
+                      setShowIconRow(true);
+                    }
+                  }
+                  // eslint-disable-next-line
+                }, [isMobileOrTablet, isAssistant, status, isLatestMessage]);
+                if (!isMobileOrTablet && isAssistant && status === "ready") {
                   const { theme } = useTheme();
                   return (
                     <div className="flex flex-row" style={{ marginTop: '-12px' }}>
-                      <div
+                      <motion.div
                         className={cn(
-                          "flex items-center gap-1 p-1 select-none pointer-events-auto transition-opacity duration-200 delay-75",
-                          !isMobileOrTablet && !isLatestMessage
-                            ? "opacity-0 group-hover/ai-message-hoverable:opacity-100"
-                            : "opacity-100"
+                          "flex items-center gap-1 p-1 select-none pointer-events-auto",
+                          !isLatestMessage ? "group/ai-icon-row" : ""
                         )}
                         data-ai-action
                         style={{ marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' }}
+                        initial={isLatestMessage ? { opacity: 0 } : { opacity: 0 }}
+                        animate={
+                          isLatestMessage
+                            ? (showIconRow ? { opacity: 1 } : { opacity: 0 })
+                            : { opacity: 0 }
+                        }
+                        whileHover={
+                          !isLatestMessage
+                            ? { opacity: 1, transition: { duration: 0.22, delay: 0.08 } }
+                            : undefined
+                        }
+                        transition={{
+                          opacity: { duration: 0.25, delay: isLatestMessage && showIconRow ? 0.15 : 0 }
+                        }}
                       >
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -557,11 +610,12 @@ const PurePreviewMessage = ({
                           <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
                         </Tooltip>
                         {/* Future action icons can be added here */}
-                      </div>
+                      </motion.div>
                     </div>
                   );
-                })()
-              )}
+                }
+                return null;
+              })()}
               {/* Mobile: Copy icon always at the bottom, after the message bubble */}
               {isMobileOrTablet && isAssistant && status === "ready" && (
                 <div className="relative w-full">
@@ -588,243 +642,205 @@ const PurePreviewMessage = ({
           ) : (
             // User messages
             <div className="flex flex-col w-full space-y-4">
-              {(() => {
-                // theme is already defined in PurePreviewMessage scope
-                // Mobile-only detection (not tablet): width < 640px (Tailwind 'sm' breakpoint)
-                const isMobileOnly = typeof window !== 'undefined' ? window.innerWidth < 640 : false;
-                const isMobileOrTabletLocal = isMobileOrTablet; // for clarity
-                return message.parts?.map((part, i) => {
-                  // Add extra bottom margin after the last part of a user message on mobile/tablet only
-                  const isLastPart = i === (message.parts?.length || 0) - 1;
-                  switch (part.type) {
-                    case "text":
-                      const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-                      const isLatestActivelyStreamingTextPart =
-                        isAssistant && // This will always be false here, as we are in the !isAssistant branch
-                        status === "streaming" &&
-                        isLatestMessage &&
-                        isEffectivelyLastPart;
+              {message.parts?.map((part, i) => {
+                // Add extra bottom margin after the last part of a user message on mobile/tablet only
+                const isLastPart = i === (message.parts?.length || 0) - 1;
+                switch (part.type) {
+                  case "text":
+                    const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
+                    const isLatestActivelyStreamingTextPart =
+                      isAssistant && // This will always be false here, as we are in the !isAssistant branch
+                      status === "streaming" &&
+                      isLatestMessage &&
+                      isEffectivelyLastPart;
 
-                      const LONG_MESSAGE_CHAR_LIMIT = 400;
-                      const isUserMessage = message.role === "user"; // Always true here
-                      const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT;
-                      const [expanded, setExpanded] = useState(false); // State for expand/collapse
+                    const LONG_MESSAGE_CHAR_LIMIT = 400;
+                    const isUserMessage = message.role === "user"; // Always true here
+                    const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT;
+                    // Expand/collapse state for long user messages (per part)
+                    const [expanded, setExpanded] = useState(false);
+                    const shouldCollapse = false;
+                    const isCollapsed = false;
 
-                      const shouldCollapse = false; // Original logic, seems unused for actual collapse
-                      const isCollapsed = false; // Original logic, seems unused for actual collapse, expand/collapse is via `expanded` state
+                    // Copy icon row visibility (per part)
+                    const showIcons = userShowIcons[i];
+                    // Desktop: show on hover (using group-hover), always for latest
+                    // Mobile: controlled by showIcons state
+                    const iconsRowVisible = isMobileOrTablet ? showIcons : isLatestMessage;
 
-                      return (
-                        <motion.div
-                          initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }} // isLatestActivelyStreamingTextPart is effectively false here
-                          animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
-                          transition={{ duration: 0.2 }}
-                          key={`message-${message.id}-part-${i}`}
-                          className={
-                            isMobileOnly
-                              ? "flex flex-row items-start w-full pb-4 mt-6 px-0 sm:px-0"
-                              : isMobileOrTabletLocal && isLastPart
-                                ? "flex flex-row items-start w-full pb-4 mt-6"
-                                : "flex flex-row items-start w-full pb-4"
-                          }
+                    return (
+                      <motion.div
+                        initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
+                        animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
+                        transition={{ duration: 0.2 }}
+                        key={`message-${message.id}-part-${i}`}
+                        className={
+                          typeof window !== 'undefined' && window.innerWidth < 640
+                            ? "flex flex-row items-start w-full pb-4 mt-6 px-0 sm:px-0"
+                            : isMobileOrTablet && isLastPart
+                              ? "flex flex-row items-start w-full pb-4 mt-6"
+                              : "flex flex-row items-start w-full pb-4"
+                        }
+                      >
+                        <div
+                          className="flex flex-col w-full"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            boxShadow: 'none',
+                            position: 'relative',
+                          }}
                         >
-                          <div
-                            className="flex flex-col w-full" // Removed: gap-4 px-4 py-2. Will be handled by inner group.
-                            // alignItems: 'flex-start' (original style) is overridden by group's items-end or not applicable.
-                            style={{
-                              // marginLeft: 0, // Default
-                              background: 'none',
-                              border: 'none',
-                              boxShadow: 'none',
-                              position: 'relative', // Original
-                            }}
-                          >
-                            {isLatestActivelyStreamingTextPart ? ( // This block is effectively never reached for user messages
-                              <StreamingTextRenderer
-                                animationStyle="typewriter"
-                                fullText={part.text}
-                                wordSpeed={20}
-                              />
-                            ) : (
-                              // Container for user message bubble and its copy icon
-                              <div
-                                className="group/user-message flex flex-col items-end w-full gap-1 relative justify-center max-w-3xl md:px-4 pb-2"
-                                // ml-auto: aligns this block to the right within its parent (which is w-full)
-                                // w-fit: takes the width of its content (bubble)
-                                // flex-col: stacks bubble and icon vertically
-                                // items-end: aligns icon to the right end of the bubble
+                          {isLatestActivelyStreamingTextPart ? (
+                            <StreamingTextRenderer
+                              animationStyle="typewriter"
+                              fullText={part.text}
+                              wordSpeed={20}
+                            />
+                          ) : (
+                            <div className="group/user-message flex flex-col items-end w-full gap-1 relative justify-center max-w-3xl md:px-4 pb-2">
+                              {/* User Message Bubble */}
+                              <motion.div
+                                className={cn(
+                                  "prose-p:opacity-95",
+                                  "prose-strong:opacity-100",
+                                  "border",
+                                  "border-border-l1",
+                                  "max-w-[100%]",
+                                  "sm:max-w-[90%]",
+                                  "rounded-br-lg",
+                                  "message-bubble",
+                                  "prose",
+                                  "min-h-7",
+                                  "text-primary",
+                                  "dark:prose-invert",
+                                  "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
+                                  "px-5 py-2.5",
+                                  "rounded-3xl",
+                                  "relative",
+                                  isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md",
+                                  "text-left",
+                                  "break-words",
+                                  isLongUserMessage ? "relative" : "",
+                                  isCollapsed ? "cursor-pointer" : ""
+                                )}
+                                style={{
+                                  lineHeight: '1.5',
+                                  overflow: isLongUserMessage ? 'hidden' : undefined,
+                                  cursor: isCollapsed ? 'pointer' : undefined,
+                                  WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                                  maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                                  paddingTop: !isLongUserMessage ? '12px' : undefined,
+                                }}
+                                initial={false}
+                                animate={{
+                                  maxHeight: isLongUserMessage
+                                    ? expanded
+                                      ? 1000
+                                      : 120
+                                    : 'none',
+                                }}
+                                transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+                                onClick={isCollapsed ? () => setExpanded(true) : undefined}
                               >
-                                  {/* User Message Bubble */}
-                                  <motion.div
-                                    className={cn(
-                                      "prose-p:opacity-95",
-                                      "prose-strong:opacity-100",
-                                      "border",
-                                      "border-border-l1",
-                                      "max-w-[100%]",
-                                      "sm:max-w-[90%]",
-                                      "rounded-br-lg",
-                                      "message-bubble",
-                                      "prose",
-                                      "min-h-7",
-                                      "text-primary",
-                                      "dark:prose-invert",
-                                      "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
-                                      "px-5 py-2.5",                        
-                                      "rounded-3xl",          
-                                      "relative",                        
-                                    isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md",
-                                    "text-left", // Text inside bubble is left-aligned
-                                    "break-words",
-                                    isLongUserMessage ? "relative" : "", // For expand/collapse icon positioning
-                                    isCollapsed ? "cursor-pointer" : "" // isCollapsed seems part of older logic
+                                <div style={{ paddingRight: isLongUserMessage ? 36 : undefined, position: 'relative' }}>
+                                  <Markdown>
+                                    {isLongUserMessage && !expanded
+                                      ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...'
+                                      : part.text}
+                                  </Markdown>
+                                  {/* Expand/collapse chevron for long user messages */}
+                                  {!shouldCollapse && isLongUserMessage && (
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        top: 32,
+                                        right: 8,
+                                        zIndex: 10,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                      }}
+                                    >
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            aria-label={expanded ? "Collapse message" : "Expand message"}
+                                            className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
+                                            onClick={e => {
+                                              e.stopPropagation();
+                                              setExpanded(v => !v);
+                                            }}
+                                            tabIndex={0}
+                                          >
+                                            {expanded ? (
+                                              <ChevronUpIcon className="h-4 w-4" />
+                                            ) : (
+                                              <ChevronDownIcon className="h-4 w-4" />
+                                            )}
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">
+                                          {expanded ? "Collapse message" : "Expand message"}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </div>
                                   )}
-                                  style={{                                 
-                                    lineHeight: '1.5',
-                                    overflow: isLongUserMessage ? 'hidden' : undefined,
-                                    cursor: isCollapsed ? 'pointer' : undefined, // isCollapsed seems part of older logic
-                                    WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                    maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                    paddingTop: !isLongUserMessage ? '12px' : undefined, // <-- Add this line                                  
-                                  }}
-                                  initial={false}
-                                  animate={{
-                                    maxHeight: isLongUserMessage
-                                      ? expanded
-                                        ? 1000 
-                                        : 120
-                                      : 'none',
-                                  }}
-                                  transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-                                  onClick={isCollapsed ? () => setExpanded(true) : undefined} // isCollapsed seems part of older logic
-                                >
-                                  <div style={{ paddingRight: isLongUserMessage ? 36 : undefined, position: 'relative' }}>
-                                    <Markdown>
-                                      {isLongUserMessage && !expanded // Use !expanded for collapsed text
-                                       ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}
-                                    </Markdown>
-                                    {/* Expand/collapse chevron for long user messages */}
-                                    {!shouldCollapse && isLongUserMessage && (
-                                      <div
-                                        style={{
-                                          position: 'absolute',
-                                          top: 32, 
-                                          right: 8, 
-                                          zIndex: 10,
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                        }}
-                                      >
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button
-                                              type="button"
-                                              aria-label={expanded ? "Collapse message" : "Expand message"}
-                                              className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-                                              onClick={e => {
-                                                e.stopPropagation();
-                                                setExpanded(v => !v);
-                                              }}
-                                              tabIndex={0}
-                                            >
-                                              {expanded ? (
-                                                <ChevronUpIcon className="h-4 w-4" />
-                                              ) : (
-                                                <ChevronDownIcon className="h-4 w-4" />
-                                              )}
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">
-                                            {expanded ? "Collapse message" : "Expand message"}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </div>
-                                    )}
-                                  </div>
-                                </motion.div>
-
-                                {/* Copy Icon for User Messages (Desktop and Mobile) */}
-                                {/* User message action row (copy icon) - desktop and mobile unified logic */}
-                                {(() => {
-                                  // State for mobile: show/hide icons row on tap for previous messages
-                                  const [showIcons, setShowIcons] = useState(isLatestMessage);
-                                  const isCurrentLatest = isLatestMessage;
-                                  // On mobile: tap to toggle icons row for previous messages
-                                  useEffect(() => {
-                                    if (isMobileOrTablet && isCurrentLatest) setShowIcons(true);
-                                    if (isMobileOrTablet && !isCurrentLatest) setShowIcons(false);
-                                  }, [isMobileOrTablet, isCurrentLatest]);
-
-                                  // Handler for toggling icons row on tap (mobile, previous messages)
-                                  const handleBubbleTap = (e: React.MouseEvent) => {
-                                    if (!isMobileOrTablet || isCurrentLatest) return;
-                                    e.stopPropagation();
-                                    setShowIcons((v) => !v);
-                                  };
-
-                                  // Fade in/out logic for icons row
-                                  // Desktop: show on hover (using group-hover), always for latest
-                                  // Mobile: controlled by showIcons state
-                                  const iconsRowVisible = isMobileOrTablet ? showIcons : isLatestMessage;
-
-                                  return (
-                                    <>
-                                      {/* Overlay for previous messages on mobile to toggle icons row */}
-                                      {isMobileOrTablet && !isCurrentLatest && (
-                                        <div
-                                          className="absolute inset-0 z-10 cursor-pointer"
-                                          style={{ borderRadius: 24 }}
-                                          onClick={handleBubbleTap}
-                                        />
+                                </div>
+                              </motion.div>
+                              {/* Overlay for previous messages on mobile to toggle icons row */}
+                              {isMobileOrTablet && !(isLatestMessage && i === (userMessageParts?.length ?? 0) - 1) && (
+                                <div
+                                  className="absolute inset-0 z-10 cursor-pointer"
+                                  style={{ borderRadius: 24 }}
+                                  onClick={e => handleUserBubbleTap(i, e)}
+                                />
+                              )}
+                              <div
+                                className={cn(
+                                  "mt-1 mr-1 flex transition-opacity duration-200",
+                                  isMobileOrTablet
+                                    ? (iconsRowVisible ? "opacity-100" : "opacity-0 pointer-events-none")
+                                    : (!isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100")
+                                )}
+                                style={
+                                  isMobileOrTablet
+                                    ? { justifyContent: 'flex-start', marginLeft: '-8px', marginRight: '10px' }
+                                    : undefined
+                                }
+                              >
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      aria-label="Copy message"
+                                      className={cn(
+                                        "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none",
+                                        isMobileOrTablet
+                                          ? "bg-transparent text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                          : "bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
                                       )}
-                                      <div
-                                        className={cn(
-                                          "mt-1 mr-1 flex transition-opacity duration-200",
-                                          isMobileOrTablet
-                                            ? (iconsRowVisible ? "opacity-100" : "opacity-0 pointer-events-none")
-                                            : (!isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100")
-                                        )}
-                                        style={
-                                          isMobileOrTablet
-                                            ? { justifyContent: 'flex-start', marginLeft: '-8px', marginRight: '10px' }
-                                            : undefined
-                                        }
-                                      >
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button
-                                              type="button"
-                                              aria-label="Copy message"
-                                              className={cn(
-                                                "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none",
-                                                isMobileOrTablet
-                                                  ? "bg-transparent text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                                  : "bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                              )}
-                                              onClick={() => handleUserMessageCopy(part.text)}
-                                            >
-                                              {copied ? (
-                                                <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                              ) : (
-                                                <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                              )}
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                                        </Tooltip>
-                                      </div>
-                                    </>
-                                  );
-                                })()}
+                                      onClick={() => handleUserMessageCopy(part.text)}
+                                    >
+                                      {copied ? (
+                                        <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                      ) : (
+                                        <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                      )}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                                </Tooltip>
                               </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      );
-                    default:
-                      return null;
-                  }
-                });
-              })()}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  default:
+                    return null;
+                }
+              })}
             </div>
           )}
         </div>
