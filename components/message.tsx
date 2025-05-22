@@ -762,6 +762,8 @@ const PurePreviewMessage = ({
                                   };
 
                                   // Fade in/out logic for icons row
+                                  // Desktop: show on hover (using group-hover), always for latest
+                                  // Mobile: controlled by showIcons state
                                   const iconsRowVisible = isMobileOrTablet ? showIcons : isLatestMessage;
 
                                   return (
@@ -777,7 +779,9 @@ const PurePreviewMessage = ({
                                       <div
                                         className={cn(
                                           "mt-1 mr-1 flex transition-opacity duration-200",
-                                          iconsRowVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+                                          isMobileOrTablet
+                                            ? (iconsRowVisible ? "opacity-100" : "opacity-0 pointer-events-none")
+                                            : (!isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100")
                                         )}
                                         style={
                                           isMobileOrTablet
