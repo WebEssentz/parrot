@@ -19,18 +19,22 @@ interface InputProps {
   isDesktop: boolean;
 }
 
-export const Textarea = ({ // Consider renaming this if it's not THE Textarea but a composer
+import { useMobile } from "../hooks/use-mobile";
+
+export const Textarea = ({
   input,
   handleInputChange,
   setInput,
   isLoading,
   status,
   stop,
-  selectedModel, // This prop is present but not directly used in the JSX below for selectedModel
+  selectedModel,
   setSelectedModel,
   hasSentMessage,
   isDesktop,
 }: InputProps) => {
+  // Use the useMobile hook to detect mobile (not tablet)
+  const isMobileOnly = useMobile();
   const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
   const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
 
@@ -229,22 +233,20 @@ export const Textarea = ({ // Consider renaming this if it's not THE Textarea bu
 
         <ShadcnTextarea 
           className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
-          // min-h-[40px] and max-h-52 are applied via style prop and base class in Textarea definition now
           value={input}
           autoFocus
           placeholder={shadcnTextareaNativePlaceholder}
-          style={textareaStyle} // Pass the minHeight and maxHeight here
+          style={textareaStyle}
           onChange={(e) => {
             handleInputChange(e);
             if (e.target.value) {
                 setIsTabToAcceptEnabled(false);
-                setPromptVisible(false); // Hide prompts when user starts typing
+                setPromptVisible(false);
             } else {
-                // Only re-enable TAB if feature is active and no input
                 if (featureActive) setIsTabToAcceptEnabled(true); 
             }
           }}
-          disabled={false}
+          disabled={isMobileOnly && (status === 'streaming' || status === 'submitted')}
           onKeyDown={handleKeyDown}
         />
         {/* This div acts as a spacer for the absolutely positioned buttons */}
