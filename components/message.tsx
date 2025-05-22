@@ -565,7 +565,7 @@ const PurePreviewMessage = ({
                 if (!isMobileOrTablet && isAssistant && status === "ready") {
                   const { theme } = useTheme();
                   return (
-                    <div className="flex flex-row" style={{ marginTop: '-12px' }}>
+                    <div className="flex flex-row" style={{ marginTop: '-28px' }}>
                       <motion.div
                         className={cn(
                           "flex items-center gap-1 p-1 select-none pointer-events-auto",
@@ -581,11 +581,11 @@ const PurePreviewMessage = ({
                         }
                         whileHover={
                           !isLatestMessage
-                            ? { opacity: 1, transition: { duration: 0.22, delay: 0.08 } }
+                            ? { opacity: 1, transition: { duration: 0.2 } }
                             : undefined
                         }
                         transition={{
-                          opacity: { duration: 0.25, delay: isLatestMessage && showIconRow ? 0.15 : 0 }
+                          opacity: { duration: 0.2, delay: isLatestMessage && showIconRow ? 0.15 : 0 }
                         }}
                       >
                         <Tooltip>
