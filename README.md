@@ -1,3 +1,17 @@
+## 🚀 2025-05-26: Agent X & Recursive Web Analysis
+
+- **Agent X Web Agent:**
+  - Human-like, vision-guided web agent for dynamic sites (Amazon, YouTube, etc.)
+  - Uses Puppeteer for browser automation and Gemini Vision for screenshot/DOM analysis
+  - Supports multi-step reasoning, dynamic interaction, and deep extraction
+- **Recursive Link Following:**
+  - The fetchUrlTool can now follow links recursively (with safeguards) to extract and analyze content from multiple related pages
+  - Includes domain restriction, max page/timeout limits, and visited tracking for safety
+- **Progressive Results:**
+  - Results are streamed stepwise, and users can request "show more" for deeper or additional results
+- **Token Counting & Truncation:**
+  - Large HTML is auto-truncated for LLM context safety, with user notification
+
 
 <h1 align="center">Avurna AI Chatbot</h1>
 
@@ -44,6 +58,12 @@ See [CHANGELOG.md](./CHANGELOG.md) for details.
 - Reasoning model support
 - [shadcn/ui](https://ui.shadcn.com/) components for a modern, responsive UI powered by [Tailwind CSS](https://tailwindcss.com)
 - Built with the latest [Next.js](https://nextjs.org) App Router
+
+- **Agent X Web Agent:**
+  - Human-like, vision-guided web agent for dynamic and interactive sites
+  - Recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking)
+  - Gemini Vision-powered screenshot and DOM analysis
+  - Progressive, stepwise results and deep web extraction
 
 ## Deploy Your Own
 
