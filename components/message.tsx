@@ -442,9 +442,9 @@ const PurePreviewMessage = ({
                         // Add more tools here as needed
                         switch (toolName) {
                           case "googleSearch":
-                            return state === "call" ? "Searching the Web" : "Searched the Web";
+                            return state === "call" ? "Searching the Web" : "Search Completed";
                           case "fetchUrl":
-                            return state === "call" ? "Fetching Url data" : "Fetched Url data";
+                            return state === "call" ? "Fetching Url data" : "Fetch Completed";
                           case "getWeatherdata":
                           case "weatherTool":
                             return "Getting weather data";
