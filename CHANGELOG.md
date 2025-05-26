@@ -1,3 +1,15 @@
+# 2025-05-26
+
+### Features & Improvements
+
+- **Agent X Recursive Web Agent & Deep Web Analysis:**
+  - Added Agent X: a human-like, vision-guided web agent that can interact with dynamic sites (Amazon, YouTube, etc.) using Puppeteer and Gemini Vision.
+  - **Recursive Link Following:** The fetchUrlTool now supports recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking). This enables deep, automated exploration and extraction from multi-page sites.
+  - **Progressive Disclosure:** Results are streamed stepwise, and users can request "show more" for deeper results.
+  - **Token Counting & Truncation:** Large HTML is auto-truncated for LLM context safety, with user notification.
+  - **Domain Restriction & Safety:** Only follows links within the same domain, with hard limits on recursion and total pages.
+  - **Agent X Vision:** Uses Gemini Vision for screenshot and DOM analysis, enabling advanced extraction and reasoning on visual web content.
+
 # Changelog
 
 ## 2025-05-20
