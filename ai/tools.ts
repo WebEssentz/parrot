@@ -1,7 +1,10 @@
+// tools.ts (Agent X integration scaffold)
+import { agentXWebAgent, AgentXInstruction } from "./agent-x/agentXWebAgent";
 import { tool } from "ai";
 import { z } from "zod";
 import { google } from '@ai-sdk/google';      // For Gemini vision model
 import { generateText } from 'ai';         // For calling the Gemini model
+// import { agentXWebAgent } from './agent-x/agentXWebAgent';
 
 // --- Simple Markdown Bar Chart Generator ---
 // ... (generateMarkdownBarChart function as provided)
@@ -30,6 +33,48 @@ function generateMarkdownBarChart(
     chart += `${v.toString()} | ${bar}\n`;
   });
   return chart;
+}
+
+
+// Utility: Use LLM to parse user intent into AgentXInstruction (placeholder)
+async function parseInstructionWithLLM(userMessage: string): Promise<AgentXInstruction> {
+  // If Agent X is enabled, use Gemini LLM to parse the user intent dynamically
+  // This function is only called when agentX is true
+  try {
+    const geminiModel = google('gemini-2.5-flash-preview-04-17');
+    const prompt = `You are an expert web automation agent. Given the following user instruction, extract the user's goal (e.g., \"search video\", \"search product\", \"browse\", \"compare prices\", etc.), the main website to use (e.g., \"youtube.com\", \"amazon.com\", \"twitter.com\", etc.), and the query or keywords (if any) to use for the action.\n\nReturn a JSON object with keys: goal, site, query.\n\nUser instruction: \"${userMessage}\"`;
+    const { text } = await generateText({
+      model: geminiModel,
+      prompt,
+    });
+    // Try to parse the LLM output as JSON
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      // Fallback: try to extract with regex if not valid JSON
+      const goal = text.match(/goal\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || "browse";
+      const site = text.match(/site\s*[:=]\s*["']?([\w.-]+)["']?/i)?.[1] || "";
+      const query = text.match(/query\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || userMessage;
+      parsed = { goal, site, query };
+    }
+    // Ensure all fields are present
+    return {
+      goal: parsed.goal || "browse",
+      site: parsed.site || "",
+      query: parsed.query || userMessage,
+    };
+  } catch (e) {
+    // On error, fallback to simple rules
+    if (/youtube/i.test(userMessage)) {
+      return { goal: "search video", site: "youtube.com", query: userMessage.replace(/.*youtube/i, '').trim() || "" };
+    }
+    if (/amazon/i.test(userMessage)) {
+      return { goal: "search product", site: "amazon.com", query: userMessage.replace(/.*amazon/i, '').trim() || "" };
+    }
+    // Add more site rules as needed
+    return { goal: "browse", site: "", query: userMessage };
+  }
 }
 
 // Utility: Format a value as inline code (ChatGPT style)
@@ -124,75 +169,6 @@ export const weatherTool = tool({
     temperature: 72 + Math.floor(Math.random() * 21) - 10,
   }),
 });
-
-// EXPLAIN Recursive Link Following (with safeguards):
-
-// Allow the tool to recursively follow links within the initial page, up to a certain depth, to gather more comprehensive information.
-// Add a recursionDepth parameter to the fetchUrlTool's parameters schema, limiting the depth of recursion to prevent infinite loops.
-// Implement logic to recursively call the fetchUrlTool for each link found on the page, up to the specified depth.
-// Add safeguards to prevent the tool from getting stuck in infinite loops or consuming excessive resources (e.g., by limiting the number of pages fetched and the total execution time). AND Content Summarization with Abstractive Summarization:
-
-// Instead of just extracting snippets of text, use an abstractive summarization technique to generate a concise and coherent summary of the web page content.
-// Integrate a summarization model (e.g., using the transformers library) to generate the summary.
-// Replace the summary field in the fetchUrlTool's output with the generated abstractive summary. AND Automatic Language Detection:
-
-// Use a language detection library (e.g., franc) to automatically detect the language of the web page content.
-// Add a language field to the fetchUrlTool's output, indicating the detected language code (e.g., "en" for English, "es" for Spanish).
-
-// Alright, let's dive deep into these three SUPER features: Recursive Link Following, Abstractive Summarization, and Automatic Language Detection! 🤩
-
-// ### 1. Recursive Link Following (with Safeguards) 🔗
-
-// Imagine your web scraping tool as a curious explorer. Instead of just looking at the surface (the initial web page), it can venture deeper by following links to related pages. This is what recursive link following does.
-
-// *   **The Idea:** The tool starts at a given URL, extracts all the links, and then *automatically* visits those links, extracting information from them as well. This process can repeat, creating a "tree" of visited pages.
-// *   **Why it's SUPER:**
-//     *   **Comprehensive Data:** Get a much broader understanding of a topic by gathering information from multiple related pages.
-//     *   **Discover Hidden Content:** Find content that might not be directly linked from the homepage but is still relevant.
-//     *   **Automated Exploration:** Automate the process of exploring a website's structure and content.
-// *   **The Code (Conceptual):**
-
-//     ```typescript
-//     async function fetchUrlToolExecute({ url, recursionDepth = 0 }: { url: string, recursionDepth: number }) {
-//         // 1. Fetch and analyze the initial page (as before)
-//         const initialResult = await analyzePage(url);
-
-//         if (recursionDepth > 0) {
-//             // 2. Extract links from the initial page
-//             const links = initialResult.navLinks.map(l => l.href); // Assuming navLinks contains the URLs
-
-//             // 3. Recursively call fetchUrlTool for each link (with reduced depth)
-//             const childResults = await Promise.all(
-//                 links.map(link =>
-//                     fetchUrlToolExecute({ url: link, recursionDepth: recursionDepth - 1 })
-//                 )
-//             );
-
-//             // 4. Combine the results (e.g., merge extracted tables, summaries, etc.)
-//             return combineResults(initialResult, childResults);
-//         } else {
-//             return initialResult; // Base case: no more recursion
-//         }
-//     }
-//     ```
-// *   **The Safeguards (CRITICAL):**
-//     *   **`recursionDepth` Parameter:** Limits how many levels deep the tool will go. A depth of 0 means no recursion, 1 means follow links on the initial page only, 2 means follow links on those pages, and so on.
-//     *   **Maximum Pages Fetched:** Set a hard limit on the total number of pages the tool will fetch to prevent it from running indefinitely.
-//     *   **Timeout:** Implement a timeout mechanism to stop the tool if it takes too long to process a single page or the entire process.
-//     *   **Visited Links Tracking:** Keep track of the links that have already been visited to avoid infinite loops (e.g., if page A links to page B, and page B links back to page A).
-//     *   **Domain Restriction:** Only follow links within the same domain as the initial URL to prevent the tool from wandering off to unrelated websites.
-// *   **Example:**
-
-//     > User: "Fetch and analyze [https://example.com](https://example.com) with a recursion depth of 2."
-//     >
-//     > The tool would:
-//     >
-//     > 1.  Fetch and analyze [https://example.com](https://example.com).
-//     > 2.  Extract all links from [https://example.com](https://example.com).
-//     > 3.  Fetch and analyze each of those links.
-//     > 4.  Extract all links from those pages.
-//     > 5.  Fetch and analyze each of *those* links (depth of 2 reached).
-//     > 6.  Combine all the extracted information into a single result.
 
 // ### 2. Content Summarization with Abstractive Summarization 📝
 
@@ -291,240 +267,212 @@ export const weatherTool = tool({
 
 
 export const fetchUrlTool = tool({
-  description: // UPDATED description
-    "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries.",
+  description:
+    "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries. Now supports Agent X for dynamic site interaction (Amazon, YouTube, more). Now supports recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking).",
   parameters: z.object({
-    url: z.string().describe("The URL to fetch and analyze"), // Removed .url() for Gemini compatibility
+    url: z.string().describe("The URL to fetch and analyze"),
     referer: z.string().optional().describe("The referring page, for multi-step navigation"),
     userIntent: z.string().optional().describe("The user's question or intent, for focused extraction, including data analysis requests like 'analyze the table'."),
+    agentX: z.boolean().optional().describe("If true, use Agent X for dynamic web interaction (Amazon, YouTube, etc.)"),
+    recursionDepth: z.number().optional().describe("How many levels of links to follow recursively (0 = just this page, 1 = follow links on this page, etc.)"),
+    maxPages: z.number().optional().describe("Maximum total number of pages to fetch (default 10)"),
+    timeoutMs: z.number().optional().describe("Timeout in milliseconds for the entire operation (default 20000 ms)"),
   }),
-  execute: async ({ url, referer, userIntent }) => {
-    const start = Date.now();
-    const steps = [];
-    try {
-      steps.push(`Step 1: Fetching ${url}`);
-      const headers: HeadersInit = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      };
-      if (referer) {
-        headers['Referer'] = referer;
-      }
-      const res = await fetch(url, { method: 'GET', headers });
-      const contentType = res.headers.get('content-type') || '';
+  execute: async (params) => {
+    // --- Recursive Link Following Implementation ---
+    const {
+      url,
+      referer,
+      userIntent,
+      agentX,
+      recursionDepth = 0,
+      maxPages = 10,
+      timeoutMs = 20000,
+    } = params;
+    const visited = new Set<string>();
+    const origin = (() => { try { return new URL(url).origin; } catch { return null; } })();
+    let pagesFetched = 0;
+    let timedOut = false;
+    const startTime = Date.now();
 
-      // --- Handle image types ---
-      if (contentType.startsWith('image/')) {
-        steps.push('Step 2: Detected image file. Previewing and initiating AI analysis.');
-        const imageType = contentType.split('/')[1] || 'image';
-        // Extract filename for more descriptive alt text if possible
-        let imageName = 'image';
-        try {
-            imageName = new URL(url).pathname.split('/').pop() || 'image';
-        } catch { /* ignore if URL parsing for name fails */ }
-
-        const markdownPreview = `![Preview of ${imageName}](${url})`;
-        let analysis = "Image analysis could not be performed at this time.";
-        let analysisError = null;
-
-        try {
-          steps.push('Step 2a: Sending image to Gemini for analysis.');
-          const geminiModel = google('gemini-2.0-flash'); // Use a capable Gemini vision model
-          
-          const analysisResult = await generateText({
-            model: geminiModel,
-            messages: [
-              {
-                role: 'user',
-                content: [
+    async function fetchAndAnalyze({ url, referer, userIntent, agentX, depth }: { url: string, referer?: string, userIntent?: string, agentX?: boolean, depth: number }): Promise<any> {
+      if (timedOut) return { error: 'Timeout reached', url };
+      if (pagesFetched >= maxPages) return { error: 'Max pages limit reached', url };
+      if (visited.has(url)) return { error: 'Already visited', url };
+      if (origin && !(url.startsWith(origin))) return { error: 'Out of domain', url };
+      if (Date.now() - startTime > timeoutMs) { timedOut = true; return { error: 'Timeout reached', url }; }
+      visited.add(url);
+      pagesFetched++;
+      // Call the original fetch/analyze logic (non-recursive)
+      // Use the original tool logic, but skip recursion params
+      const result = await (async () => {
+        // --- BEGIN: Original fetch/analyze logic ---
+        if (agentX) {
+          const instruction = userIntent
+            ? await parseInstructionWithLLM(userIntent)
+            : { goal: "browse", site: url, query: "" };
+          const siteUrl = instruction.site || url;
+          const result = await agentXWebAgent({ instruction, url: siteUrl });
+          return result;
+        }
+        const steps: string[] = [];
+        steps.push(`Step 1: Fetching ${url}`);
+        const headers: Record<string, string> = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        };
+        if (referer) headers['Referer'] = referer;
+        const res = await fetch(url, { method: 'GET', headers });
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.startsWith('image/')) {
+          steps.push('Step 2: Detected image file. Previewing and initiating AI analysis.');
+          const imageType = contentType.split('/')[1] || 'image';
+          let imageName = 'image';
+          try { imageName = new URL(url).pathname.split('/').pop() || 'image'; } catch {}
+          const markdownPreview = `![Preview of ${imageName}](${url})`;
+          let analysis = "Image analysis could not be performed at this time.";
+          let analysisError = null;
+          try {
+            steps.push('Step 2a: Sending image to Gemini for analysis.');
+            const geminiModel = google('gemini-2.0-flash');
+            const analysisResult = await generateText({
+              model: geminiModel,
+              messages: [
+                { role: 'user', content: [
                   { type: 'text', text: 'Describe this image in detail. What is depicted (objects, beings, scene)? What are the key visual elements (colors, composition, style)? If there are actions or a story, briefly describe it. Provide a comprehensive and objective description.' },
-                  { type: 'image', image: new URL(url) }, // Pass URL object
-                ],
-              },
-            ],
-          });
-          analysis = analysisResult.text;
-          steps.push('Step 2b: Image analysis received from Gemini.');
-        } catch (e: any) {
-          steps.push(`Step 2b: Error during Gemini image analysis: ${e.message || String(e)}`);
-          console.error(`fetchUrlTool: Gemini image analysis error for ${url}:`, e);
-          analysisError = `AI analysis failed: ${e.message || String(e)}`;
-          analysis = `AI-powered analysis of the image failed. Details: ${e.message || String(e)}`;
+                  { type: 'image', image: new URL(url) },
+                ] },
+              ],
+            });
+            analysis = analysisResult.text;
+            steps.push('Step 2b: Image analysis received from Gemini.');
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            steps.push(`Step 2b: Error during Gemini image analysis: ${msg}`);
+            analysisError = `AI analysis failed: ${msg}`;
+            analysis = `AI-powered analysis of the image failed. Details: ${msg}`;
+          }
+          return {
+            type: 'image_analyzed', url, markdown: markdownPreview, analysis, description: `The URL points to an image (${imageType.toUpperCase()}). Markdown Preview: ${markdownPreview}. AI-generated analysis: ${analysis}`,
+            ...(analysisError && { analysisErrorDetail: analysisError }), steps, elapsed: Date.now() - startTime,
+          };
+        } else if (contentType.includes('application/pdf')) {
+          steps.push('Step 2: Detected PDF document.');
+          return { type: 'document', url, description: 'PDF document. Content analysis and table extraction are not supported by this tool for PDFs.', steps, elapsed: Date.now() - startTime };
+        } else if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('application/xml')) {
+          steps.push('Step 2: Detected non-HTML, non-image, non-PDF file. Attempting to extract plain text preview.');
+          let textPreview = "Content is not plain text or could not be previewed.";
+          if (contentType.startsWith('text/')) {
+            try { const text = await res.text(); textPreview = text.slice(0, 500) + (text.length > 500 ? '...' : ''); } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); steps.push(`Step 2c: Error reading text content: ${msg}`); textPreview = "Error reading text content."; }
+          }
+          return { type: 'file', url, preview: textPreview, contentType, description: `File (${contentType}). Preview: ${textPreview}`, steps, elapsed: Date.now() - startTime };
         }
-
-        return {
-          type: 'image_analyzed', // New type to signify AI analysis was attempted/done
-          url,
-          markdown: markdownPreview,
-          analysis: analysis, 
-          description: `The URL points to an image (${imageType.toUpperCase()}). Markdown Preview: ${markdownPreview}. AI-generated analysis: ${analysis}`,
-          ...(analysisError && { analysisErrorDetail: analysisError }),
-          steps,
-          elapsed: Date.now() - start,
-        };
-      } else if (contentType.includes('application/pdf')) {
-        steps.push('Step 2: Detected PDF document.');
-        return {
-          type: 'document', url, description: 'PDF document. Content analysis and table extraction are not supported by this tool for PDFs.', steps, elapsed: Date.now() - start
-        };
-      } else if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('application/xml')) {
-        steps.push('Step 2: Detected non-HTML, non-image, non-PDF file. Attempting to extract plain text preview.');
-        let textPreview = "Content is not plain text or could not be previewed.";
-        if (contentType.startsWith('text/')) {
-            try {
-                const text = await res.text();
-                textPreview = text.slice(0, 500) + (text.length > 500 ? '...' : '');
-            } catch (e: any) {
-                steps.push(`Step 2c: Error reading text content: ${e.message || String(e)}`);
-                textPreview = "Error reading text content.";
-            }
-        }
-        return {
-          type: 'file', url, preview: textPreview, contentType, description: `File (${contentType}). Preview: ${textPreview}`, steps, elapsed: Date.now() - start
-        };
-      }
-
-      // --- Process HTML ---
-      steps.push('Step 2: Processing HTML content.');
-      const html = await res.text();
-
-      const metaDescription = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-      const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-      const ogDescription = (html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-      const headings = Array.from(html.matchAll(/<(h[1-3])[^>]*>(.*?)<\/\1>/gi)).map(m => ({ tag: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() })).slice(0, 10);
-      const navLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi))
-        .map(m => {
-             try {
-                 return { href: new URL(m[1], url).toString(), text: m[2].replace(/<[^>]+>/g, '').trim() };
-             } catch { return null; }
-         })
-         .filter(l => l && l.text && l.href && l.href.length < 256 && l.href.startsWith('https'))
-         .slice(0, 20);
-      const productCards = Array.from(html.matchAll(/<div[^>]*class=["'][^"']*(product|card|item|listing)[^"']*["'][^>]*>([\s\S]*?)(<\/div>)/gi))
-         .map(m => {
-              const block = m[2];
-              const name = (block.match(/<h[1-4][^>]*>(.*?)<\/h[1-4]>/i) || [])[1]?.replace(/<[^>]+>/g, '').trim() || '';
-              const price = (block.match(/\$[0-9,.]+/) || [])[0] || '';
-              const features = Array.from(block.matchAll(/<li[^>]*>(.*?)<\/li>/gi)).map(x => x[1].replace(/<[^>]+>/g, '').trim());
-              const img = (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || '';
-              return { name, price, features, img };
-         }).filter(card => card.name || card.price || card.features.length > 0).slice(0, 10);
-      const faqs = Array.from(html.matchAll(/<details[\s\S]*?<\/details>/gi)).map(f => f[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
-      const newsSections = Array.from(html.matchAll(/<(section|div)[^>]+(news|blog|update)[^>]*>[\s\S]*?<\/(section|div)>/gi)).map(s => s[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 400));
-
-      steps.push('Step 3: Extracting table data.');
-      const extractedTables = parseHtmlTables(html);
-      let chartMarkdown: string | null = null;
-      if (
-        userIntent &&
-        /chart|visualize|plot|bar chart|graph/i.test(userIntent) &&
-        extractedTables.length > 0
-      ) {
-        let col: string | undefined;
-        const match = userIntent.match(/(?:of|for)\s+([\w\s]+)/i);
-        if (match && match[1]) {
-          const guess = match[1].trim().toLowerCase();
-          col = extractedTables[0].headers.find(h => h.toLowerCase().includes(guess));
-        }
-        if (!col && extractedTables[0].headers.length > 0) {
-          for (const h of extractedTables[0].headers) {
-            const vals = extractedTables[0].rows.map(r => r[h].replace(/[$,%]/g, '').replace(/,/g, ''));
-            if (vals.some(v => !isNaN(parseFloat(v)))) {
-              col = h;
-              break;
+        // --- Process HTML ---
+        steps.push('Step 2: Processing HTML content.');
+        const html = await res.text();
+        const metaDescription = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
+        const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
+        const ogDescription = (html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
+        const headings = Array.from(html.matchAll(/<(h[1-3])[^>]*>(.*?)<\/\1>/gi)).map(m => ({ tag: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() })).slice(0, 10);
+        const navLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi))
+          .map(m => { try { return { href: new URL(m[1], url).toString(), text: m[2].replace(/<[^>]+>/g, '').trim() }; } catch { return null; } })
+          .filter(l => l && l.text && l.href && l.href.length < 256 && l.href.startsWith('https'))
+          .slice(0, 20);
+        const productCards = Array.from(html.matchAll(/<div[^>]*class=["'][^"']*(product|card|item|listing)[^"']*["'][^>]*>([\s\S]*?)(<\/div>)/gi))
+          .map(m => { const block = m[2]; const name = (block.match(/<h[1-4][^>]*>(.*?)<\/h[1-4]>/i) || [])[1]?.replace(/<[^>]+>/g, '').trim() || ''; const price = (block.match(/\$[0-9,.]+/) || [])[0] || ''; const features = Array.from(block.matchAll(/<li[^>]*>(.*?)<\/li>/gi)).map(x => x[1].replace(/<[^>]+>/g, '').trim()); const img = (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || ''; return { name, price, features, img }; }).filter(card => card.name || card.price || card.features.length > 0).slice(0, 10);
+        const faqs = Array.from(html.matchAll(/<details[\s\S]*?<\/details>/gi)).map(f => f[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
+        const newsSections = Array.from(html.matchAll(/<(section|div)[^>]+(news|blog|update)[^>]*>[\s\S]*?<\/(section|div)>/gi)).map(s => s[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 400));
+        steps.push('Step 3: Extracting table data.');
+        const extractedTables = parseHtmlTables(html);
+        let chartMarkdown = null;
+        if (userIntent && /chart|visualize|plot|bar chart|graph/i.test(userIntent) && extractedTables.length > 0) {
+          let col;
+          const match = userIntent.match(/(?:of|for)\s+([\w\s]+)/i);
+          if (match && match[1]) {
+            const guess = match[1].trim().toLowerCase();
+            col = extractedTables[0].headers.find(h => h.toLowerCase().includes(guess));
+          }
+          if (!col && extractedTables[0].headers.length > 0) {
+            for (const h of extractedTables[0].headers) {
+              const vals = extractedTables[0].rows.map(r => r[h].replace(/[$,%]/g, '').replace(/,/g, ''));
+              if (vals.some(v => !isNaN(parseFloat(v)))) { col = h; break; }
             }
           }
+          if (col) { chartMarkdown = generateMarkdownBarChart(extractedTables[0], col); }
         }
-        if (col) {
-          chartMarkdown = generateMarkdownBarChart(extractedTables[0], col);
+        steps.push(`Step 4: Found ${extractedTables.length} potential table(s).`);
+        const mainText = html
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<head[\s\S]*?<\/head>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        let siteType = 'general';
+        if (productCards.length > 2) siteType = 'e-commerce';
+        else if (newsSections.length > 0 || /news|blog|article/i.test(html)) siteType = 'news/blog';
+        else if (faqs.length > 0) siteType = 'docs/faq';
+        else if (extractedTables.length > 0) siteType = 'data/table';
+        steps.push('Step 5: Analyzing content and intent.');
+        let suggestedLinks: { href: string; text: string }[] = [];
+        if (userIntent && !userIntent.toLowerCase().includes('analyze')) {
+          const lowerIntent = userIntent.toLowerCase();
+          suggestedLinks = navLinks
+            .filter((l) => !!l)
+            .filter((l): l is { href: string; text: string } => !!l)
+            .filter(l => {
+              const linkTextLower = l.text.toLowerCase();
+              return lowerIntent.split(' ').some((word: string) => word.length > 3 && linkTextLower.includes(word)) || linkTextLower.includes(lowerIntent);
+            });
+          if (suggestedLinks.length > 0) {
+            steps.push(`Step 6: Based on intent '${userIntent}', suggesting navigation to: ${suggestedLinks.map(l => `[${l.text}](${l.href})`).join(', ')}`);
+          } else {
+            steps.push(`Step 6: No direct navigation links found matching intent '${userIntent}'.`);
+          }
+        } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length === 0) {
+          steps.push(`Step 6: User asked to analyze data, but no tables were extracted.`);
+        } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length > 0) {
+          steps.push(`Step 6: User asked to analyze data. Found ${extractedTables.length} table(s). Passing data to AI.`);
         }
+        const articleLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi))
+          .map(m => { try { const href = new URL(m[1], url).toString(); const text = m[2].replace(/<[^>]+>/g, '').trim(); const isArticle = /(\/article|\/news|\/blog|\/post|\/story|[\d-]+\.html?$)/i.test(href); return (isArticle && text && href.startsWith('http')) ? { href, text } : null; } catch { return null; } })
+          .filter(Boolean).slice(0, 50);
+        const summary = [
+          ogTitle || headings[0]?.text,
+          metaDescription || ogDescription,
+          ...headings.slice(1, 3).map(h => h.text),
+          extractedTables.length > 0 ? `Contains ${extractedTables.length} data table(s).` : '',
+          ...productCards.slice(0, 2).map(c => `${c.name} ${c.price}`),
+          ...faqs.slice(0, 1),
+          ...newsSections.slice(0, 1),
+          mainText.slice(0, 500)
+        ].filter(Boolean).join(' | ').replace(/\s+/g, ' ').slice(0, 1500);
+        steps.push('Step 7: Compiling results.');
+        return {
+          type: 'website', url, siteType, title: ogTitle || (headings[0]?.text ?? url), metaDescription, ogTitle, ogDescription, headings, navLinks, productCards, faqs, newsSections, extractedTables, chartMarkdown, summary, preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''), suggestedLinks, articleLinks, steps, elapsed: Date.now() - startTime
+        };
+        // --- END: Original fetch/analyze logic ---
+      })();
+      // --- RECURSION: If depth > 0, follow links ---
+      if (depth > 0 && result && 'navLinks' in result && Array.isArray((result as any).navLinks)) {
+        const childResults = [];
+        for (const link of (result as any).navLinks as { href: string; text: string }[]) {
+          if (pagesFetched >= maxPages || timedOut) break;
+          if (!link.href || visited.has(link.href)) continue;
+          if (origin && !link.href.startsWith(origin)) continue;
+          try {
+            const child = await fetchAndAnalyze({ url: link.href, referer: url, userIntent, agentX, depth: depth - 1 });
+            childResults.push(child);
+          } catch (e) {
+            childResults.push({ error: String(e), url: link.href });
+          }
+        }
+        return { ...result, childResults };
+      } else {
+        return result;
       }
-      steps.push(`Step 4: Found ${extractedTables.length} potential table(s).`);
-
-      const mainText = html
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<head[\s\S]*?<\/head>/gi, '')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      let siteType = 'general';
-      if (productCards.length > 2) siteType = 'e-commerce';
-      else if (newsSections.length > 0 || /news|blog|article/i.test(html)) siteType = 'news/blog';
-      else if (faqs.length > 0) siteType = 'docs/faq';
-      else if (extractedTables.length > 0) siteType = 'data/table';
-
-      steps.push('Step 5: Analyzing content and intent.');
-      let suggestedLinks: { href: string; text: string }[] = [];
-       if (userIntent && !userIntent.toLowerCase().includes('analyze')) {
-           const lowerIntent = userIntent.toLowerCase();
-           suggestedLinks = navLinks
-               .filter((l): l is { href: string; text: string } => !!l)
-               .filter(l => {
-                   const linkTextLower = l.text.toLowerCase();
-                   return lowerIntent.split(' ').some(word => word.length > 3 && linkTextLower.includes(word)) || linkTextLower.includes(lowerIntent);
-               });
-           if (suggestedLinks.length > 0) {
-               steps.push(`Step 6: Based on intent '${userIntent}', suggesting navigation to: ${suggestedLinks.map(l => `[${l.text}](${l.href})`).join(', ')}`);
-           } else {
-               steps.push(`Step 6: No direct navigation links found matching intent '${userIntent}'.`);
-           }
-       } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length === 0) {
-            steps.push(`Step 6: User asked to analyze data, but no tables were extracted.`);
-       } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length > 0) {
-            steps.push(`Step 6: User asked to analyze data. Found ${extractedTables.length} table(s). Passing data to AI.`);
-       }
-
-      const articleLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi))
-            .map(m => {
-                 try {
-                     const href = new URL(m[1], url).toString();
-                     const text = m[2].replace(/<[^>]+>/g, '').trim();
-                     const isArticle = /(\/article|\/news|\/blog|\/post|\/story|[\d-]+\.html?$)/i.test(href);
-                     return (isArticle && text && href.startsWith('http')) ? { href, text } : null;
-                 } catch { return null; }
-            })
-            .filter(Boolean).slice(0, 50) as { href: string; text: string }[];
-
-      const summary = [
-        ogTitle || headings[0]?.text,
-        metaDescription || ogDescription,
-        ...headings.slice(1, 3).map(h => h.text),
-        extractedTables.length > 0 ? `Contains ${extractedTables.length} data table(s).` : '',
-        ...productCards.slice(0, 2).map(c => `${c.name} ${c.price}`),
-        ...faqs.slice(0, 1),
-        ...newsSections.slice(0, 1),
-        mainText.slice(0, 500)
-      ].filter(Boolean).join(' | ').replace(/\s+/g, ' ').slice(0, 1500);
-
-      steps.push('Step 7: Compiling results.');
-      return {
-        type: 'website',
-        url,
-        siteType,
-        title: ogTitle || (headings[0]?.text ?? url),
-        metaDescription,
-        ogTitle,
-        ogDescription,
-        headings,
-        navLinks,
-        productCards,
-        faqs,
-        newsSections,
-        extractedTables,
-        chartMarkdown,
-        summary,
-        preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''),
-        suggestedLinks,
-        articleLinks,
-        steps,
-        elapsed: Date.now() - start
-      };
-
-    } catch (e: any) {
-      steps.push(`Error: ${e.message || String(e)}`);
-      console.error(`fetchUrlTool Error processing ${url}:`, e);
-      return { error: `Failed to fetch or analyze the URL: ${e.message || String(e)}`, steps };
     }
+    // --- Start recursion ---
+    return await fetchAndAnalyze({ url, referer, userIntent, agentX, depth: recursionDepth });
   },
 });
 
@@ -537,7 +485,7 @@ export const googleSearchTool = tool({
   execute: async ({ query }) => {
     console.log(`googleSearchTool: Executing search for query: "${query}"`);
     try {
-      const modelInstance = google('gemini-2.0-flash', { // User-provided model
+      const modelInstance = google('gemini-2.5-flash-preview-04-17', { // User-provided model
         useSearchGrounding: true,
         dynamicRetrievalConfig: {
           mode: 'MODE_DYNAMIC',
