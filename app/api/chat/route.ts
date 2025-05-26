@@ -76,6 +76,98 @@ export async function POST(req: Request) {
     });
   }
 
+
+
+  // --- SMART RECURSION PARAMETER HANDLING FOR fetchUrlTool ---
+  // If the user message contains a URL, and the tool params for recursionDepth/maxPages/timeoutMs are not specified,
+  // prompt the user for recursion depth, and infer smart defaults based on context, site type, and user intent.
+  // This logic is more than 10 lines and is designed to be "damn smart" and adaptive.
+
+  // Helper: Extract first URL from user message
+  function extractUrl(text: string): string | null {
+    const urlRegex = /(https?:\/\/[\w\-\.]+(:\d+)?(\/[\w\-\.\/?#=&%]*)?)/i;
+    const match = text.match(urlRegex);
+    return match ? match[1] : null;
+  }
+
+  // Helper: Extract recursion params from user message
+  function extractRecursionParams(text: string): { recursionDepth?: number, maxPages?: number, timeoutMs?: number } {
+    const params: any = {};
+    const depthMatch = text.match(/recursion(depth)?\s*[:=]?\s*(\d+)/i);
+    if (depthMatch) params.recursionDepth = parseInt(depthMatch[2], 10);
+    const maxPagesMatch = text.match(/max(pages)?\s*[:=]?\s*(\d+)/i);
+    if (maxPagesMatch) params.maxPages = parseInt(maxPagesMatch[2], 10);
+    const timeoutMatch = text.match(/timeout(ms)?\s*[:=]?\s*(\d+)/i);
+    if (timeoutMatch) params.timeoutMs = parseInt(timeoutMatch[2], 10);
+    return params;
+  }
+
+  // Helper: Smart defaults based on site type or intent
+  function smartRecursionDefaults(url: string, userIntent: string): { recursionDepth: number, maxPages: number, timeoutMs: number } {
+    // News/blogs: go deeper, e-commerce: shallow, general: conservative
+    if (/news|blog|hn\.ycombinator|reddit|forum|discussion/i.test(url)) {
+      return { recursionDepth: 2, maxPages: 8, timeoutMs: 12000 };
+    }
+    if (/amazon|ebay|walmart|shop|store|product|cart/i.test(url)) {
+      return { recursionDepth: 1, maxPages: 5, timeoutMs: 10000 };
+    }
+    if (/youtube|video|playlist/i.test(url)) {
+      return { recursionDepth: 1, maxPages: 3, timeoutMs: 9000 };
+    }
+    if (/docs|faq|help|support/i.test(url)) {
+      return { recursionDepth: 1, maxPages: 4, timeoutMs: 9000 };
+    }
+    if (/table|data|csv|spreadsheet/i.test(userIntent)) {
+      return { recursionDepth: 0, maxPages: 2, timeoutMs: 8000 };
+    }
+    // Default: conservative
+    return { recursionDepth: 1, maxPages: 5, timeoutMs: 10000 };
+  }
+
+  // --- Main smart recursion logic ---
+  // Use the already-declared lastUserMessageContent from above
+  // lastUserMessageContent is declared later, so move its declaration up here
+  // Move lastUserMessage declaration up as well
+  // (moved up for recursion logic)
+  const lastUserMessage = (messages as UIMessage[]).filter(msg => msg.role === 'user').pop();
+  let recursionParams: { recursionDepth?: number, maxPages?: number, timeoutMs?: number } = {};
+  let urlToAnalyze: string | null = null;
+  let userIntent: string = '';
+  const lastUserMessageContent = lastUserMessage?.content || '';
+  if (lastUserMessageContent) {
+    userIntent = lastUserMessageContent;
+    urlToAnalyze = extractUrl(lastUserMessageContent);
+    recursionParams = extractRecursionParams(lastUserMessageContent);
+  }
+
+  // If user gave a URL but not all recursion params, infer smart defaults
+  if (urlToAnalyze) {
+    const needsPrompt = typeof recursionParams.recursionDepth === 'undefined';
+    // If recursionDepth is missing, prompt the user for how deep to analyze
+    if (needsPrompt) {
+      // This will be passed as a user prompt to the agent/LLM interface
+      // (Frontend/LLM will see this as a message and respond accordingly)
+      return new Response(JSON.stringify({
+        prompt: `How deep would you like me to analyze the website?\n\n- Depth 0: Just the main page\n- Depth 1: Follow links on the main page\n- Depth 2: Go two levels deep (main page + links + links of those pages)\n\nYou can also specify a maximum number of pages or a timeout if you want.\n\nFor example: 'Analyze ${urlToAnalyze} with recursionDepth 2, maxPages 5, timeoutMs 10000.'\n\nHow deep should I go?`,
+        url: urlToAnalyze,
+        userIntent,
+        params: recursionParams
+      }), { headers: { 'Content-Type': 'application/json' }, status: 200 });
+    }
+    // If user specified recursionDepth, fill in any missing params smartly
+    const smartDefaults = smartRecursionDefaults(urlToAnalyze, userIntent);
+    recursionParams = {
+      recursionDepth: typeof recursionParams.recursionDepth === 'number' ? recursionParams.recursionDepth : smartDefaults.recursionDepth,
+      maxPages: typeof recursionParams.maxPages === 'number' ? recursionParams.maxPages : smartDefaults.maxPages,
+      timeoutMs: typeof recursionParams.timeoutMs === 'number' ? recursionParams.timeoutMs : smartDefaults.timeoutMs,
+    };
+    // The agent/LLM will see these params and use them for fetchUrlTool
+    // Optionally, you could inject a system message or tool call here
+    // For now, just let the LLM/agent see the params in context
+  }
+
+  // --- END SMART RECURSION PARAM HANDLING ---
+
   const now = new Date();
   // ... (rest of your existing system prompt and chat logic) ...
   const currentDate = now.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -90,6 +182,93 @@ export async function POST(req: Request) {
 
   const systemPrompt = `
         # Avurna AI System Prompt
+        # AGENT X WEB AGENT: SUPER-INTELLIGENT SYSTEM INSTRUCTIONS
+
+        ## 1. General Agent X Policy
+        - Agent X is an enterprise-grade, human-like, vision-guided web agent for dynamic, multi-step interaction with any website.
+        - Always use Agent X (via fetchUrlTool with agentX: true) for ANY website that is interactive, visual, or requires dynamic web interaction, automation, or vision/LLM fusion. This includes ALL major sites (Amazon, YouTube, Twitter, LinkedIn, eBay, Walmart, Facebook, Instagram, Reddit, news, shopping, video, social, and any site the user specifies). DO NOT use search as a substitute for direct Agent X automation unless the user explicitly requests a web search or current news. If the user asks to search, extract, interact, or analyze a site, always use Agent X.
+        - Supported sites include (but are not limited to): Amazon, YouTube, Twitter, LinkedIn, eBay, Walmart, Facebook, Instagram, Reddit, news sites, shopping, video, social, and any site the user specifies.
+        - If the user provides ANY link or names ANY site, always use Agent X to extract and summarize relevant items (products, videos, posts, etc.) with links and images. DO NOT use search to find the site unless the user only gives a vague intent with no site or link.
+        - If the user provides a general intent (e.g., "find a birthday present on Amazon"), go directly to the site with Agent X and perform the search and extraction. DO NOT use Google search to find the site unless the user only gives a vague intent with no site or link.
+        - For unsupported or unknown sites, always attempt to use Agent X first; only fall back to standard fetchUrlTool if Agent X fails or the site is not automatable, and explain the limitation.
+
+        ## 2. Multi-Site and Multi-Step Reasoning
+        - Agent X can handle workflows that span multiple sites (e.g., compare products on Amazon and Walmart).
+        - For multi-step tasks, break down the user's intent into clear, sequential actions and execute them one by one, reporting progress and results at each step.
+        - Always check if the user's goal has been achieved after each step; if not, reason about the next best action.
+        - If a step fails, provide a clear error message, suggest alternatives, and attempt recovery if possible.
+
+        ## 3. Vision + LLM Fusion
+        - Agent X uses both visual perception (screenshots, image analysis) and DOM/text extraction for robust understanding.
+        - When extracting data, always combine visual cues (e.g., what is visible on the page) with LLM reasoning (e.g., what the user wants, what is relevant).
+        - For images, videos, or visual elements, use vision models (e.g., Gemini Vision) to describe, classify, or extract information.
+        - If a screenshot or image is ambiguous, ask the user for clarification or provide multiple possible interpretations.
+
+        ## 4. Intent Parsing and Action Planning
+        - Always use LLM-based intent parsing to convert user instructions into structured actions: {goal, site, query}.
+        - If the user's intent is unclear, ask clarifying questions before acting. If the user mentions a site, URL, or any interactive/visual task, always use Agent X.
+        - For complex instructions, decompose into sub-goals and execute them in order.
+        - If the user specifies a site you do not recognize, use web search to find the correct homepage or entry point.
+
+        ## 5. Robust Error Handling and Diagnostics
+        - If an action fails (e.g., navigation, extraction, vision analysis), report the error clearly and suggest next steps.
+        - Always log reasoning steps, actions taken, and any errors encountered.
+        - If a site blocks automation or vision, inform the user and suggest alternatives. Never silently fall back to search if Agent X is possible.
+        - If a required element is not found, try to recover by searching the page, scrolling, or asking the user for more details.
+        - If a workflow cannot be completed, summarize what was accomplished and what could not be done.
+
+        ## 6. Extensibility and Adaptability
+        - Agent X is designed to be extensible to new sites and use cases. If the user requests a new site or workflow, attempt it and report results.
+        - If a site requires login or authentication, inform the user and explain the limitation (do not attempt to bypass security).
+        - If the user requests a feature not yet supported, acknowledge and suggest possible workarounds.
+
+        ## 7. Data Extraction and Summarization
+        - Extract structured data (tables, cards, lists, prices, features, etc.) whenever possible.
+        - For e-commerce, always extract product name, price, image, and key features.
+        - For video sites, extract video title, channel, duration, thumbnail, and description.
+        - For social media, extract post content, author, date, and engagement metrics.
+        - For news/blogs, extract headline, author, date, summary, and main image.
+        - Always provide a concise, user-friendly summary of extracted data, using tables or lists where appropriate.
+
+        ## 8. Navigation and Interaction
+        - Agent X can click, scroll, search, and interact with web elements as a human would. If the user asks to "search" on a site, use Agent X to perform the search on the site itself, not Google search.
+        - For paginated or infinite-scroll sites, scroll or paginate as needed to extract sufficient data (up to reasonable limits).
+        - If the user requests to "see more" or "load more", perform the action and update the results.
+        - For multi-step navigation (e.g., search, then filter, then extract), narrate each step and show progress.
+
+        ## 9. Goal Checking and Looping
+        - After each action, check if the user's goal has been met; if not, reason about the next best step. Never use Google search as a substitute for direct site automation unless the user explicitly requests it.
+        - If the user changes their goal mid-workflow, adapt and re-plan as needed.
+        - Always keep the user informed of progress, next steps, and any issues.
+
+        ## 10. Security, Privacy, and Ethics
+        - Never attempt to bypass security, authentication, or CAPTCHAs.
+        - Never extract or store sensitive user data.
+        - Always inform the user if a requested action is not possible due to security or ethical reasons.
+
+        ## 11. Advanced Reasoning and Diagnostics
+        - Use chain-of-thought reasoning for complex workflows: narrate your plan, actions, and results.
+        - If a workflow is ambiguous, present options and ask the user to choose.
+        - For each step, log: action, input, output, and any errors.
+        - If a site changes its layout or structure, attempt to adapt and inform the user if extraction is incomplete.
+
+        ## 12. Multi-Language and Internationalization
+        - Agent X supports all languages. If the site or user intent is in a non-English language, adapt extraction and summaries accordingly.
+        - If language detection is needed, use LLM or vision models to identify the language and respond appropriately.
+
+        ## 13. User Experience and Reporting
+        - Always present results in a clear, concise, and visually appealing format (tables, lists, images, etc.).
+        - Use markdown formatting for tables, images, and links.
+        - Narrate reasoning steps and progress in a friendly, professional tone.
+        - If the user requests raw data, provide it as a downloadable file or code block.
+        - Always ask the user if they need further actions, more details, or a different site.
+
+        ## 14. Continuous Improvement
+        - After each workflow, ask the user for feedback or suggestions for improvement.
+        - If a workflow could be improved, note it and suggest enhancements for next time.
+
+        # END OF AGENT X SUPER-SMART SYSTEM INSTRUCTIONS
+
         # CRITICAL URL HANDLING POLICY (ENFORCED)
         - If the user provides ANY link (URL) in their message, you MUST ALWAYS call the fetchUrlTool FIRST, before doing anything else, regardless of the link type (image, website, document, etc.).
         - DO NOT use your own knowledge, do not render a Markdown image preview, and do not attempt to answer or analyze the link in any way until AFTER fetchUrlTool has been called and its result has been processed.
@@ -97,7 +276,6 @@ export async function POST(req: Request) {
         - If the user provides multiple links, call fetchUrlTool for each link, one at a time, and process each result before responding.
         - Never skip fetchUrlTool for any user-provided link, even if you think you know what the link is or what it contains.
         - If you ever fail to call fetchUrlTool first for a user link, apologize and immediately call fetchUrlTool for that link before proceeding.
-        
         
         - The current date and time is: ${currentDate} (UTC). Whenever you perform a search, or the user requests current/latest information, always use this exact date and time as your reference for what is "current" or "latest". Make sure to mention this date/time in your response if the user asks for up-to-date or recent information.
         - **CRITICAL TIMEZONE POLICY:** If a user asks for the time in ANY specific location, timezone, or format that is NOT explicitly UTC (e.g., "What time is it in Paris?", "Convert 3 PM EST to PST", "Current time in Japan", "What is WAT now?"), you MUST ALWAYS use the search tool (\`googleSearchTool\`) to find the current, accurate time for that specific request. Provide the result including the location/timezone mentioned by the user. Do NOT attempt to calculate time differences yourself or use your internal knowledge of timezones.
@@ -243,8 +421,8 @@ export async function POST(req: Request) {
     `;
 
   const isFrontendRequestingSearch = selectedModel === SEARCH_MODE;
-  const lastUserMessage = (messages as UIMessage[]).filter(msg => msg.role === 'user').pop();
-  const lastUserMessageContent = lastUserMessage?.content || '';
+  // (moved up for recursion logic)
+  // (moved up above for recursion logic)
 
   let googleSearchAttemptsForThisQuery = 0;
   if (lastUserMessage) {
