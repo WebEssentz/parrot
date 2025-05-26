@@ -8,6 +8,22 @@ import { generateText } from 'ai';
 import fs from 'fs';
 import path from 'path';
 
+
+// --- AGENT X WORKDIR MANAGEMENT ---
+const AGENTX_WORKDIR = path.join(process.cwd(), 'agentx_tmp');
+
+function ensureAgentXWorkdir() {
+  if (!fs.existsSync(AGENTX_WORKDIR)) {
+    fs.mkdirSync(AGENTX_WORKDIR, { recursive: true });
+  }
+}
+
+function cleanupAgentXWorkdir() {
+  if (fs.existsSync(AGENTX_WORKDIR)) {
+    fs.rmSync(AGENTX_WORKDIR, { recursive: true, force: true });
+  }
+}
+
 // Helper: Read image as base64 for Gemini Vision
 function imageToBase64(imagePath: string): string {
   return fs.readFileSync(imagePath, { encoding: 'base64' });
@@ -72,14 +88,16 @@ async function analyzeScreenshotWithGemini(imagePath: string, userGoal: string):
 }
 
 // Perceive: Take screenshot, analyze with Gemini, extract DOM
+
 async function perceive(page: Page, stepName: string, stepIdx: number): Promise<{
   screenshotPath: `${string}.png`;
   htmlPath: `${string}.html`;
   visionAnalysis: any;
   domAnalysis: any;
 }> {
-  const screenshotPath = `agentx_step${stepIdx}_${stepName}.png` as `${string}.png`;
-  const htmlPath = `agentx_step${stepIdx}_${stepName}.html` as `${string}.html`;
+  ensureAgentXWorkdir();
+  const screenshotPath = path.join(AGENTX_WORKDIR, `agentx_step${stepIdx}_${stepName}.png`) as `${string}.png`;
+  const htmlPath = path.join(AGENTX_WORKDIR, `agentx_step${stepIdx}_${stepName}.html`) as `${string}.html`;
 
   // --- FIX: Always wait for DOM content and visible body before screenshot ---
   try {
@@ -297,7 +315,9 @@ async function act(page: Page, actionPlan: { action: string; selector?: string; 
 }
 
 // Main Agent X loop
+
 export async function agentXWebAgent({ instruction, url }: { instruction: AgentXInstruction; url: string }): Promise<AgentXResult> {
+  ensureAgentXWorkdir();
   // Use headful mode for debugging screenshots
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
@@ -311,73 +331,89 @@ export async function agentXWebAgent({ instruction, url }: { instruction: AgentX
   let error = '';
   let extractedData = undefined;
   let goalAchieved = false;
-  // --- Streaming and Progressive Disclosure ---
-  for (let stepIdx = 0; stepIdx < 5; stepIdx++) {
-    try {
-      // 1. Perceive
-      const { screenshotPath, htmlPath, visionAnalysis, domAnalysis } = await perceive(page, `step${stepIdx}`, stepIdx);
-      // 2. Reason
-      const actionPlan = await decideNextAction({ instruction, visionAnalysis, domAnalysis, lastAction, stepIdx });
-      // 3. Act
-      const actionResult = await act(page, actionPlan);
-      // 4. Check goal (advanced): Use Gemini to check if goal is achieved
-      let goalCheck = false;
+  try {
+    // --- Streaming and Progressive Disclosure ---
+    for (let stepIdx = 0; stepIdx < 5; stepIdx++) {
       try {
-        const geminiModel = google('gemini-2.5-flash-preview-04-17');
-        const checkPrompt = `Given the user's goal: "${instruction.goal}" and query: "${instruction.query}", and the following perception and action result, has the goal been achieved? Respond as JSON: { achieved: boolean, reason: string, extractedData?: any }\nPerception: ${JSON.stringify(visionAnalysis)}\nAction: ${JSON.stringify(actionPlan)}\nResult: ${actionResult}`;
-        const { text } = await generateText({ model: geminiModel, prompt: checkPrompt });
-        const check = JSON.parse(text);
-        goalCheck = check.achieved;
-        if (check.extractedData) extractedData = check.extractedData;
-      } catch {}
-      const resultSummary = `Step ${stepIdx}: ${actionPlan.description} | ${actionResult}`;
-      steps.push({
-        step: `Step ${stepIdx}`,
-        screenshotPath,
-        htmlPath,
-        visionAnalysis,
-        domAnalysis,
-        actionTaken: actionPlan.action,
-        resultSummary
-      });
-      // Progressive results: yield/return partial results if needed (user can request 'show more')
-      // (In a real streaming API, you would yield here. For now, just accumulate steps.)
-      lastAction = actionPlan.action;
-      if (goalCheck) {
-        goalAchieved = true;
+        // 1. Perceive
+        const { screenshotPath, htmlPath, visionAnalysis, domAnalysis } = await perceive(page, `step${stepIdx}`, stepIdx);
+        // 2. Reason
+        const actionPlan = await decideNextAction({ instruction, visionAnalysis, domAnalysis, lastAction, stepIdx });
+        // 3. Act
+        const actionResult = await act(page, actionPlan);
+        // 4. Check goal (advanced): Use Gemini to check if goal is achieved
+        let goalCheck = false;
+        try {
+          const geminiModel = google('gemini-2.5-flash-preview-04-17');
+          const checkPrompt = `Given the user's goal: "${instruction.goal}" and query: "${instruction.query}", and the following perception and action result, has the goal been achieved? Respond as JSON: { achieved: boolean, reason: string, extractedData?: any }\nPerception: ${JSON.stringify(visionAnalysis)}\nAction: ${JSON.stringify(actionPlan)}\nResult: ${actionResult}`;
+          const { text } = await generateText({ model: geminiModel, prompt: checkPrompt });
+          const check = JSON.parse(text);
+          goalCheck = check.achieved;
+          if (check.extractedData) extractedData = check.extractedData;
+        } catch {}
+        const resultSummary = `Step ${stepIdx}: ${actionPlan.description} | ${actionResult}`;
+        steps.push({
+          step: `Step ${stepIdx}`,
+          screenshotPath,
+          htmlPath,
+          visionAnalysis,
+          domAnalysis,
+          actionTaken: actionPlan.action,
+          resultSummary
+        });
+        // Progressive results: yield/return partial results if needed (user can request 'show more')
+        // (In a real streaming API, you would yield here. For now, just accumulate steps.)
+        lastAction = actionPlan.action;
+        if (goalCheck) {
+          goalAchieved = true;
+          break;
+        }
+      } catch (e: any) {
+        error = e.message || String(e);
         break;
       }
-    } catch (e: any) {
-      error = e.message || String(e);
-      break;
     }
+    // Final perception
+    const finalScreenshot = path.join(AGENTX_WORKDIR, `agentx_final.png`) as `${string}.png`;
+    // Wait for visible content before final screenshot
+    try {
+      await page.waitForFunction(() => {
+        const body = document.body;
+        if (!body) return false;
+        const style = window.getComputedStyle(body);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+        return Array.from(body.children).some(el => {
+          const s = window.getComputedStyle(el);
+          return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+        });
+      }, { timeout: 5000 });
+    } catch {}
+    await page.screenshot({ path: finalScreenshot, fullPage: false });
+    const finalHtml = await page.content();
+    await browser.close();
+    // --- CLEANUP: Delete workdir after use ---
+    cleanupAgentXWorkdir();
+    return {
+      success: !error,
+      goal: instruction.goal,
+      site: instruction.site,
+      steps,
+      finalScreenshot,
+      finalHtml,
+      extractedData,
+      ...(error ? { error } : {})
+    };
+  } catch (e: any) {
+    await browser.close();
+    cleanupAgentXWorkdir();
+    return {
+      success: false,
+      goal: instruction.goal,
+      site: instruction.site,
+      steps,
+      finalScreenshot: '',
+      finalHtml: '',
+      error: e.message || String(e)
+    };
   }
-  // Final perception
-  const finalScreenshot = `agentx_final.png`;
-  // Wait for visible content before final screenshot
-  try {
-    await page.waitForFunction(() => {
-      const body = document.body;
-      if (!body) return false;
-      const style = window.getComputedStyle(body);
-      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-      return Array.from(body.children).some(el => {
-        const s = window.getComputedStyle(el);
-        return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
-      });
-    }, { timeout: 5000 });
-  } catch {}
-  await page.screenshot({ path: finalScreenshot, fullPage: false });
-  const finalHtml = await page.content();
-  await browser.close();
-  return {
-    success: !error,
-    goal: instruction.goal,
-    site: instruction.site,
-    steps,
-    finalScreenshot,
-    finalHtml,
-    extractedData,
-    ...(error ? { error } : {})
-  };
 }
