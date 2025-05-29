@@ -1,6 +1,3 @@
-// agentXWebAgent.ts
-// Agent X: Human-like, vision-guided web agent scaffold (enterprise-grade)
-// Uses Puppeteer for browser automation and Gemini Vision for perception
 
 import puppeteer, { Page } from 'puppeteer';
 import { google } from '@ai-sdk/google';
@@ -39,43 +36,135 @@ export interface AgentXInstruction {
 
 export interface AgentXStepTrace {
   step: string;
-  screenshotPath: string;
-  htmlPath: string;
+  screenshotBase64: string;
+  html: string;
   visionAnalysis: any;
   domAnalysis: any;
   actionTaken: string;
   resultSummary: string;
+  screenshotPath?: string;
+  htmlPath?: string;
 }
+// --- REASONING LAYER: Should Use Vision? ---
+// Decides if vision (screenshot/CV) is needed for the next step, or if HTML is sufficient
+async function shouldUseVision({ html, domAnalysis, userGoal, stepIdx }: { html: string, domAnalysis: any, userGoal: string, stepIdx: number }): Promise<{ useVision: boolean, reason: string }> {
+  try {
+    const geminiModel = google('gemini-2.5-flash-preview-04-17');
+    const prompt = `You are a web automation reasoning agent. Given the user's goal: "${userGoal}", the current DOM analysis, and the HTML, decide if the next step can be answered with HTML alone, or if a screenshot/vision is needed (e.g. for ambiguous, visually styled, or dynamic elements). Respond as JSON: { useVision: boolean, reason: string }.\nStep: ${stepIdx}\nDOM analysis: ${JSON.stringify(domAnalysis)}\nHTML:\n${html.slice(0, 2000)}\n[Truncated]`;
+    const { text } = await generateText({ model: geminiModel, prompt });
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = { useVision: false, reason: text };
+    }
+    return parsed;
+  } catch (e: any) {
+    return { useVision: false, reason: e.message || String(e) };
+  }
+}
+// --- COMPUTER VISION ELEMENT CONFIRMATION ---
+// Crop an element screenshot and analyze with Gemini Vision to confirm its type/purpose
+async function analyzeElementWithVision({ page, selector, userGoal }: { page: Page, selector: string, userGoal: string }): Promise<{ visualType: string, description: string, confidence: number, raw?: any }> {
+  try {
+    // Get bounding box for selector
+    const rect = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    }, selector);
+    if (!rect || rect.width === 0 || rect.height === 0) {
+      return { visualType: 'unknown', description: 'Element not visible or not found', confidence: 0 };
+    }
+    // Take cropped screenshot
+    const buffer = await page.screenshot({
+      clip: {
+        x: Math.max(0, rect.x),
+        y: Math.max(0, rect.y),
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height)
+      }
+    });
+    const screenshotBase64 = Buffer.from(buffer).toString('base64');
+    // Vision prompt: robust, explicit
+    const geminiModel = google('gemini-2.5-flash-preview-04-17');
+    const prompt = `You are a computer vision expert. Given this image (base64 PNG), visually determine what UI element this is. Is it a search box, button, input, dropdown, or something else? Describe its type, purpose, and any visible text or icon. Respond as JSON: { visualType: string, description: string, confidence: number (0-1) }\nUser goal: ${userGoal}`;
+    const { text } = await generateText({ model: geminiModel, prompt: prompt + `\n[Image base64]\n` + screenshotBase64 });
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = { visualType: 'unknown', description: text, confidence: 0 };
+    }
+    return { ...parsed, raw: text };
+  } catch (e: any) {
+    return { visualType: 'error', description: e.message || String(e), confidence: 0 };
+  }
+}
+// --- AGENT X STEP PLANNING FOR BATCHING ---
+// Use AI to plan a batch of actions up front
+async function planSteps({ html, userGoal, maxSteps = 5 }: { html: string, userGoal: string, maxSteps?: number }): Promise<Array<{ action: string; selector?: string; value?: string; description: string }>> {
+  try {
+    const geminiModel = google('gemini-2.5-flash-preview-04-17');
+    const prompt = `You are an advanced web automation planner. Given the user's goal: "${userGoal}", and the following HTML, plan the next ${maxSteps} actions as a JSON array. Each action can be 'type', 'click', 'scroll', 'wait', or 'none'. For 'type', include selector and value. For 'click', include selector. For 'scroll', include direction or target. For 'wait', include duration. Example: [{ action: 'type', selector: '#search', value: 'query', description: 'Type query' }, ...].\nHTML:\n${html}`;
+    const { text } = await generateText({ model: geminiModel, prompt });
+    let parsed: any = [];
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = [];
+    }
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+ // --- AGENT X MEMORY MAPPING SYSTEM ---
+// Simple in-memory cache: (site|context) -> { screenshotBase64, html, visionAnalysis, domAnalysis }
+type AgentXMemoryCache = Map<string, {
+  screenshotBase64: string;
+  html: string;
+  visionAnalysis: any;
+  domAnalysis: any;
+}>;
+const agentXMemory: AgentXMemoryCache = new Map();
+
+// agentXWebAgent.ts
+// Agent X: Human-like, vision-guided web agent scaffold (enterprise-grade)
+// Uses Puppeteer for browser automation and Gemini Vision for perception
 
 export interface AgentXResult {
   success: boolean;
   goal: string;
   site: string;
   steps: AgentXStepTrace[];
-  finalScreenshot: string;
+  finalScreenshotBase64: string;
   finalHtml: string;
+  finalScreenshotPath?: string;
+  finalHtmlPath?: string;
   extractedData?: any;
   error?: string;
 }
 
-// Placeholder for Gemini Vision API call
-// Advanced: Use Gemini Vision API for screenshot analysis
-async function analyzeScreenshotWithGemini(imagePath: string, userGoal: string): Promise<any> {
+// Gemini Vision/Reasoning API: Accepts HTML (and optionally screenshot) for reasoning
+async function analyzeWithAI({ html, userGoal, screenshotBase64 }: { html: string, userGoal: string, screenshotBase64?: string }): Promise<any> {
   try {
     const geminiModel = google('gemini-2.5-flash-preview-04-17');
-    const imageBase64 = imageToBase64(imagePath);
-    const prompt = `You are a vision-language agent. Analyze the following screenshot in the context of the user's goal: "${userGoal}". 
-    1. List all visible UI elements (buttons, inputs, cards, tables, images, etc.) with their text, type, and location if possible.
-    2. Extract any visible data relevant to the goal (e.g., product names, prices, video titles, etc.).
-    3. If there are search bars, filters, or navigation elements, describe them.
-    4. If the page is a result page (search, product list, etc.), summarize the main items.
-    5. If there is any error, popup, or CAPTCHA, report it.
-    6. Provide a concise summary of what the user could do next to achieve their goal.
-    Respond as a JSON object with keys: elements, extractedData, summary, errors, suggestions.`;
-    const { text } = await generateText({
-      model: geminiModel,
-      prompt: `${prompt}\n[Image (base64, PNG) attached below]\n${imageBase64}`,
-    });
+    let prompt = `You are a vision-language agent. Analyze the following HTML in the context of the user's goal: "${userGoal}".\n` +
+      `1. List all visible UI elements (buttons, inputs, cards, tables, images, etc.) with their text, type, and location if possible.\n` +
+      `2. Extract any visible data relevant to the goal (e.g., product names, prices, video titles, etc.).\n` +
+      `3. If there are search bars, filters, or navigation elements, describe them.\n` +
+      `4. If the page is a result page (search, product list, etc.), summarize the main items.\n` +
+      `5. If there is any error, popup, or CAPTCHA, report it.\n` +
+      `6. Provide a concise summary of what the user could do next to achieve their goal.\n` +
+      `If you cannot answer or the HTML is ambiguous, respond as JSON: { needsScreenshot: true, reason: string }.`;
+    if (screenshotBase64) {
+      prompt += `\n[Image (base64, PNG) attached below]\n${screenshotBase64}`;
+    } else {
+      prompt += `\n[HTML below]\n${html}`;
+    }
+    const { text } = await generateText({ model: geminiModel, prompt });
     let parsed: any = {};
     try {
       parsed = JSON.parse(text);
@@ -88,57 +177,67 @@ async function analyzeScreenshotWithGemini(imagePath: string, userGoal: string):
   }
 }
 
-// Perceive: Take screenshot, analyze with Gemini, extract DOM
-
-async function perceive(page: Page, stepName: string, stepIdx: number): Promise<{
-  screenshotPath: `${string}.png`;
-  htmlPath: `${string}.html`;
+// Perceive: Take screenshot, analyze with Gemini, extract DOM (buffer + optional file save)
+// Perceive with memory mapping: avoid redundant work for same site/context
+// Perceive: Use HTML first, only take screenshot if AI requests it
+// Perceive with reasoning: decide if vision is needed before each step
+async function perceive(
+  page: Page,
+  stepName: string,
+  stepIdx: number,
+  saveFiles = false,
+  memoryKey?: string,
+  forceVision?: boolean
+): Promise<{
+  screenshotBase64: string;
+  html: string;
   visionAnalysis: any;
   domAnalysis: any;
+  screenshotPath?: string;
+  htmlPath?: string;
+  visionReason?: string;
 }> {
-  ensureAgentXWorkdir();
-  const screenshotPath = path.join(AGENTX_WORKDIR, `agentx_step${stepIdx}_${stepName}.png`) as `${string}.png`;
-  const htmlPath = path.join(AGENTX_WORKDIR, `agentx_step${stepIdx}_${stepName}.html`) as `${string}.html`;
-
-  // --- FIX: Always wait for DOM content and visible body before screenshot ---
+  // Check memory cache first
+  if (memoryKey && agentXMemory.has(memoryKey)) {
+    const cached = agentXMemory.get(memoryKey)!;
+    return { ...cached };
+  }
+  let screenshotPath: string | undefined;
+  let htmlPath: string | undefined;
+  let screenshotBase64 = '';
+  let screenshotBuffer: Buffer | undefined;
+  // Wait for DOMContentLoaded and at least one visible element in body
   try {
-    // Wait for DOMContentLoaded and at least one visible element in body
     await page.waitForFunction(() => {
       const body = document.body;
       if (!body) return false;
       const style = window.getComputedStyle(body);
       if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-      // At least one visible child
       return Array.from(body.children).some(el => {
         const s = window.getComputedStyle(el);
         return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
       });
     }, { timeout: 5000 });
   } catch {}
-
-  // Remove overlays/popups that may block screenshot (common cause of blank screenshots)
+  // Remove overlays/popups that may block screenshot
   await page.evaluate(() => {
     const overlays = Array.from(document.querySelectorAll('[class*="modal"], [class*="popup"], [class*="overlay"], [class*="backdrop"]'));
     overlays.forEach(el => { (el as HTMLElement).style.display = 'none'; });
   });
-
-  // Take screenshot of the viewport (not clipped by main content area, to avoid blank images)
-  await page.screenshot({ path: screenshotPath, fullPage: false });
-
-  // --- Token Counting and Truncation for HTML ---
+  // HTML
   const html = await page.content();
-  // Estimate token count (roughly 4 chars per token)
-  const maxTokens = 8000; // adjust as needed for Gemini context window
+  const maxTokens = 8000;
   const approxTokens = Math.ceil(html.length / 4);
   let htmlToSave = html;
   let htmlTruncated = false;
   if (approxTokens > maxTokens) {
-    // Truncate and add a note
     htmlToSave = html.slice(0, maxTokens * 4) + '\n<!-- [Truncated: some data omitted for performance reasons] -->';
     htmlTruncated = true;
   }
-  fs.writeFileSync(htmlPath, htmlToSave);
-
+  if (saveFiles) {
+    htmlPath = path.join(AGENTX_WORKDIR, `agentx_step${stepIdx}_${stepName}.html`);
+    fs.writeFileSync(htmlPath, htmlToSave);
+  }
   // --- Selective DOM Extraction: Only elements relevant to goal ---
   const domAnalysis = await page.evaluate((goal: string) => {
     function getVisibleText(el: Element | null): string {
@@ -214,8 +313,73 @@ async function perceive(page: Page, stepName: string, stepIdx: number): Promise<
     return { inputs, buttons, headings, productCards, videoCards, newsCards, tables };
   }, (typeof stepName === 'string' ? stepName : ''));
 
-  // Vision analysis (summarized)
-  const visionAnalysis = await analyzeScreenshotWithGemini(screenshotPath, stepName);
+  // --- Reasoning: Should we use vision for this step? ---
+  let visionReason = '';
+  let useVision = !!forceVision;
+  if (!forceVision) {
+    const visionDecision = await shouldUseVision({ html: htmlToSave, domAnalysis, userGoal: stepName, stepIdx });
+    useVision = visionDecision.useVision;
+    visionReason = visionDecision.reason;
+  }
+
+  // Vision/AI analysis: HTML first, or vision if needed
+  let visionAnalysis: any;
+  if (!useVision) {
+    visionAnalysis = await analyzeWithAI({ html: htmlToSave, userGoal: stepName });
+    // If AI says it needs a screenshot, escalate to vision
+    if (visionAnalysis && visionAnalysis.needsScreenshot) {
+      useVision = true;
+      visionReason = 'AI requested screenshot for ambiguity.';
+    }
+  }
+  if (useVision) {
+    screenshotBuffer = Buffer.from(await page.screenshot({ fullPage: false }));
+    screenshotBase64 = screenshotBuffer.toString('base64');
+    if (saveFiles) {
+      ensureAgentXWorkdir();
+      screenshotPath = path.join(AGENTX_WORKDIR, `agentx_step${stepIdx}_${stepName}.png`);
+      fs.writeFileSync(screenshotPath, screenshotBuffer);
+    }
+    visionAnalysis = await analyzeWithAI({ html: htmlToSave, userGoal: stepName, screenshotBase64 });
+  }
+
+  // --- CV fallback for ambiguous/critical elements ---
+  // If visionAnalysis indicates ambiguity about a key element (e.g., search box, button), visually confirm
+  if (
+    visionAnalysis &&
+    (visionAnalysis.summary?.toLowerCase().includes('ambiguous') ||
+      (visionAnalysis.errors && JSON.stringify(visionAnalysis.errors).toLowerCase().includes('ambiguous')) ||
+      (visionAnalysis.suggestions && JSON.stringify(visionAnalysis.suggestions).toLowerCase().includes('unsure')))
+  ) {
+    // Try to visually confirm the first input or button (as a demo; can be extended)
+    let selectorToCheck = undefined;
+    if (domAnalysis.inputs && domAnalysis.inputs.length > 0) {
+      // Prefer input with 'search' in placeholder/id/name
+      const searchInput = domAnalysis.inputs.find((i: any) => {
+        const haystack = (i.placeholder || '') + (i.id || '') + (i.name || '');
+        return /search/i.test(haystack);
+      });
+      if (searchInput && searchInput.id) {
+        selectorToCheck = `#${searchInput.id}`;
+      } else if (domAnalysis.inputs[0].id) {
+        selectorToCheck = `#${domAnalysis.inputs[0].id}`;
+      } else {
+        selectorToCheck = 'input';
+      }
+    } else if (domAnalysis.buttons && domAnalysis.buttons.length > 0) {
+      selectorToCheck = domAnalysis.buttons[0].id ? `#${domAnalysis.buttons[0].id}` : 'button';
+    }
+    if (selectorToCheck) {
+      const cvResult = await analyzeElementWithVision({ page, selector: selectorToCheck, userGoal: stepName });
+      // Attach CV result to visionAnalysis
+      visionAnalysis.cvConfirmation = cvResult;
+      // Optionally, update summary if CV is confident
+      if (cvResult.confidence > 0.7 && cvResult.visualType !== 'unknown') {
+        visionAnalysis.summary = `[CV] ${cvResult.description}`;
+      }
+    }
+  }
+
   let summarizedVision = visionAnalysis;
   if (visionAnalysis && typeof visionAnalysis === 'object') {
     summarizedVision = {
@@ -223,7 +387,9 @@ async function perceive(page: Page, stepName: string, stepIdx: number): Promise<
       errors: visionAnalysis.errors,
       suggestions: visionAnalysis.suggestions,
       elements: Array.isArray(visionAnalysis.elements) ? visionAnalysis.elements.slice(0, 5) : undefined,
-      extractedData: Array.isArray(visionAnalysis.extractedData) ? visionAnalysis.extractedData.slice(0, 5) : visionAnalysis.extractedData
+      extractedData: Array.isArray(visionAnalysis.extractedData) ? visionAnalysis.extractedData.slice(0, 5) : visionAnalysis.extractedData,
+      ...(visionAnalysis.cvConfirmation ? { cvConfirmation: visionAnalysis.cvConfirmation } : {}),
+      ...(visionReason ? { visionReason } : {})
     };
   }
 
@@ -233,7 +399,16 @@ async function perceive(page: Page, stepName: string, stepIdx: number): Promise<
     summarizedVision.summary += '\n[Note: HTML was truncated for performance reasons.]';
   }
 
-  return { screenshotPath, htmlPath, visionAnalysis: summarizedVision, domAnalysis };
+  // Store in memory cache if key provided
+  if (memoryKey) {
+    agentXMemory.set(memoryKey, {
+      screenshotBase64,
+      html: htmlToSave,
+      visionAnalysis: summarizedVision,
+      domAnalysis
+    });
+  }
+  return { screenshotBase64, html: htmlToSave, visionAnalysis: summarizedVision, domAnalysis, screenshotPath, htmlPath };
 }
 
 // Reason: Decide next action based on perception and instruction
@@ -274,7 +449,7 @@ async function decideNextAction({
     // fallback: simple rule
     if (stepIdx === 0 && domAnalysis.inputs.length > 0) {
       const searchInput = domAnalysis.inputs.find((i: any) =>
-        /search/i.test(i.placeholder + i.id + i.name)
+        /search/i.test((i.placeholder || '') + (i.id || '') + (i.name || ''))
       );
       if (searchInput) {
         return {
@@ -317,15 +492,13 @@ async function act(page: Page, actionPlan: { action: string; selector?: string; 
 
 // Main Agent X loop
 
-export async function agentXWebAgent({ instruction, url }: { instruction: AgentXInstruction; url: string }): Promise<AgentXResult> {
-  ensureAgentXWorkdir();
-  // Use headful mode for debugging screenshots
+// memoryKey: optional string to identify the site/context for caching (e.g. `${site}|${url}|${query}`)
+export async function agentXWebAgent({ instruction, url, saveFiles = false, memoryKey }: { instruction: AgentXInstruction; url: string; saveFiles?: boolean; memoryKey?: string }): Promise<AgentXResult> {
+  if (saveFiles) ensureAgentXWorkdir();
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
-  // Set a standard viewport size
   await page.setViewport({ width: 1280, height: 800 });
   await page.goto(url, { waitUntil: 'networkidle2' });
-  // Wait a bit longer to ensure all content loads
   await new Promise(resolve => setTimeout(resolve, 2000));
   const steps: AgentXStepTrace[] = [];
   let lastAction = '';
@@ -333,50 +506,60 @@ export async function agentXWebAgent({ instruction, url }: { instruction: AgentX
   let extractedData = undefined;
   let goalAchieved = false;
   try {
-    // --- Streaming and Progressive Disclosure ---
-    for (let stepIdx = 0; stepIdx < 5; stepIdx++) {
+    // --- Step 1: Perceive once, plan batch actions ---
+    const { screenshotBase64, html, visionAnalysis, domAnalysis, screenshotPath, htmlPath } = await perceive(page, `step0`, 0, saveFiles, memoryKey ? `${memoryKey}|step0` : undefined);
+    // Plan up to 5 steps in advance
+    const plannedActions = await planSteps({ html, userGoal: instruction.goal, maxSteps: 5 });
+    let stepIdx = 0;
+    let goalAchieved = false;
+    let lastPerception = { screenshotBase64, html, visionAnalysis, domAnalysis, screenshotPath, htmlPath };
+    for (; stepIdx < plannedActions.length; stepIdx++) {
+      const actionPlan = plannedActions[stepIdx];
+      const actionResult = await act(page, actionPlan);
+      // Only re-perceive if action is not 'none' or 'wait'
+      if (actionPlan.action !== 'none' && actionPlan.action !== 'wait') {
+        const nextPerception = await perceive(page, `step${stepIdx+1}`, stepIdx+1, saveFiles, memoryKey ? `${memoryKey}|step${stepIdx+1}` : undefined);
+        lastPerception = {
+          screenshotBase64: nextPerception.screenshotBase64,
+          html: nextPerception.html,
+          visionAnalysis: nextPerception.visionAnalysis,
+          domAnalysis: nextPerception.domAnalysis,
+          screenshotPath: nextPerception.screenshotPath ?? undefined,
+          htmlPath: nextPerception.htmlPath ?? undefined
+        };
+      }
+      // Check goal after each action
+      let goalCheck = false;
       try {
-        // 1. Perceive
-        const { screenshotPath, htmlPath, visionAnalysis, domAnalysis } = await perceive(page, `step${stepIdx}`, stepIdx);
-        // 2. Reason
-        const actionPlan = await decideNextAction({ instruction, visionAnalysis, domAnalysis, lastAction, stepIdx });
-        // 3. Act
-        const actionResult = await act(page, actionPlan);
-        // 4. Check goal (advanced): Use Gemini to check if goal is achieved
-        let goalCheck = false;
-        try {
-          const geminiModel = google('gemini-2.5-flash-preview-04-17');
-          const checkPrompt = `Given the user's goal: "${instruction.goal}" and query: "${instruction.query}", and the following perception and action result, has the goal been achieved? Respond as JSON: { achieved: boolean, reason: string, extractedData?: any }\nPerception: ${JSON.stringify(visionAnalysis)}\nAction: ${JSON.stringify(actionPlan)}\nResult: ${actionResult}`;
-          const { text } = await generateText({ model: geminiModel, prompt: checkPrompt });
-          const check = JSON.parse(text);
-          goalCheck = check.achieved;
-          if (check.extractedData) extractedData = check.extractedData;
-        } catch {}
-        const resultSummary = `Step ${stepIdx}: ${actionPlan.description} | ${actionResult}`;
-        steps.push({
-          step: `Step ${stepIdx}`,
-          screenshotPath,
-          htmlPath,
-          visionAnalysis,
-          domAnalysis,
-          actionTaken: actionPlan.action,
-          resultSummary
-        });
-        // Progressive results: yield/return partial results if needed (user can request 'show more')
-        // (In a real streaming API, you would yield here. For now, just accumulate steps.)
-        lastAction = actionPlan.action;
-        if (goalCheck) {
-          goalAchieved = true;
-          break;
-        }
-      } catch (e: any) {
-        error = e.message || String(e);
+        const geminiModel = google('gemini-2.5-flash-preview-04-17');
+        const checkPrompt = `Given the user's goal: "${instruction.goal}" and query: "${instruction.query}", and the following perception and action result, has the goal been achieved? Respond as JSON: { achieved: boolean, reason: string, extractedData?: any }\nPerception: ${JSON.stringify(lastPerception.visionAnalysis)}\nAction: ${JSON.stringify(actionPlan)}\nResult: ${actionResult}`;
+        const { text } = await generateText({ model: geminiModel, prompt: checkPrompt });
+        const check = JSON.parse(text);
+        goalCheck = check.achieved;
+        if (check.extractedData) extractedData = check.extractedData;
+      } catch {}
+      const resultSummary = `Step ${stepIdx}: ${actionPlan.description} | ${actionResult}`;
+      steps.push({
+        step: `Step ${stepIdx}`,
+        screenshotBase64: lastPerception.screenshotBase64,
+        html: lastPerception.html,
+        visionAnalysis: lastPerception.visionAnalysis,
+        domAnalysis: lastPerception.domAnalysis,
+        actionTaken: actionPlan.action,
+        resultSummary,
+        ...(saveFiles ? { screenshotPath: lastPerception.screenshotPath, htmlPath: lastPerception.htmlPath } : {})
+      });
+      lastAction = actionPlan.action;
+      if (goalCheck) {
+        goalAchieved = true;
         break;
       }
     }
     // Final perception
-    const finalScreenshot = path.join(AGENTX_WORKDIR, `agentx_final.png`) as `${string}.png`;
-    // Wait for visible content before final screenshot
+    let finalScreenshotBase64 = '';
+    let finalScreenshotPath: string | undefined;
+    let finalHtmlPath: string | undefined;
+    let finalHtml = '';
     try {
       await page.waitForFunction(() => {
         const body = document.body;
@@ -389,31 +572,41 @@ export async function agentXWebAgent({ instruction, url }: { instruction: AgentX
         });
       }, { timeout: 5000 });
     } catch {}
-    await page.screenshot({ path: finalScreenshot, fullPage: false });
-    const finalHtml = await page.content();
+    const finalScreenshotBuffer = Buffer.from(await page.screenshot({ fullPage: false }));
+    finalScreenshotBase64 = finalScreenshotBuffer.toString('base64');
+    if (saveFiles) {
+      finalScreenshotPath = path.join(AGENTX_WORKDIR, `agentx_final.png`);
+      fs.writeFileSync(finalScreenshotPath, finalScreenshotBuffer);
+    }
+    finalHtml = await page.content();
+    if (saveFiles) {
+      finalHtmlPath = path.join(AGENTX_WORKDIR, `agentx_final.html`);
+      fs.writeFileSync(finalHtmlPath, finalHtml);
+    }
     await browser.close();
-    // --- CLEANUP: Delete workdir after use ---
-    cleanupAgentXWorkdir();
+    if (saveFiles) cleanupAgentXWorkdir();
     return {
       success: !error,
       goal: instruction.goal,
       site: instruction.site,
       steps,
-      finalScreenshot,
+      finalScreenshotBase64,
       finalHtml,
+      ...(saveFiles ? { finalScreenshotPath, finalHtmlPath } : {}),
       extractedData,
       ...(error ? { error } : {})
     };
   } catch (e: any) {
     await browser.close();
-    cleanupAgentXWorkdir();
+    if (saveFiles) cleanupAgentXWorkdir();
     return {
       success: false,
       goal: instruction.goal,
       site: instruction.site,
       steps,
-      finalScreenshot: '',
+      finalScreenshotBase64: '',
       finalHtml: '',
+      ...(saveFiles ? { finalScreenshotPath: '', finalHtmlPath: '' } : {}),
       error: e.message || String(e)
     };
   }
