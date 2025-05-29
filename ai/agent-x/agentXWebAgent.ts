@@ -238,13 +238,27 @@ async function perceive(
     htmlPath = path.join(AGENTX_WORKDIR, `agentx_step${stepIdx}_${stepName}.html`);
     fs.writeFileSync(htmlPath, htmlToSave);
   }
-  // --- Selective DOM Extraction: Only elements relevant to goal ---
+  // --- Selective DOM Extraction: Only elements relevant to goal, with bounding boxes for cross-linking ---
   const domAnalysis = await page.evaluate((goal: string) => {
     function getVisibleText(el: Element | null): string {
       if (!el) return '';
       const style = window.getComputedStyle(el);
       if (style && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) return '';
       return (el as HTMLElement).innerText || el.textContent || '';
+    }
+    function getBox(el: Element | null): { x: number; y: number; width: number; height: number; center: { x: number; y: number } } | null {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return {
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+        center: {
+          x: r.x + r.width / 2,
+          y: r.y + r.height / 2
+        }
+      };
     }
     // Heuristic: If goal mentions 'product', 'item', 'listing', focus on product cards
     const isProductGoal = /product|item|listing|buy|shop|price|cart/i.test(goal);
@@ -255,62 +269,117 @@ async function perceive(
     // Heuristic: If goal mentions 'table', focus on tables
     const isTableGoal = /table|data|spreadsheet|csv/i.test(goal);
 
-    let productCards: any[] = [];
-    let videoCards: any[] = [];
-    let newsCards: any[] = [];
-    let tables: any[] = [];
+    let productCards: Array<any> = [];
+    let videoCards: Array<any> = [];
+    let newsCards: Array<any> = [];
+    let tables: Array<any> = [];
+
 
     if (isProductGoal) {
-      productCards = Array.from(document.querySelectorAll('[class*="product"], [class*="card"], [class*="item"], [class*="listing"]')).slice(0, 8).map(d => ({
-        text: getVisibleText(d),
-        className: d.className,
-        id: d.id
-      }));
+      productCards = Array.from(document.querySelectorAll('[class*="product"], [class*="card"], [class*="item"], [class*="listing"]')).slice(0, 8).map((d: Element) => {
+        const box = getBox(d);
+        return {
+          text: getVisibleText(d),
+          className: (d as HTMLElement).className,
+          id: (d as HTMLElement).id,
+          box,
+          center: box && box.center ? box.center : null
+        };
+      });
     }
     if (isVideoGoal) {
-      videoCards = Array.from(document.querySelectorAll('[class*="video"], [class*="yt"], [class*="watch"], [class*="channel"]')).slice(0, 8).map(d => ({
-        text: getVisibleText(d),
-        className: d.className,
-        id: d.id
-      }));
+      videoCards = Array.from(document.querySelectorAll('[class*="video"], [class*="yt"], [class*="watch"], [class*="channel"]')).slice(0, 8).map((d: Element) => {
+        const box = getBox(d);
+        return {
+          text: getVisibleText(d),
+          className: (d as HTMLElement).className,
+          id: (d as HTMLElement).id,
+          box,
+          center: box && box.center ? box.center : null
+        };
+      });
     }
     if (isNewsGoal) {
-      newsCards = Array.from(document.querySelectorAll('[class*="news"], [class*="article"], [class*="blog"], [class*="headline"], [class*="story"]')).slice(0, 8).map(d => ({
-        text: getVisibleText(d),
-        className: d.className,
-        id: d.id
-      }));
+      newsCards = Array.from(document.querySelectorAll('[class*="news"], [class*="article"], [class*="blog"], [class*="headline"], [class*="story"]')).slice(0, 8).map((d: Element) => {
+        const box = getBox(d);
+        return {
+          text: getVisibleText(d),
+          className: (d as HTMLElement).className,
+          id: (d as HTMLElement).id,
+          box,
+          center: box && box.center ? box.center : null
+        };
+      });
     }
     if (isTableGoal) {
-      tables = Array.from(document.querySelectorAll('table')).slice(0, 2).map(table => {
-        const headers = Array.from(table.querySelectorAll('th')).map(th => getVisibleText(th));
-        const rows = Array.from(table.querySelectorAll('tr')).slice(0, 5).map(tr =>
-          Array.from(tr.querySelectorAll('td')).map(td => getVisibleText(td))
+      tables = Array.from(document.querySelectorAll('table')).slice(0, 2).map((table: Element) => {
+        const box = getBox(table);
+        const headers = Array.from(table.querySelectorAll('th')).map((th: Element) => getVisibleText(th));
+        const rows = Array.from(table.querySelectorAll('tr')).slice(0, 5).map((tr: Element) =>
+          Array.from(tr.querySelectorAll('td')).map((td: Element) => getVisibleText(td))
         );
-        return { headers, rows };
+        return { headers, rows, box, center: box && box.center ? box.center : null };
       });
     }
 
-    // Always extract up to 5 inputs, buttons, and headings for navigation
-    const inputs = Array.from(document.querySelectorAll('input')).slice(0, 5).map(i => ({
-      type: i.type,
-      placeholder: i.placeholder,
-      id: i.id,
-      name: i.name,
-      value: i.value,
-      visibleText: getVisibleText(i)
-    }));
-    const buttons = Array.from(document.querySelectorAll('button')).slice(0, 5).map(b => ({
-      text: getVisibleText(b),
-      id: b.id,
-      name: b.name
-    }));
-    const headings = Array.from(document.querySelectorAll('h1, h2, h3')).slice(0, 5).map(h => ({
-      tag: h.tagName,
-      text: getVisibleText(h)
-    }));
+    // Always extract up to 5 inputs, buttons, and headings for navigation, with bounding boxes and center
+    const inputs = Array.from(document.querySelectorAll('input')).slice(0, 5).map((i: Element) => {
+      const input = i as HTMLInputElement;
+      const box = getBox(i);
+      return {
+        type: input.type,
+        placeholder: input.placeholder,
+        id: input.id,
+        name: input.name,
+        value: input.value,
+        visibleText: getVisibleText(i),
+        box,
+        center: box && box.center ? box.center : null
+      };
+    });
+    const buttons = Array.from(document.querySelectorAll('button')).slice(0, 5).map((b: Element) => {
+      const btn = b as HTMLButtonElement;
+      const box = getBox(b);
+      return {
+        text: getVisibleText(b),
+        id: btn.id,
+        name: btn.name,
+        box,
+        center: box && box.center ? box.center : null
+      };
+    });
+    const headings = Array.from(document.querySelectorAll('h1, h2, h3')).slice(0, 5).map((h: Element) => {
+      const box = getBox(h);
+      return {
+        tag: h.tagName,
+        text: getVisibleText(h),
+        box,
+        center: box && box.center ? box.center : null
+      };
+    });
 
-    return { inputs, buttons, headings, productCards, videoCards, newsCards, tables };
+    // For cross-linking: collect all clickable elements (buttons, links, inputs[type=button|submit|checkbox|radio], a[href])
+    const clickableElements = Array.from(document.querySelectorAll('button, a[href], input[type="button"], input[type="submit"], input[type="checkbox"], input[type="radio"]')).slice(0, 20).map((el: Element) => {
+      const htmlEl = el as HTMLElement;
+      const box = getBox(el);
+      return {
+        tag: el.tagName,
+        id: htmlEl.id,
+        className: htmlEl.className,
+        name: htmlEl.getAttribute('name'),
+        type: htmlEl.getAttribute('type'),
+        text: getVisibleText(el),
+        box,
+        center: box && box.center ? box.center : null,
+        selector: (() => {
+          if (htmlEl.id) return `#${htmlEl.id}`;
+          if (htmlEl.className) return `${el.tagName.toLowerCase()}.${htmlEl.className.toString().replace(/\s+/g, '.')}`;
+          return el.tagName.toLowerCase();
+        })()
+      };
+    });
+
+    return { inputs, buttons, headings, productCards, videoCards, newsCards, tables, clickableElements };
   }, (typeof stepName === 'string' ? stepName : ''));
 
   // --- Reasoning: Should we use vision for this step? ---
@@ -407,6 +476,19 @@ async function perceive(
       visionAnalysis: summarizedVision,
       domAnalysis
     });
+  }
+  // Attach cross-linking data to visionAnalysis for screenshot mapping
+  if (summarizedVision && typeof summarizedVision === 'object') {
+    summarizedVision.crossLink = {
+      clickableElements: domAnalysis.clickableElements,
+      inputs: domAnalysis.inputs,
+      buttons: domAnalysis.buttons,
+      headings: domAnalysis.headings,
+      productCards: domAnalysis.productCards,
+      videoCards: domAnalysis.videoCards,
+      newsCards: domAnalysis.newsCards,
+      tables: domAnalysis.tables
+    };
   }
   return { screenshotBase64, html: htmlToSave, visionAnalysis: summarizedVision, domAnalysis, screenshotPath, htmlPath };
 }
@@ -507,7 +589,25 @@ export async function agentXWebAgent({ instruction, url, saveFiles = false, memo
   let goalAchieved = false;
   try {
     // --- Step 1: Perceive once, plan batch actions ---
-    const { screenshotBase64, html, visionAnalysis, domAnalysis, screenshotPath, htmlPath } = await perceive(page, `step0`, 0, saveFiles, memoryKey ? `${memoryKey}|step0` : undefined);
+    // Force vision for YouTube and similar homepages
+    const forceVision = /youtube\.com/i.test(url) && (!instruction.query || instruction.query.trim() === '');
+    const { screenshotBase64, html, visionAnalysis, domAnalysis, screenshotPath, htmlPath } = await perceive(page, `step0`, 0, saveFiles, memoryKey ? `${memoryKey}|step0` : undefined, forceVision);
+
+    // If on YouTube homepage, enhance the vision prompt for visible videos
+    if (forceVision && visionAnalysis && typeof visionAnalysis === 'object') {
+      // Take another screenshot and ask Gemini for visible video cards
+      const homepagePrompt = `You are a vision-language agent. Given this screenshot of the YouTube homepage, list the main visible videos/cards. For each, extract the title, channel, and any visible metadata. Respond as JSON: { videos: [{ title: string, channel?: string, metadata?: string }] }.`;
+      const homepageScreenshotBuffer = Buffer.from(await page.screenshot({ fullPage: false }));
+      const homepageScreenshotBase64 = homepageScreenshotBuffer.toString('base64');
+      const geminiModel = google('gemini-2.5-flash-preview-04-17');
+      const { text } = await generateText({ model: geminiModel, prompt: homepagePrompt + `\n[Image base64]\n` + homepageScreenshotBase64 });
+      let homepageVideos: any = {};
+      try {
+        homepageVideos = JSON.parse(text);
+      } catch { homepageVideos = { summary: text }; }
+      visionAnalysis.homepageVideos = homepageVideos;
+    }
+
     // Plan up to 5 steps in advance
     const plannedActions = await planSteps({ html, userGoal: instruction.goal, maxSteps: 5 });
     let stepIdx = 0;
