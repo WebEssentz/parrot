@@ -26,11 +26,25 @@ const AVURNA_SUGGESTED_PROMPTS = [
 
 export async function POST(req: Request) {
   const requestBody = await req.json();
-  const {
+  let {
     messages,
     selectedModel,
     action, // Expect 'action' in the request body
   } = requestBody;
+
+  // --- FILTER OUT EMPTY MESSAGES (prevents Gemini API error) ---
+  if (Array.isArray(messages)) {
+    messages = messages.filter((msg) => {
+      // If content is a string, must be non-empty
+      if (typeof msg.content === 'string') return msg.content.trim().length > 0;
+      // If content is an array, must have at least one non-empty part
+      return (msg.content as (string | { text: string })[]).length > 0 && (msg.content as (string | { text: string })[]).some((part: string | { text: string }) => {
+        if (typeof part === 'string') return part.trim().length > 0;
+        if (typeof part === 'object' && part !== null && 'text' in part) return String((part as { text: string }).text).trim().length > 0;
+        return false;
+      });
+    });
+  }
 
   // --- Suggested Prompts Handling ---
   if (action === 'getSuggestedPrompts') {
@@ -192,6 +206,31 @@ export async function POST(req: Request) {
   const M = now.getUTCMonth() - BirthDate.getUTCMonth();
   if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
 
+  // --- Detect user language from last user message (simple heuristic) ---
+  // --- Robust user language detection using franc ---
+  let userLanguage = 'eng';
+  try {
+    if (lastUserMessageContent && lastUserMessageContent.length > 10) {
+      // Use franc to detect language from user message
+      // Prefer direct import if available, fallback to require
+      let francFn = null;
+      try {
+        // Try ESM import
+        const mod = await import('franc');
+        francFn = mod.franc;
+      } catch {
+        try {
+          // Try require (for CJS)
+          francFn = require('franc');
+        } catch {}
+      }
+      if (francFn) {
+        const detected = francFn(lastUserMessageContent, { minLength: 3 });
+        if (detected && detected !== 'und') userLanguage = detected;
+      }
+    }
+  } catch { /* ignore */ }
+
   const systemPrompt = `
         # Avurna AI System Prompt
         # AGENT X WEB AGENT: SUPER-INTELLIGENT SYSTEM INSTRUCTIONS
@@ -264,9 +303,13 @@ export async function POST(req: Request) {
         - For each step, log: action, input, output, and any errors.
         - If a site changes its layout or structure, attempt to adapt and inform the user if extraction is incomplete.
 
+
         ## 12. Multi-Language and Internationalization
         - Agent X supports all languages. If the site or user intent is in a non-English language, adapt extraction and summaries accordingly.
         - If language detection is needed, use LLM or vision models to identify the language and respond appropriately.
+        - If you extract a table or structured data from a website and the detected language of the page is different from the user's language, you MUST translate the table headers and cell values into the user's language before presenting or analyzing the data. Use your best translation ability. Always mention that the table was translated for the user's convenience.
+        - The user's language (ISO 639-3 code) is: "${userLanguage}". If you are unsure, default to English (eng).
+        - If the user asks a question in a language different from the website, always answer in the user's language and translate any extracted data as needed.
 
         ## 13. User Experience and Reporting
         - Always present results in a clear, concise, and visually appealing format (tables, lists, images, etc.).
