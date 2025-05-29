@@ -1,7 +1,28 @@
 // app/api/chat/route.ts
 
+import { smoothStream, streamText, UIMessage } from "ai";
+import { SEARCH_MODE } from "@/components/ui/textarea";
+import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
+
+
+export const maxDuration = 60;
+const REASON_MODEL_ID = "qwen-qwq-32b";
+
+// Define suggested prompts highlighting Avurna capabilities
+const AVURNA_SUGGESTED_PROMPTS = [
+  "Give me some fun activities I can do today",
+  "Generate an image of a futuristic cityscape",
+  "Help me debug this Python code for web scraping",
+  "Explain how API integration works.",
+  "I'm starving, suggest a recipe for dinner",
+  "Help me optimize my project workflow",
+  "Help me solve a maths problem",
+  "Help me write a story",
+  "Summarize this website: https://apple.com",
+];
+
 // --- Robust FetchUrlTool Retry Logic ---
 // This function wraps fetchUrlTool execution with automatic retries if results are insufficient or user requests to "go deeper"
 export async function robustFetchUrlTool(params: any, userMessage: string, maxDepth = 5, maxPagesLimit = 20) {
@@ -43,25 +64,6 @@ export async function robustFetchUrlTool(params: any, userMessage: string, maxDe
   }
   return result;
 }
-import { smoothStream, streamText, UIMessage } from "ai";
-import { SEARCH_MODE } from "@/components/ui/textarea";
-import { generateText } from 'ai';
-
-export const maxDuration = 60;
-const REASON_MODEL_ID = "qwen-qwq-32b";
-
-// Define suggested prompts highlighting Avurna capabilities
-const AVURNA_SUGGESTED_PROMPTS = [
-  "Give me some fun activities I can do today",
-  "Generate an image of a futuristic cityscape",
-  "Help me debug this Python code for web scraping",
-  "Explain how API integration works.",
-  "I'm starving, suggest a recipe for dinner",
-  "Help me optimize my project workflow",
-  "Help me solve a maths problem",
-  "Help me write a story",
-  "Summarize this website: https://apple.com",
-];
 
 export async function POST(req: Request) {
   const requestBody = await req.json();
