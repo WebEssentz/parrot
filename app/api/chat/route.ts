@@ -141,18 +141,30 @@ export async function POST(req: Request) {
   }
 
   // If user gave a URL but not all recursion params, infer smart defaults
-  if (urlToAnalyze) {
+    if (urlToAnalyze) {
     const needsPrompt = typeof recursionParams.recursionDepth === 'undefined';
-    // If recursionDepth is missing, prompt the user for how deep to analyze
     if (needsPrompt) {
-      // This will be passed as a user prompt to the agent/LLM interface
-      // (Frontend/LLM will see this as a message and respond accordingly)
-      return new Response(JSON.stringify({
+      const promptObj = {
+        type: 'recursionPrompt',
         prompt: `How deep would you like me to analyze the website?\n\n- Depth 0: Just the main page\n- Depth 1: Follow links on the main page\n- Depth 2: Go two levels deep (main page + links + links of those pages)\n\nYou can also specify a maximum number of pages or a timeout if you want.\n\nFor example: 'Analyze ${urlToAnalyze} with recursionDepth 2, maxPages 5, timeoutMs 10000.'\n\nHow deep should I go?`,
         url: urlToAnalyze,
         userIntent,
         params: recursionParams
-      }), { headers: { 'Content-Type': 'application/json' }, status: 200 });
+      };
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          controller.enqueue(encoder.encode(`2:[${JSON.stringify(promptObj)}]\n`));
+          controller.close();
+        }
+      });
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'X-Experimental-Stream-Data': 'true'
+        },
+        status: 200,
+      });
     }
     // If user specified recursionDepth, fill in any missing params smartly
     const smartDefaults = smartRecursionDefaults(urlToAnalyze, userIntent);
@@ -492,6 +504,7 @@ export async function POST(req: Request) {
 
   return result.toDataStreamResponse({
     sendReasoning: true,
+    experimental_sendStart: true,
     getErrorMessage: (error) => {
       if (error instanceof Error) {
         if (error.message.includes("API key not valid")) {

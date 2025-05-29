@@ -1,9 +1,11 @@
 "use client";
 
+import { UIMessage, StreamData } from 'ai';
 import { useMobile } from "../hooks/use-mobile";
 import { defaultModel } from "@/ai/providers";
 import { SEARCH_MODE } from "@/components/ui/textarea";
 import { useChat } from "@ai-sdk/react";
+import { useRef as useReactRef } from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { ProjectOverview } from "./project-overview";
@@ -69,6 +71,36 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
   }
 }
 
+// Recursion Prompt UI
+function RecursionPrompt({ prompt, onSubmit }: { prompt: string; onSubmit: (depth: number) => void }) {
+  const [depth, setDepth] = useState(1);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 max-w-md w-full flex flex-col items-center">
+        <div className="text-lg font-semibold mb-2">Recursion Depth Required</div>
+        <div className="mb-4 text-zinc-700 dark:text-zinc-200 whitespace-pre-line">{prompt}</div>
+        <div className="flex items-center gap-2 mb-4">
+          <label htmlFor="recursion-depth" className="font-medium">Depth:</label>
+          <input
+            id="recursion-depth"
+            type="number"
+            min={0}
+            max={5}
+            value={depth}
+            onChange={e => setDepth(Number(e.target.value))}
+            className="border rounded px-2 py-1 w-16 text-center"
+          />
+        </div>
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold"
+          onClick={() => onSubmit(depth)}
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
 export default function Chat() {
   const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
@@ -82,6 +114,7 @@ export default function Chat() {
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
+  
 
   useEffect(() => {
     if (!showMobileInfoMessage || isDesktop) return;
@@ -107,6 +140,12 @@ export default function Chat() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // --- Recursion Prompt State ---
+  const [recursionPrompt, setRecursionPrompt] = useState<null | { prompt: string; url: string; userIntent: string; params: any }>(null);
+  const recursionPromptRef = useReactRef(recursionPrompt);
+  recursionPromptRef.current = recursionPrompt;
+
+  // Patch useChat to intercept NDJSON lines with type: 'recursionPrompt'
   const {
     messages,
     input,
@@ -116,11 +155,20 @@ export default function Chat() {
     status,
     stop,
     setMessages,
+    data,
+    // appendMessage, (not present in useChat)
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
     body: { selectedModel },
     initialMessages: [],
+    // onStream: (data) => {
+    //   if (data && typeof data === 'object' && data.type === 'recursionPrompt') {
+    //     setRecursionPrompt(data);
+    //     return false;
+    //   }
+    //   return true;
+    // },
     onFinish: (_message, _options) => {
       setSelectedModel(defaultModel);
       setIsSubmittingSearch(false);
@@ -138,6 +186,32 @@ export default function Chat() {
       modelForCurrentSubmissionRef.current = defaultModel;
     },
   });
+
+  // Watch for recursionPrompt in data
+  useEffect(() => {
+    if (data && data.length > 0) {
+      for (const dataObj of data) {
+        if (dataObj && typeof dataObj === 'object' && (dataObj as any).type === 'recursionPrompt') {
+          setRecursionPrompt(dataObj as any);
+          break;
+        }
+      }
+    }
+  }, [data]);
+
+  // Handler for submitting recursion depth
+  const handleRecursionDepthSubmit = (depth: number) => {
+    if (!recursionPromptRef.current) return;
+    // Compose a new user message with the specified recursionDepth
+    const { url, userIntent, params } = recursionPromptRef.current;
+    const newMessage = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      role: 'user' as 'user',
+      content: `${userIntent}\nrecursionDepth ${depth}${params.maxPages ? `, maxPages ${params.maxPages}` : ''}${params.timeoutMs ? `, timeoutMs ${params.timeoutMs}` : ''}`,
+    };
+    setRecursionPrompt(null);
+    setMessages([...messages, newMessage]);
+  };
 
   useEffect(() => {
     if (messages.length === 1 && messages[0].role === 'user' && !titleGeneratedRef.current) {
@@ -236,6 +310,11 @@ export default function Chat() {
   return (
     <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
       <Header />
+
+      {/* Recursion Prompt Modal */}
+      {recursionPrompt && (
+        <RecursionPrompt prompt={recursionPrompt.prompt} onSubmit={handleRecursionDepthSubmit} />
+      )}
 
       <div
         ref={containerRef}
