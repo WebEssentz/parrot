@@ -2,6 +2,47 @@
 
 import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
+// --- Robust FetchUrlTool Retry Logic ---
+// This function wraps fetchUrlTool execution with automatic retries if results are insufficient or user requests to "go deeper"
+export async function robustFetchUrlTool(params: any, userMessage: string, maxDepth = 5, maxPagesLimit = 20) {
+  let { recursionDepth = 1, maxPages = 5, ...rest } = params;
+  let attempt = 0;
+  let result;
+  let reason = '';
+  let userRequestedDeeper = /go deeper|deeper|more depth|try again|fetch more|get more|not enough|incomplete|missing|insufficient/i.test(userMessage);
+  while (attempt < maxDepth) {
+    // Clamp maxPages to maxPagesLimit
+    const currentMaxPages = Math.min(maxPages, maxPagesLimit);
+    result = await fetchUrlTool.execute({
+      ...rest,
+      recursionDepth,
+      maxPages: currentMaxPages,
+    }, {
+      toolCallId: `robust-fetch-url-${attempt}`,
+      messages: [],
+    });
+    // Detect insufficient result: empty tables, no productCards, error, or explicit user request
+    const insufficient =
+      (result && ((Array.isArray(result.extractedTables) && result.extractedTables.length === 0)
+        || (Array.isArray(result.productCards) && result.productCards.length === 0)
+        || (result.error && typeof result.error === 'string')
+        || (result.siteType === 'general' && (!result.summary || result.summary.length < 100))
+        || userRequestedDeeper));
+    if (!insufficient) {
+      break;
+    }
+    attempt++;
+    recursionDepth = Math.min(recursionDepth + 1, maxDepth);
+    maxPages = Math.min(currentMaxPages + 3, maxPagesLimit);
+    reason += `Not enough data found at depth ${recursionDepth - 1}, trying depth ${recursionDepth} (maxPages ${maxPages})...\n`;
+    userRequestedDeeper = false; // Only trigger once per user message
+  }
+  if (reason) {
+    // Attach retry info for LLM/user
+    result.retryInfo = reason.trim();
+  }
+  return result;
+}
 import { smoothStream, streamText, UIMessage } from "ai";
 import { SEARCH_MODE } from "@/components/ui/textarea";
 import { generateText } from 'ai';
@@ -136,6 +177,7 @@ export async function POST(req: Request) {
     return { recursionDepth: 1, maxPages: 5, timeoutMs: 10000 };
   }
 
+
   // --- Main smart recursion logic ---
   const lastUserMessage = (messages as UIMessage[]).filter(msg => msg.role === 'user').pop();
   let recursionParams: { recursionDepth?: number, maxPages?: number, timeoutMs?: number } = {};
@@ -148,7 +190,6 @@ export async function POST(req: Request) {
     recursionParams = extractRecursionParams(lastUserMessageContent);
   }
 
-
   // If user only pasted a link (no other text/instructions), let the AI handle intent clarification and suggestions via system prompt (do not call fetchUrlTool automatically).
 
   // If user gave a URL and some instructions, infer smart defaults (no prompt)
@@ -159,12 +200,70 @@ export async function POST(req: Request) {
       maxPages: typeof recursionParams.maxPages === 'number' ? recursionParams.maxPages : smartDefaults.maxPages,
       timeoutMs: typeof recursionParams.timeoutMs === 'number' ? recursionParams.timeoutMs : smartDefaults.timeoutMs,
     };
-    // The agent/LLM will see these params and use them for fetchUrlTool
-    // Optionally, you could inject a system message or tool call here
-    // For now, just let the LLM/agent see the params in context
   }
 
-  // --- END SMART RECURSION PARAM HANDLING ---
+  // --- Automatic & LLM-guided Recursion Retry Logic for fetchUrlTool ---
+  // If the last assistant/tool message is a fetchUrlTool result and is insufficient, retry with higher depth/maxPages (up to safe max)
+  // If user says "go deeper", force a retry
+  // Inform the LLM/user of each attempt
+  // This logic is transparent to the LLM, but the LLM can still request further retries
+
+  // Helper: Detect if user wants to go deeper
+  function userWantsToGoDeeper(text: string): boolean {
+    return /go deeper|try again|more depth|increase depth|fetch more|get more|expand|broaden|explore further|dig deeper/i.test(text);
+  }
+
+  // Helper: Detect if fetchUrlTool result is insufficient
+  function isFetchResultInsufficient(result: any): boolean {
+    if (!result) return true;
+    if (result.error) return true;
+    if (result.type === 'website') {
+      // Not enough tables, product cards, or summary too short
+      if ((Array.isArray(result.extractedTables) && result.extractedTables.length === 0) &&
+          (Array.isArray(result.productCards) && result.productCards.length === 0) &&
+          (!result.summary || result.summary.length < 100)) {
+        return true;
+      }
+    }
+    if (result.type === 'image_analyzed' && (!result.analysis || result.analysis.length < 20)) return true;
+    return false;
+  }
+
+  // Max recursion parameters
+  const MAX_RECURSION_DEPTH = 5;
+  const MAX_PAGES = 20;
+
+  // If a fetchUrlTool call is needed, handle automatic retries here
+  async function robustFetchUrlTool(params: any, userMessage: string) {
+    let { recursionDepth, maxPages, timeoutMs, ...rest } = params;
+    recursionDepth = typeof recursionDepth === 'number' ? recursionDepth : 1;
+    maxPages = typeof maxPages === 'number' ? maxPages : 5;
+    timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 10000;
+    let attempt = 0;
+    let result = null;
+    let goDeeperRequested = userWantsToGoDeeper(userMessage);
+    let informMessages: string[] = [];
+    while (attempt < MAX_RECURSION_DEPTH) {
+      attempt++;
+      result = await fetchUrlTool.execute({
+        ...rest,
+        recursionDepth,
+        maxPages,
+        timeoutMs,
+      }, {
+        toolCallId: `robust-fetch-url-${attempt}`,
+        messages: [],
+      });
+      if (!isFetchResultInsufficient(result) && !goDeeperRequested) break;
+      if (recursionDepth >= MAX_RECURSION_DEPTH || maxPages >= MAX_PAGES) break;
+      // Inform user/LLM
+      informMessages.push(`Not enough data found at depth ${recursionDepth}, trying depth ${recursionDepth + 1} (maxPages ${Math.min(maxPages + 5, MAX_PAGES)})...`);
+      recursionDepth++;
+      maxPages = Math.min(maxPages + 5, MAX_PAGES);
+      goDeeperRequested = false; // Only honor explicit request once
+    }
+    return { result, informMessages };
+  }
 
   const now = new Date();
   // ... (rest of your existing system prompt and chat logic) ...
@@ -247,16 +346,34 @@ export async function POST(req: Request) {
 
   console.log(`API Request: Frontend selectedModel = "${selectedModel}", forceInitialGoogleSearch = ${forceInitialGoogleSearch}, googleSearchAttemptsForThisQuery = ${googleSearchAttemptsForThisQuery}, Using LLM = "${actualModelIdForLLM}"`);
 
+
+  // --- Tool Wrapping: Intercept fetchUrl tool calls for robust retry ---
+  const wrappedTools = {
+    getWeather: weatherTool,
+    fetchUrl: {
+      ...fetchUrlTool,
+      execute: async (params: any) => {
+        // Find the last user message for context
+        const lastUserMsg = (messages as UIMessage[]).filter(msg => msg.role === 'user').pop();
+        const userMsgContent = lastUserMsg?.content || '';
+        const result = await robustFetchUrlTool(params, userMsgContent);
+        // If there was a retry, inject a system message for LLM/user
+        if (result && result.result && result.result.retryInfo) {
+          // Optionally, you could push a message to the stream or log here
+          console.log('FetchUrlTool retry info:', result.result.retryInfo);
+        }
+        return result.result;
+      },
+    },
+    googleSearch: googleSearchTool,
+  };
+
   const result = streamText({
     model: languageModel,
     system: systemPrompt,
     messages: messages as UIMessage[],
     experimental_transform: smoothStream({ delayInMs: 20, chunking: 'word' }),
-    tools: {
-      getWeather: weatherTool,
-      fetchUrl: fetchUrlTool,
-      googleSearch: googleSearchTool,
-    },
+    tools: wrappedTools,
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
     ...(forceInitialGoogleSearch && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
