@@ -1,4 +1,4 @@
-// app/api/chat/route.ts
+
 
 import { smoothStream, streamText, UIMessage } from "ai";
 import { SEARCH_MODE } from "@/components/ui/textarea";
@@ -138,12 +138,31 @@ export async function POST(req: Request) {
   // prompt the user for recursion depth, and infer smart defaults based on context, site type, and user intent.
   // This logic is more than 10 lines and is designed to be "damn smart" and adaptive.
 
-  // Helper: Extract first URL from user message
-  function extractUrl(text: string): string | null {
-    const urlRegex = /(https?:\/\/[\w\-\.]+(:\d+)?(\/[\w\-\.\/?#=&%]*)?)/i;
-    const match = text.match(urlRegex);
-    return match ? match[1] : null;
+  // --- URL Autocomplete Helper ---
+  // Ensures that bare domains like "youtube.com" are converted to full URLs (e.g., "https://youtube.com")
+  function autocompleteUrl(text: string): string {
+    // If already a full URL, return as is
+    if (/^https?:\/\//i.test(text)) return text;
+    // If it looks like a domain (e.g., youtube.com, www.example.org)
+    if (/^([\w-]+\.)+[a-z]{2,}(\/.*)?$/i.test(text.trim())) {
+      return `https://${text.trim()}`;
+    }
+    return text;
   }
+
+  // Helper: Extract first URL or domain from user message, and autocomplete if needed
+  function extractUrl(text: string): string | null {
+    // Match full URLs
+    const urlRegex = /(https?:\/\/[\w\-\.]+(:\d+)?(\/[\w\-\.\/?#=&%]*)?)/i;
+    const urlMatch = text.match(urlRegex);
+    if (urlMatch) return urlMatch[1];
+    // Match bare domains (e.g., youtube.com, www.example.org)
+    const domainRegex = /\b([\w-]+\.)+[a-z]{2,}(\/[\w\-\.\/?#=&%]*)?/i;
+    const domainMatch = text.match(domainRegex);
+    if (domainMatch) return autocompleteUrl(domainMatch[0]);
+    return null;
+  }
+
 
   // Helper: Extract recursion params from user message
   function extractRecursionParams(text: string): { recursionDepth?: number, maxPages?: number, timeoutMs?: number } {
@@ -222,8 +241,8 @@ export async function POST(req: Request) {
     if (result.type === 'website') {
       // Not enough tables, product cards, or summary too short
       if ((Array.isArray(result.extractedTables) && result.extractedTables.length === 0) &&
-          (Array.isArray(result.productCards) && result.productCards.length === 0) &&
-          (!result.summary || result.summary.length < 100)) {
+        (Array.isArray(result.productCards) && result.productCards.length === 0) &&
+        (!result.summary || result.summary.length < 100)) {
         return true;
       }
     }
