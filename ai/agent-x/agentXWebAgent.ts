@@ -10,7 +10,8 @@ import path from 'path';
 
 
 // --- AGENT X WORKDIR MANAGEMENT ---
-const AGENTX_WORKDIR = path.join(process.cwd(), 'agentx_tmp');
+// Use /tmp/agentx_tmp for Vercel compatibility (writable on Vercel and safe locally)
+const AGENTX_WORKDIR = path.join('/tmp', 'agentx_tmp');
 
 function ensureAgentXWorkdir() {
   if (!fs.existsSync(AGENTX_WORKDIR)) {
