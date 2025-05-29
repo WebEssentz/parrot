@@ -1,5 +1,6 @@
 // tools.ts (Agent X integration scaffold)
 import { agentXWebAgent, AgentXInstruction } from "./agent-x/agentXWebAgent";
+import { franc } from 'franc'; // For automatic language detection
 import { tool } from "ai";
 import { z } from "zod";
 import { google } from '@ai-sdk/google';      // For Gemini vision model
@@ -222,50 +223,6 @@ export const weatherTool = tool({
 //     >
 //     > Abstractive Summary: "A fast rabbit effortlessly jumps over tired, sleepy frogs."
 
-// ### 3. Automatic Language Detection 🌐
-
-// Knowing the language of a web page can be useful for a variety of reasons, such as:
-
-// *   **Filtering Content:** Only process pages in a specific language.
-// *   **Translation:** Automatically translate content into the user's preferred language.
-// *   **Improved Analysis:** Use language-specific NLP techniques for better analysis.
-// *   **The Idea:** Use a language detection library to analyze the text content of the web page and identify the language it's written in.
-// *   **Why it's SUPER:**
-//     *   **Automatic Identification:** No need to manually specify the language of each page.
-//     *   **Enables Language-Specific Processing:** Allows you to tailor your analysis and processing based on the detected language.
-//     *   **Improved Accuracy:** Language detection libraries are typically very accurate.
-// *   **The Code (Conceptual):**
-
-//     ```typescript
-//     import franc from 'franc';
-
-//     async function fetchUrlToolExecute({ url }: { url: string }) {
-//         // ...
-//         const html = await res.text();
-//         const mainText = extractMainText(html); // Function to extract the main content
-//         const language = franc(mainText, { minLength: 3 }); // Detect the language
-
-//         return {
-//             // ...
-//             language // Add the language code to the output
-//         };
-//     }
-//     ```
-
-//     *   **Note:** This example uses the `franc` library. You'll need to install it (`npm install franc`). The `minLength` option is used to ensure that the text is long enough for accurate detection.
-// *   **Example:**
-
-//     > Text: "This is an English sentence."
-//     >
-//     > Language Code: "eng"
-//     >
-//     > Text: "Esta es una frase en español."
-//     >
-//     > Language Code: "spa"
-
-// By combining these three SUPER features, you can create a web scraping tool that is not only powerful but also intelligent and adaptable! 🚀 Let me know if you have any more questions.
-
-
 export const fetchUrlTool = tool({
   description:
     "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries. Now supports Agent X for dynamic site interaction (Amazon, YouTube, more). Now supports recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking).",
@@ -407,6 +364,16 @@ export const fetchUrlTool = tool({
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
+
+        // --- Automatic Language Detection ---
+        let language = 'und';
+        try {
+          if (mainText && mainText.length > 20) {
+            language = franc(mainText, { minLength: 3 }) || 'und';
+          }
+        } catch (e) {
+          language = 'und';
+        }
         let siteType = 'general';
         if (productCards.length > 2) siteType = 'e-commerce';
         else if (newsSections.length > 0 || /news|blog|article/i.test(html)) siteType = 'news/blog';
@@ -448,7 +415,27 @@ export const fetchUrlTool = tool({
         ].filter(Boolean).join(' | ').replace(/\s+/g, ' ').slice(0, 1500);
         steps.push('Step 7: Compiling results.');
         return {
-          type: 'website', url, siteType, title: ogTitle || (headings[0]?.text ?? url), metaDescription, ogTitle, ogDescription, headings, navLinks, productCards, faqs, newsSections, extractedTables, chartMarkdown, summary, preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''), suggestedLinks, articleLinks, steps, elapsed: Date.now() - startTime
+          type: 'website',
+          url,
+          siteType,
+          title: ogTitle || (headings[0]?.text ?? url),
+          metaDescription,
+          ogTitle,
+          ogDescription,
+          headings,
+          navLinks,
+          productCards,
+          faqs,
+          newsSections,
+          extractedTables,
+          chartMarkdown,
+          summary,
+          preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''),
+          suggestedLinks,
+          articleLinks,
+          language, // Add detected language code (e.g., 'eng', 'spa', 'und')
+          steps,
+          elapsed: Date.now() - startTime
         };
         // --- END: Original fetch/analyze logic ---
       })();
