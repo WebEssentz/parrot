@@ -206,21 +206,6 @@ export async function POST(req: Request) {
   const M = now.getUTCMonth() - BirthDate.getUTCMonth();
   if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
 
-  // --- Detect user language from last user message (simple heuristic) ---
-  let userLanguage = 'eng';
-  try {
-    // Try to detect language from lastUserMessageContent using franc (if available)
-    // Fallback: if message contains only ASCII, assume English
-    if (lastUserMessageContent && lastUserMessageContent.length > 10) {
-      // Dynamically import franc if available (avoid breaking serverless)
-      try {
-        const { franc } = await import('franc');
-        const detected = franc(lastUserMessageContent, { minLength: 3 });
-        if (detected && detected !== 'und') userLanguage = detected;
-      } catch { /* ignore */ }
-    }
-  } catch { /* ignore */ }
-
   const systemPrompt = `
         # Avurna AI System Prompt
         # AGENT X WEB AGENT: SUPER-INTELLIGENT SYSTEM INSTRUCTIONS
@@ -293,13 +278,9 @@ export async function POST(req: Request) {
         - For each step, log: action, input, output, and any errors.
         - If a site changes its layout or structure, attempt to adapt and inform the user if extraction is incomplete.
 
-
         ## 12. Multi-Language and Internationalization
         - Agent X supports all languages. If the site or user intent is in a non-English language, adapt extraction and summaries accordingly.
         - If language detection is needed, use LLM or vision models to identify the language and respond appropriately.
-        - If you extract a table or structured data from a website and the detected language of the page is different from the user's language, you MUST translate the table headers and cell values into the user's language before presenting or analyzing the data. Use your best translation ability. Always mention that the table was translated for the user's convenience.
-        - The user's language (ISO 639-3 code) is: "${userLanguage}". If you are unsure, default to English (eng).
-        - If the user asks a question in a language different from the website, always answer in the user's language and translate any extracted data as needed.
 
         ## 13. User Experience and Reporting
         - Always present results in a clear, concise, and visually appealing format (tables, lists, images, etc.).
