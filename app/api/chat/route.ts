@@ -207,27 +207,17 @@ export async function POST(req: Request) {
   if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
 
   // --- Detect user language from last user message (simple heuristic) ---
-  // --- Robust user language detection using franc ---
   let userLanguage = 'eng';
   try {
+    // Try to detect language from lastUserMessageContent using franc (if available)
+    // Fallback: if message contains only ASCII, assume English
     if (lastUserMessageContent && lastUserMessageContent.length > 10) {
-      // Use franc to detect language from user message
-      // Prefer direct import if available, fallback to require
-      let francFn = null;
+      // Dynamically import franc if available (avoid breaking serverless)
       try {
-        // Try ESM import
-        const mod = await import('franc');
-        francFn = mod.franc;
-      } catch {
-        try {
-          // Try require (for CJS)
-          francFn = require('franc');
-        } catch {}
-      }
-      if (francFn) {
-        const detected = francFn(lastUserMessageContent, { minLength: 3 });
+        const { franc } = await import('franc');
+        const detected = franc(lastUserMessageContent, { minLength: 3 });
         if (detected && detected !== 'und') userLanguage = detected;
-      }
+      } catch { /* ignore */ }
     }
   } catch { /* ignore */ }
 
