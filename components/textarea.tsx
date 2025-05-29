@@ -4,7 +4,9 @@ import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, S
 import { defaultModel } from "@/ai/providers"; // Ensure this path is correct and defaultModel is a string
 import { ArrowUp } from "lucide-react";
 import { PauseIcon } from "./icons"; // Ensure this path is correct
-import React from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react"; // Added useState, useRef, useCallback
+import { useExtractSiteTitle } from "../hooks/useExtractSiteTitle"; // IMPORT YOUR HOOK
+import { useMobile } from "../hooks/use-mobile";
 
 interface InputProps {
   input: string;
@@ -19,7 +21,6 @@ interface InputProps {
   isDesktop: boolean;
 }
 
-import { useMobile } from "../hooks/use-mobile";
 
 export const Textarea = ({
   input,

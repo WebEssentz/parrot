@@ -13,10 +13,6 @@ import {
   CheckCircle,
   ChevronDownIcon,
   ChevronUpIcon,
-  Loader2,
-  PocketKnife,
-  SparklesIcon,
-  StopCircle,
 } from "lucide-react";
 import { StreamingTextRenderer } from "./streaming-text-renderer";
 
