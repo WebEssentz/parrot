@@ -214,7 +214,7 @@ async function perceive(
   let htmlPath: string | undefined;
   let screenshotBase64 = '';
   let screenshotBuffer: Buffer | undefined;
-  // Wait for DOMContentLoaded and at least one visible element in body
+  // Wait for DOMContentLoaded and at least one visible element in body (FAST: 500ms timeout)
   try {
     await page.waitForFunction(() => {
       const body = document.body;
@@ -225,7 +225,7 @@ async function perceive(
         const s = window.getComputedStyle(el);
         return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
       });
-    }, { timeout: 5000 });
+    }, { timeout: 500 });
   } catch {}
   // Remove overlays/popups that may block screenshot
   await page.evaluate(() => {
@@ -571,8 +571,9 @@ async function act(page: Page, actionPlan: { action: string; selector?: string; 
       return 'Scrolled down.';
     }
     if (actionPlan.action === 'wait') {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return 'Waited for 2 seconds.';
+      // FAST: Reduce wait to 200ms
+      await new Promise(resolve => setTimeout(resolve, 200));
+      return 'Waited for 0.2 seconds.';
     }
     return 'No action performed.';
   } catch (e: any) {
@@ -604,8 +605,8 @@ export async function agentXWebAgent({ instruction, url, saveFiles = false, memo
   }
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 800 });
-  await page.goto(url, { waitUntil: 'networkidle2' });
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 7000 }); // FAST: only wait for DOMContentLoaded, 7s max
+  // Remove all artificial waits for speed
   const steps: AgentXStepTrace[] = [];
   let lastAction = '';
   let error = '';
@@ -633,7 +634,8 @@ export async function agentXWebAgent({ instruction, url, saveFiles = false, memo
     }
 
     // Plan up to 5 steps in advance
-    const plannedActions = await planSteps({ html, userGoal: instruction.goal, maxSteps: 5 });
+    // FAST: Only plan 2 steps at a time
+    const plannedActions = await planSteps({ html, userGoal: instruction.goal, maxSteps: 2 });
     let stepIdx = 0;
     let goalAchieved = false;
     let lastPerception = { screenshotBase64, html, visionAnalysis, domAnalysis, screenshotPath, htmlPath };
@@ -694,7 +696,7 @@ export async function agentXWebAgent({ instruction, url, saveFiles = false, memo
           const s = window.getComputedStyle(el);
           return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
         });
-      }, { timeout: 5000 });
+      }, { timeout: 500 });
     } catch {}
     const finalScreenshotBuffer = Buffer.from(await page.screenshot({ fullPage: false }));
     finalScreenshotBase64 = finalScreenshotBuffer.toString('base64');
