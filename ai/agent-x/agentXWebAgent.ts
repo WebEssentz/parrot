@@ -1,5 +1,13 @@
 
-import puppeteer, { Page } from 'puppeteer';
+// Use puppeteer-core and @sparticuz/chromium for Vercel compatibility
+import puppeteerCore, { Page } from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
+let localPuppeteer: typeof puppeteerCore | undefined;
+try {
+  // Dynamically require puppeteer if available (for local dev)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  localPuppeteer = require('puppeteer');
+} catch {}
 import { google } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import fs from 'fs';
@@ -573,11 +581,27 @@ async function act(page: Page, actionPlan: { action: string; selector?: string; 
 }
 
 // Main Agent X loop
-
 // memoryKey: optional string to identify the site/context for caching (e.g. `${site}|${url}|${query}`)
 export async function agentXWebAgent({ instruction, url, saveFiles = false, memoryKey }: { instruction: AgentXInstruction; url: string; saveFiles?: boolean; memoryKey?: string }): Promise<AgentXResult> {
   if (saveFiles) ensureAgentXWorkdir();
-  const browser = await puppeteer.launch({ headless: true });
+  // Use Vercel-compatible Chromium in production, fallback to local in dev
+  const isVercel = !!process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_VERSION;
+  let browser;
+  if (isVercel) {
+    const executablePath = await chromium.executablePath();
+    browser = await puppeteerCore.launch({
+      args: chromium.args,
+      defaultViewport: { width: 1280, height: 800 },
+      executablePath,
+      headless: chromium.headless,
+    });
+  } else {
+    // Use local puppeteer and its Chromium
+    browser = await (localPuppeteer || puppeteerCore).launch({
+      headless: true,
+      defaultViewport: { width: 1280, height: 800 },
+    });
+  }
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 800 });
   await page.goto(url, { waitUntil: 'networkidle2' });
