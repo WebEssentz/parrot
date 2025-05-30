@@ -1,7 +1,7 @@
 "use client";
 import { Modal } from "./ui/modal";
 import type { Message as TMessage } from "ai";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { memo, useCallback, useEffect, useState, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";

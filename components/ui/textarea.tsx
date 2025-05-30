@@ -9,6 +9,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils"; // Assuming this path is correct
 import { Paperclip } from "lucide-react";
 
+
+
 export const SEARCH_MODE = "__search_mode__"; // Ensure this is consistently defined
 
 // Custom Search SVG icon

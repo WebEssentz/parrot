@@ -472,7 +472,7 @@ export const googleSearchTool = tool({
   execute: async ({ query }) => {
     console.log(`googleSearchTool: Executing search for query: "${query}"`);
     try {
-      const modelInstance = google('gemini-2.5-flash-preview-04-17', { // User-provided model
+      const modelInstance = google('gemini-2.5-flash-preview-05-20', { // User-provided model
         useSearchGrounding: true,
         dynamicRetrievalConfig: {
           mode: 'MODE_DYNAMIC',

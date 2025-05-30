@@ -5,7 +5,7 @@ import { defaultModel } from "@/ai/providers"; // Ensure this path is correct an
 import { ArrowUp } from "lucide-react";
 import { PauseIcon } from "./icons"; // Ensure this path is correct
 import React, { useEffect, useState, useRef, useCallback } from "react"; // Added useState, useRef, useCallback
-import { useExtractSiteTitle } from "../hooks/useExtractSiteTitle"; // IMPORT YOUR HOOK
+
 import { useMobile } from "../hooks/use-mobile";
 
 interface InputProps {

@@ -402,7 +402,6 @@ export async function POST(req: Request) {
 
   return result.toDataStreamResponse({
     sendReasoning: true,
-    experimental_sendStart: true,
     getErrorMessage: (error) => {
       if (error instanceof Error) {
         if (error.message.includes("API key not valid")) {
