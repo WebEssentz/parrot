@@ -1,5 +1,5 @@
 // tools.ts (Agent X integration scaffold)
-import { agentXWebAgent, AgentXInstruction } from "./agent-x/agentXWebAgent";
+// import { agentXWebAgent, AgentXInstruction } from "./agent-x/agentXWebAgent";
 import { franc } from 'franc'; // For automatic language detection
 import { tool } from "ai";
 import { z } from "zod";
@@ -38,45 +38,45 @@ function generateMarkdownBarChart(
 
 
 // Utility: Use LLM to parse user intent into AgentXInstruction (placeholder)
-async function parseInstructionWithLLM(userMessage: string): Promise<AgentXInstruction> {
-  // If Agent X is enabled, use Gemini LLM to parse the user intent dynamically
-  // This function is only called when agentX is true
-  try {
-    const geminiModel = google('gemini-2.5-flash-preview-04-17');
-    const prompt = `You are an expert web automation agent. Given the following user instruction, extract the user's goal (e.g., \"search video\", \"search product\", \"browse\", \"compare prices\", etc.), the main website to use (e.g., \"youtube.com\", \"amazon.com\", \"twitter.com\", etc.), and the query or keywords (if any) to use for the action.\n\nReturn a JSON object with keys: goal, site, query.\n\nUser instruction: \"${userMessage}\"`;
-    const { text } = await generateText({
-      model: geminiModel,
-      prompt,
-    });
-    // Try to parse the LLM output as JSON
-    let parsed: any = {};
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      // Fallback: try to extract with regex if not valid JSON
-      const goal = text.match(/goal\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || "browse";
-      const site = text.match(/site\s*[:=]\s*["']?([\w.-]+)["']?/i)?.[1] || "";
-      const query = text.match(/query\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || userMessage;
-      parsed = { goal, site, query };
-    }
-    // Ensure all fields are present
-    return {
-      goal: parsed.goal || "browse",
-      site: parsed.site || "",
-      query: parsed.query || userMessage,
-    };
-  } catch (e) {
-    // On error, fallback to simple rules
-    if (/youtube/i.test(userMessage)) {
-      return { goal: "search video", site: "youtube.com", query: userMessage.replace(/.*youtube/i, '').trim() || "" };
-    }
-    if (/amazon/i.test(userMessage)) {
-      return { goal: "search product", site: "amazon.com", query: userMessage.replace(/.*amazon/i, '').trim() || "" };
-    }
-    // Add more site rules as needed
-    return { goal: "browse", site: "", query: userMessage };
-  }
-}
+// async function parseInstructionWithLLM(userMessage: string): Promise<AgentXInstruction> {
+//   // If Agent X is enabled, use Gemini LLM to parse the user intent dynamically
+//   // This function is only called when agentX is true
+//   try {
+//     const geminiModel = google('gemini-2.5-flash-preview-04-17');
+//     const prompt = `You are an expert web automation agent. Given the following user instruction, extract the user's goal (e.g., \"search video\", \"search product\", \"browse\", \"compare prices\", etc.), the main website to use (e.g., \"youtube.com\", \"amazon.com\", \"twitter.com\", etc.), and the query or keywords (if any) to use for the action.\n\nReturn a JSON object with keys: goal, site, query.\n\nUser instruction: \"${userMessage}\"`;
+//     const { text } = await generateText({
+//       model: geminiModel,
+//       prompt,
+//     });
+//     // Try to parse the LLM output as JSON
+//     let parsed: any = {};
+//     try {
+//       parsed = JSON.parse(text);
+//     } catch {
+//       // Fallback: try to extract with regex if not valid JSON
+//       const goal = text.match(/goal\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || "browse";
+//       const site = text.match(/site\s*[:=]\s*["']?([\w.-]+)["']?/i)?.[1] || "";
+//       const query = text.match(/query\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || userMessage;
+//       parsed = { goal, site, query };
+//     }
+//     // Ensure all fields are present
+//     return {
+//       goal: parsed.goal || "browse",
+//       site: parsed.site || "",
+//       query: parsed.query || userMessage,
+//     };
+//   } catch (e) {
+//     // On error, fallback to simple rules
+//     if (/youtube/i.test(userMessage)) {
+//       return { goal: "search video", site: "youtube.com", query: userMessage.replace(/.*youtube/i, '').trim() || "" };
+//     }
+//     if (/amazon/i.test(userMessage)) {
+//       return { goal: "search product", site: "amazon.com", query: userMessage.replace(/.*amazon/i, '').trim() || "" };
+//     }
+//     // Add more site rules as needed
+//     return { goal: "browse", site: "", query: userMessage };
+//   }
+// }
 
 // Utility: Format a value as inline code (ChatGPT style)
 // ... (formatInlineCode function as provided)
@@ -264,14 +264,14 @@ export const fetchUrlTool = tool({
       // Use the original tool logic, but skip recursion params
       const result = await (async () => {
         // --- BEGIN: Original fetch/analyze logic ---
-        if (agentX) {
-          const instruction = userIntent
-            ? await parseInstructionWithLLM(userIntent)
-            : { goal: "browse", site: url, query: "" };
-          const siteUrl = instruction.site || url;
-          const result = await agentXWebAgent({ instruction, url: siteUrl });
-          return result;
-        }
+        // if (agentX) {
+        //   const instruction = userIntent
+        //     ? await parseInstructionWithLLM(userIntent)
+        //     : { goal: "browse", site: url, query: "" };
+        //   const siteUrl = instruction.site || url;
+        //   const result = await agentXWebAgent({ instruction, url: siteUrl });
+        //   return result;
+        // }
         const steps: string[] = [];
         steps.push(`Step 1: Fetching ${url}`);
         const headers: Record<string, string> = {

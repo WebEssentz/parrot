@@ -307,10 +307,10 @@ export async function POST(req: Request) {
   // Always include the tool selection policy and system prompt
   systemPrompt += "\n\n" + fs.readFileSync(path.join(promptDir, "systemPrompt.txt"), "utf8");
   // Add Agent X prompt if user intent is web/automation (URL present or web task keywords)
-  const agentXNeeded = !!urlToAnalyze || /website|site|web|browser|agent|automation|scrape|extract|analyze|navigate|product|video|post|news|shopping|social|table|data|csv|spreadsheet/i.test(userIntent);
-  if (agentXNeeded) {
-    systemPrompt += "\n\n" + fs.readFileSync(path.join(promptDir, "agentXPrompt.txt"), "utf8");
-  }
+  // const agentXNeeded = !!urlToAnalyze || /website|site|web|browser|agent|automation|scrape|extract|analyze|navigate|product|video|post|news|shopping|social|table|data|csv|spreadsheet/i.test(userIntent);
+  // if (agentXNeeded) {
+  //   systemPrompt += "\n\n" + fs.readFileSync(path.join(promptDir, "agentXPrompt.txt"), "utf8");
+  // }
 
   const isFrontendRequestingSearch = selectedModel === SEARCH_MODE;
   // (moved up for recursion logic)
