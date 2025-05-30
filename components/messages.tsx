@@ -67,43 +67,43 @@ export const Messages = ({
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-
-  return (
-    <div
-      className="flex-1 max-w-full py-8 sm:py-10 overflow-y-auto overscroll-auto"
-      ref={containerRef}
-      onScroll={handleScroll}
-      style={{ position: 'relative' }}
-    >
-      <div className="w-full px-2 sm:px-4 sm:max-w-3xl mx-auto pt-8">
-        {messages.map((m, i) => {
-          const isLatest = i === messages.length - 1;
-          let messageStatus: "error" | "submitted" | "streaming" | "ready" = "ready";
-          let messageIsLoading = false;
-
-          if (m.role === "assistant" && isLatest) {
-            messageStatus = status;
-            messageIsLoading = isLoading || status === "streaming" || status === "submitted";
-          } else if (m.role === "user") {
-            messageStatus = "ready";
-            messageIsLoading = false;
-          }
-          return (
-            <div
-              key={m.id}
-              ref={isLatest ? latestMsgRef : undefined}
-              data-latest-message={isLatest ? "true" : undefined}
-            >
-              <Message
-                isLatestMessage={isLatest}
-                isLoading={messageIsLoading}
-                message={m}
-                status={messageStatus}
-              />
-            </div>
-          );
-        })}
+    return (
+      <div
+        className="flex-1 max-w-full py-8 sm:py-10 overflow-y-auto overscroll-auto"
+        ref={containerRef}
+        onScroll={handleScroll}
+        style={{ position: 'relative' }}
+      >
+        <div className="w-full px-2 sm:px-8 pt-8">
+          {messages.map((m, i) => {
+            const isLatest = i === messages.length - 1;
+            let messageStatus: "error" | "submitted" | "streaming" | "ready" = "ready";
+            let messageIsLoading = false;
+  
+            if (m.role === "assistant" && isLatest) {
+              messageStatus = status;
+              messageIsLoading = isLoading || status === "streaming" || status === "submitted";
+            } else if (m.role === "user") {
+              messageStatus = "ready";
+              messageIsLoading = false;
+            }
+            return (
+              <div
+                key={m.id}
+                ref={isLatest ? latestMsgRef : undefined}
+                data-latest-message={isLatest ? "true" : undefined}
+                className="w-full" // Ensures each message takes full width
+              >
+                <Message
+                  isLatestMessage={isLatest}
+                  isLoading={messageIsLoading}
+                  message={m}
+                  status={messageStatus}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+}
