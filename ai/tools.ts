@@ -441,18 +441,27 @@ export const fetchUrlTool = tool({
       })();
       // --- RECURSION: If depth > 0, follow links ---
       if (depth > 0 && result && 'navLinks' in result && Array.isArray((result as any).navLinks)) {
-        const childResults = [];
-        for (const link of (result as any).navLinks as { href: string; text: string }[]) {
-          if (pagesFetched >= maxPages || timedOut) break;
-          if (!link.href || visited.has(link.href)) continue;
-          if (origin && !link.href.startsWith(origin)) continue;
-          try {
-            const child = await fetchAndAnalyze({ url: link.href, referer: url, userIntent, agentX, depth: depth - 1 });
-            childResults.push(child);
-          } catch (e) {
-            childResults.push({ error: String(e), url: link.href });
-          }
-        }
+        // Gather eligible links for concurrent fetching
+        const allLinks = ((result as any).navLinks as { href: string; text: string }[])
+          .filter(link => link && link.href && !visited.has(link.href) && (!origin || link.href.startsWith(origin)));
+        // Limit to remaining maxPages
+        const availableSlots = Math.max(0, maxPages - pagesFetched);
+        const linksToFetch = allLinks.slice(0, availableSlots);
+        // Mark as visited before fetching to avoid race conditions
+        linksToFetch.forEach(link => visited.add(link.href));
+        // Fetch all links concurrently
+        const childResults = await Promise.all(
+          linksToFetch.map(async link => {
+            if (timedOut || pagesFetched >= maxPages) return { error: 'Timeout or maxPages reached', url: link.href };
+            try {
+              // Each fetch increments pagesFetched
+              pagesFetched++;
+              return await fetchAndAnalyze({ url: link.href, referer: url, userIntent, agentX, depth: depth - 1 });
+            } catch (e) {
+              return { error: String(e), url: link.href };
+            }
+          })
+        );
         return { ...result, childResults };
       } else {
         return result;
