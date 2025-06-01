@@ -177,7 +177,7 @@ export function ReasoningMessagePart({
               }
             `}</style> */}
           </span>
-          <span className="animate-spin ml-1"><SpinnerIcon /></span>
+          {/* SpinnerIcon removed as requested */}
         </div>
       ) : (
         <div className="flex flex-row gap-2 items-center">
@@ -255,8 +255,16 @@ const PurePreviewMessage = ({
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
 
+
   // Get the full AI message text (all text parts, sources block stripped)
-  const aiMessageText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
+  // Remove sources block (between <!-- AVURNA_SOURCES_START --> and <!-- AVURNA_SOURCES_END -->) and the sources themselves
+  function stripSourcesBlock(text: string): string {
+    // Remove everything between <!-- AVURNA_SOURCES_START --> and <!-- AVURNA_SOURCES_END --> (including the markers)
+    return text.replace(/<!-- AVURNA_SOURCES_START -->[\s\S]*?<!-- AVURNA_SOURCES_END -->/g, "").trim();
+  }
+  const aiMessageText = stripSourcesBlock(
+    message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || ""
+  );
 
   const handleCopy = () => {
     copyToClipboard(aiMessageText); // For AI messages
@@ -424,97 +432,86 @@ const PurePreviewMessage = ({
                           </div>
                         </motion.div>
                       );
-                    case "tool-invocation":
-                      return (
-                        <ToolInvocationMessagePart
-                          key={`message-${message.id}-part-${i}`}
-                          part={part}
-                          isLatestMessage={isLatestMessage}
-                          status={status}
-                        />
-                      );
-                      // ToolInvocationMessagePart: Reusable, extensible tool invocation UI
+                    case "tool-invocation": {
+                      // For all tools, do NOT show anything for completed state ("result"), just fade out
+                      const shouldFadeOut = part.toolInvocation && part.toolInvocation.state === "result";
+                      if (shouldFadeOut) {
+                        return (
+                          <motion.div
+                            key={`message-${message.id}-part-${i}`}
+                            initial={{ opacity: 1, height: 'auto' }}
+                            animate={{ opacity: 0, height: 0, margin: 0, padding: 0 }}
+                            transition={{ duration: 0.35, ease: 'easeInOut' }}
+                            style={{ overflow: 'hidden' }}
+                          />
+                        );
+                      }
+                      // Show a friendly label for running tools (call state)
                       function getToolStatusLabel(toolName: string, state: string) {
-                        // Add more tools here as needed
                         switch (toolName) {
                           case "googleSearch":
-                            return state === "call" ? "Searching the Web" : "Search Completed";
+                            return state === "call" ? "Searching the Web" : "";
                           case "fetchUrl":
-                            return state === "call" ? "Fetching Url data" : "Fetch Completed";
+                            return state === "call" ? "Analying Url data" : "";
                           case "getWeatherdata":
                           case "weatherTool":
                             return "Getting weather data";
                           default:
-                            // Fallback for unknown tools
                             if (state === "call") return `Running ${toolName}`;
-                            return `Finished ${toolName}`;
+                            return "";
                         }
                       }
-
-
-                      function ToolInvocationMessagePart({ part, isLatestMessage, status }: {
-                        part: any;
-                        isLatestMessage: boolean;
-                        status: "error" | "submitted" | "streaming" | "ready";
-                      }) {
-                        const { toolName, state } = part.toolInvocation;
-                        const label = getToolStatusLabel(toolName, state);
-                        const isRunning = state === "call" && isLatestMessage && status !== "ready";
-                        const isDone = state === "result";
-                        const { theme } = useTheme ? useTheme() : { theme: undefined };
-                        return (
-                          <div className="flex flex-col">
-                            <div
-                              className="flex flex-row items-center gap-1"
-                              style={
-                                !isMobileOrTablet
-                                  ? { marginLeft: '-16px', marginRight: '12px' }
-                                  : { marginLeft: '-16px', marginRight: '12px' }
-                              }
-                            >
-                              <span className="font-medium text-sm pl-4 mt-1 relative inline-block" style={{ minWidth: 120 }}>
-                                {isRunning ? (
-                                  <span style={{ position: 'relative', display: 'inline-block' }}>
-                                    <span style={{
-                                      background: theme === 'dark'
-                                        ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
-                                        : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)',
-                                      backgroundSize: '200% 100%',
-                                      WebkitBackgroundClip: 'text',
-                                      WebkitTextFillColor: 'transparent',
-                                      backgroundClip: 'text',
-                                      animation: 'avurna-shimmer-text 1.3s linear infinite',
-                                      animationTimingFunction: 'linear',
-                                      willChange: 'background-position',
-                                      display: 'inline-block',
-                                    }}
-                                      // Force re-render on theme change to reset background
-                                      key={theme}
-                                    >
-                                      {label}
-                                    </span>
-                                    <style>
-                                      {`
-                                      @keyframes avurna-shimmer-text {
-                                        0% { background-position: -100% 0; }
-                                        100% { background-position: 100% 0; }
-                                      }
-                                      `}
-                                    </style>
+                      const { toolName, state } = part.toolInvocation;
+                      const isRunning = state === "call" && isLatestMessage && status !== "ready";
+                      const { theme } = useTheme ? useTheme() : { theme: undefined };
+                      const label = getToolStatusLabel(toolName, state);
+                      return (
+                        <div className="flex flex-col">
+                          <div
+                            className="flex flex-row items-center gap-1"
+                            style={
+                              !isMobileOrTablet
+                                ? { marginLeft: '-16px', marginRight: '12px' }
+                                : { marginLeft: '-16px', marginRight: '12px' }
+                            }
+                          >
+                            <span className="font-medium pl-4 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
+                              {isRunning && label ? (
+                                <span style={{ position: 'relative', display: 'inline-block' }}>
+                                  <span style={{
+                                    color: theme === 'dark' ? '#a3a3a3' : '#6b7280',
+                                    background: theme === 'dark'
+                                      ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
+                                      : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)',
+                                    backgroundSize: '200% 100%',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    backgroundClip: 'text',
+                                    animation: 'avurna-shimmer-text 1.3s linear infinite',
+                                    animationTimingFunction: 'linear',
+                                    willChange: 'background-position',
+                                    display: 'inline-block',
+                                  }}
+                                    // Force re-render on theme change to reset background
+                                    key={theme}
+                                  >
+                                    {label}
                                   </span>
-                                ) : label}
-                              </span>
-                              {isRunning && (
-                                <span className="animate-spin ml-1"><SpinnerIcon /></span>
-                              )}
-                              {isDone && (
-                                <span className="text-green-600 ml-1" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center' }}><CheckCircle size={16} /></span>
-                              )}
-                            </div>
-                            {/* Details/params could be shown here if needed in the future */}
+                                  <style>
+                                    {`
+                                    @keyframes avurna-shimmer-text {
+                                      0% { background-position: -100% 0; }
+                                      100% { background-position: 100% 0; }
+                                    }
+                                    `}
+                                  </style>
+                                </span>
+                              ) : null}
+                            </span>
                           </div>
-                        );
-                      }
+                        </div>
+                      );
+                    }
                     case "reasoning":
                       return (
                         <ReasoningMessagePart
