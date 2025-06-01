@@ -279,7 +279,10 @@ const PurePreviewMessage = ({
   const handleCopy = () => {
     copyToClipboard(aiMessageText); // For AI messages
     setCopied(true);
-    toast("Copied to Clipboard");
+    // Only show Sonner toast on mobile/tablet
+    if (isMobileOrTablet) {
+      toast("Copied to Clipboard");
+    }
     if (copyTimeout.current) clearTimeout(copyTimeout.current);
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
@@ -287,7 +290,10 @@ const PurePreviewMessage = ({
   const handleUserMessageCopy = (textToCopy: string) => {
     copyToClipboard(textToCopy);
     setCopied(true); // This state is shared, might be fine or might need separate states if interactions overlap
-    toast("Copied to Clipboard");
+    // Only show Sonner toast on mobile/tablet
+    if (isMobileOrTablet) {
+      toast("Copied to Clipboard");
+    }
     if (copyTimeout.current) clearTimeout(copyTimeout.current);
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
