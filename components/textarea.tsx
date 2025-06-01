@@ -2,7 +2,7 @@
 
 import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea"; // Ensure this path is correct
 import { defaultModel } from "@/ai/providers"; // Ensure this path is correct and defaultModel is a string
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, ArrowRight } from "lucide-react";
 import { PauseIcon } from "./icons"; // Ensure this path is correct
 import React, { useEffect, useState, useRef, useCallback } from "react"; // Added useState, useRef, useCallback
 
@@ -277,7 +277,11 @@ export const Textarea = ({
                     }`}
                     aria-label="Send" data-testid="composer-button-send" style={{ minWidth: 36, minHeight: 36, padding: 0 }}
                   >
-                    <ArrowUp className="h-5 w-5 transition-colors duration-300 mx-auto my-auto" />
+                    {!hasSentMessage ? (
+                      <ArrowRight className="h-5 w-5 transition-colors duration-300 mx-auto my-auto" />
+                    ) : (
+                      <ArrowUp className="h-5 w-5 transition-colors duration-300 mx-auto my-auto" />
+                    )}
                   </button>
                 )}
                 {(status === "streaming" || status === "submitted") && (

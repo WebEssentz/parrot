@@ -226,73 +226,86 @@ function Textarea({
   ...props
 }: React.ComponentProps<"textarea"> & { rows?: number }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fadeRef = useRef<HTMLDivElement>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const initialMinHeight = typeof style?.minHeight === 'number' 
     ? style.minHeight 
     : (rows > 1 ? undefined : 40); 
   const [animatedHeight, setAnimatedHeight] = useState<number | string>(initialMinHeight || 'auto');
 
-
   const value = props.value;
   const minHeightFromStyle = style?.minHeight;
   const maxHeightFromStyle = style?.maxHeight;
+
+  // Detect scroll position for fade effect
+  React.useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const handleScroll = () => {
+      setIsScrolled(textarea.scrollTop > 0);
+    };
+    textarea.addEventListener('scroll', handleScroll);
+    // Initial check
+    setIsScrolled(textarea.scrollTop > 0);
+    return () => textarea.removeEventListener('scroll', handleScroll);
+  }, [textareaRef.current]);
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       const computedStyle = window.getComputedStyle(textarea);
       const computedMinHeight = parseFloat(computedStyle.minHeight); // Use minHeight from style prop if available via computedStyle
-      
       const effectiveMaxHeight = typeof maxHeightFromStyle === 'number' ? maxHeightFromStyle : Infinity;
-
       const prevHeight = textarea.style.height;
       textarea.style.height = 'auto';
       const scrollHeight = textarea.scrollHeight;
-      
       let targetHeight = scrollHeight;
       if (effectiveMaxHeight !== Infinity) {
         targetHeight = Math.min(targetHeight, effectiveMaxHeight);
       }
       // Ensure targetHeight respects the effective minHeight (from style or CSS default)
       targetHeight = Math.max(targetHeight, computedMinHeight);
-
-
       if (animatedHeight !== targetHeight || typeof animatedHeight === 'string') {
         setAnimatedHeight(targetHeight);
       }
-      
       if (textarea.style.height !== `${targetHeight}px`) {
          textarea.style.height = `${targetHeight}px`;
-      } else if (prevHeight !== textarea.style.height && animatedHeight === targetHeight && typeof animatedHeight !== 'string') {
-        // This branch is less likely with current logic but kept for robustness.
-        // It means prevHeight was different, animatedHeight (numeric) == targetHeight,
-        // so we ensure the numeric height is applied if it wasn't already.
-      } else if (animatedHeight === targetHeight && typeof animatedHeight === 'string') {
-        textarea.style.height = `${targetHeight}px`;
       }
     }
-  }, [value, rows, minHeightFromStyle, maxHeightFromStyle, animatedHeight]); // Added animatedHeight to dependencies
+  }, [value, rows, minHeightFromStyle, maxHeightFromStyle, animatedHeight]);
+
+  // Light mode detection
+  const [isLightMode, setIsLightMode] = useState(true);
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const match = window.matchMedia('(prefers-color-scheme: dark)');
+      setIsLightMode(!match.matches);
+      const listener = (e: MediaQueryListEvent) => setIsLightMode(!e.matches);
+      match.addEventListener('change', listener);
+      return () => match.removeEventListener('change', listener);
+    }
+  }, []);
 
   return (
     <motion.div
       animate={{ height: animatedHeight }}
       transition={{ type: "tween", duration: 0.2, ease: "circOut" }}
-      style={{ overflow: "hidden", width: "100%" }}
+      style={{ overflow: "hidden", width: "100%", position: 'relative' }}
     >
       <textarea
         ref={textareaRef}
         data-slot="textarea"
         className={cn(
-          "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-          // Base visual styles that can be overridden by parent:
-          "min-h-10", // Default CSS minimum height
-          // Default background and shadow, expecting parent to override if needed (e.g., to transparent)
-          "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50", 
-          "shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] dark:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
-          className // Allow overriding classes from parent (e.g., bg-transparent, shadow-none, specific padding)
+          // Remove blur and shadow, set solid background for light mode
+          "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive w-full rounded-md border px-3 py-2 text-base transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-10",
+          isLightMode
+            ? "bg-white shadow-none backdrop-blur-none bg-opacity-100 border-zinc-200"
+            : "bg-zinc-900/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
+          className
         )}
         style={{
-          ...style, // Apply styles passed from parent (like maxHeight, specific minHeight)
+          ...style,
           height: typeof animatedHeight === "number" ? `${animatedHeight}px` : "auto",
           minHeight: 64,
           overflowY:
@@ -303,10 +316,41 @@ function Textarea({
             textareaRef.current.scrollHeight > animatedHeight 
               ? "auto"
               : "hidden",
+          zIndex: 1,
+          position: 'relative',
         }}
         rows={rows}
         {...props}
       />
+      {/* Top fade shadow for light mode, always visible */}
+      {isLightMode && (
+        <div
+          ref={fadeRef}
+          style={{
+            pointerEvents: 'none',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            height: 28,
+            zIndex: 2,
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.10), rgba(255,255,255,0.0) 80%)',
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+            transition: 'opacity 0.2s',
+            opacity: 1,
+          }}
+        />
+      )}
+      {/* Top border shadow for focus (light mode) */}
+      {isLightMode && (
+        <style>{`
+          textarea[data-slot="textarea"]:focus-visible {
+            box-shadow: 0 -8px 24px -8px rgba(30, 41, 59, 0.10);
+            border-color: #a1a1aa;
+          }
+        `}</style>
+      )}
     </motion.div>
   );
 }
