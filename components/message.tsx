@@ -298,7 +298,7 @@ const PurePreviewMessage = ({
   return (
     <AnimatePresence key={message.id}>
       <motion.div
-        className="w-full mx-auto px-2 sm:px-4 group/message max-w-[97.5%] sm:max-w-[52rem]"
+        className="w-full mx-auto px-2 sm:px-4 group/message max-w-[97.5%] sm:max-w-[46rem]"
         initial={{ y: 5, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         key={`message-${message.id}`}

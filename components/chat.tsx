@@ -335,7 +335,7 @@ export default function Chat() {
       >
         {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (
           <div className="flex h-full items-center justify-center">
-            <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-4xl">
+            <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-[50rem]">
               <ProjectOverview />
               {isDesktop && (
                 <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto mt-6 ">
@@ -431,7 +431,7 @@ export default function Chat() {
             ref={inputAreaRef}
             className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
           >
-            <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative">
+            <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative">
               <form onSubmit={handleSubmit} className="w-full relative z-10">
                 <CustomTextareaWrapper
                   selectedModel={selectedModel}
