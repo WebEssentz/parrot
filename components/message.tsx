@@ -5,6 +5,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { memo, useCallback, useEffect, useState, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { toast } from "sonner";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import equal from "fast-deep-equal";
 
 import { Markdown } from "./markdown";
@@ -269,13 +279,15 @@ const PurePreviewMessage = ({
   const handleCopy = () => {
     copyToClipboard(aiMessageText); // For AI messages
     setCopied(true);
+    toast("Copied to Clipboard");
     if (copyTimeout.current) clearTimeout(copyTimeout.current);
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
-  
+
   const handleUserMessageCopy = (textToCopy: string) => {
     copyToClipboard(textToCopy);
     setCopied(true); // This state is shared, might be fine or might need separate states if interactions overlap
+    toast("Copied to Clipboard");
     if (copyTimeout.current) clearTimeout(copyTimeout.current);
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
@@ -655,11 +667,15 @@ const PurePreviewMessage = ({
                     const shouldCollapse = false;
                     const isCollapsed = false;
 
+
                     // Copy icon row visibility (per part)
                     const showIcons = userShowIcons[i];
                     // Desktop: show on hover (using group-hover), always for latest
                     // Mobile: controlled by showIcons state
                     const iconsRowVisible = isMobileOrTablet ? showIcons : isLatestMessage;
+
+                    // Drawer state for mobile/tablet actions
+                    const [drawerOpen, setDrawerOpen] = useState(false);
 
                     return (
                       <motion.div
@@ -781,50 +797,77 @@ const PurePreviewMessage = ({
                                   )}
                                 </div>
                               </motion.div>
-                              {/* Overlay for previous messages on mobile to toggle icons row */}
-                              {isMobileOrTablet && !(isLatestMessage && i === (userMessageParts?.length ?? 0) - 1) && (
-                                <div
-                                  className="absolute inset-0 z-10 cursor-pointer"
-                                  style={{ borderRadius: 24 }}
-                                  onClick={e => handleUserBubbleTap(i, e)}
-                                />
+                              {/* Overlay for previous messages on mobile to toggle drawer */}
+                              {isMobileOrTablet && (
+                                <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+                                  <DrawerTrigger asChild>
+                                    <div
+                                      className="absolute inset-0 z-10 cursor-pointer"
+                                      style={{ borderRadius: 24 }}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        setDrawerOpen(true);
+                                      }}
+                                    />
+                                  </DrawerTrigger>
+                                  <DrawerContent>
+                                    <DrawerHeader>
+                                      <DrawerTitle className="w-full text-center">Actions</DrawerTitle>
+                                    </DrawerHeader>
+                                    <div className="flex flex-col gap-2 px-4 py-2">
+                                      <button
+                                        type="button"
+                                        aria-label="Copy message"
+                                        className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                                        onClick={async () => {
+                                          handleUserMessageCopy(part.text);
+                                          // Show copied state for 1s before closing drawer
+                                          await new Promise(res => setTimeout(res, 1000));
+                                          setDrawerOpen(false);
+                                        }}
+                                      >
+                                        {copied ? (
+                                          <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />
+                                        ) : (
+                                          <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />
+                                        )}
+                                        <span className="text-base font-medium">{copied ? 'Copied!' : 'Copy'}</span>
+                                      </button>
+                                      {/* Future actions can be added here */}
+                                    </div>
+                                    {/* DrawerFooter intentionally omitted: close button removed. */}
+                                  </DrawerContent>
+                                </Drawer>
                               )}
-                              <div
-                                className={cn(
-                                  "mt-1 mr-1 flex transition-opacity duration-200",
-                                  isMobileOrTablet
-                                    ? (iconsRowVisible ? "opacity-100" : "opacity-0 pointer-events-none")
-                                    : (!isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100")
-                                )}
-                                style={
-                                  isMobileOrTablet
-                                    ? { justifyContent: 'flex-start', marginLeft: '-8px', marginRight: '10px' }
-                                    : undefined
-                                }
-                              >
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      aria-label="Copy message"
-                                      className={cn(
-                                        "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none",
-                                        isMobileOrTablet
-                                          ? "bg-transparent text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                          : "bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                      )}
-                                      onClick={() => handleUserMessageCopy(part.text)}
-                                    >
-                                      {copied ? (
-                                        <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                      ) : (
-                                        <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                      )}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                                </Tooltip>
-                              </div>
+                              {/* Desktop: Copy icon row (unchanged) */}
+                              {!isMobileOrTablet && (
+                                <div
+                                  className={cn(
+                                    "mt-1 mr-1 flex transition-opacity duration-200",
+                                    !isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100"
+                                  )}
+                                >
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        aria-label="Copy message"
+                                        className={cn(
+                                          "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                        )}
+                                        onClick={() => handleUserMessageCopy(part.text)}
+                                      >
+                                        {copied ? (
+                                          <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                        ) : (
+                                          <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
+                                        )}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
