@@ -170,20 +170,25 @@ const components: Partial<Components> = {
       {children}
     </table>
   ),
+
   thead: ({ node, children, ...props }) => (
     <thead {...props}>{children}</thead>
   ),
+  
   tbody: ({ node, children, ...props }) => <tbody {...props}>{children}</tbody>,
+  
   tr: ({ node, children, ...props }) => (
     <tr className="border-b border-zinc-200 dark:border-zinc-700" {...props}>
       {children}
     </tr>
   ),
+  
   th: ({ node, children, ...props }) => (
     <th className="py-2 pr-8 text-left font-normal" {...props}>
       {children}
     </th>
   ),
+  
   td: ({ node, children, ...props }) => (
     <td className="py-2 pr-8 align-top" {...props}>
       {children}
@@ -193,6 +198,7 @@ const components: Partial<Components> = {
 
 const remarkPlugins = [remarkGfm]
 
+// --Helper: Render Sources Block in Markdown
 function stripSourcesBlock(markdown: string): string {
   const start = markdown.indexOf("<!-- AVURNA_SOURCES_START -->")
   const end = markdown.indexOf("<!-- AVURNA_SOURCES_END -->")

@@ -1,6 +1,6 @@
 "use client";
 
-import { UIMessage, StreamData } from 'ai';
+import React from "react";
 import { useMobile } from "../hooks/use-mobile";
 import { defaultModel } from "@/ai/providers";
 import { SEARCH_MODE } from "@/components/ui/textarea";
@@ -12,7 +12,6 @@ import { ProjectOverview } from "./project-overview";
 import { Messages } from "./messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "./header";
-import React from "react";
 import { toast } from "sonner";
 
 import { Github, LinkedInIcon, XIcon } from "./icons";
@@ -71,36 +70,6 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
   }
 }
 
-// Recursion Prompt UI
-function RecursionPrompt({ prompt, onSubmit }: { prompt: string; onSubmit: (depth: number) => void }) {
-  const [depth, setDepth] = useState(1);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 max-w-md w-full flex flex-col items-center">
-        <div className="text-lg font-semibold mb-2">Recursion Depth Required</div>
-        <div className="mb-4 text-zinc-700 dark:text-zinc-200 whitespace-pre-line">{prompt}</div>
-        <div className="flex items-center gap-2 mb-4">
-          <label htmlFor="recursion-depth" className="font-medium">Depth:</label>
-          <input
-            id="recursion-depth"
-            type="number"
-            min={0}
-            max={5}
-            value={depth}
-            onChange={e => setDepth(Number(e.target.value))}
-            className="border rounded px-2 py-1 w-16 text-center"
-          />
-        </div>
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold"
-          onClick={() => onSubmit(depth)}
-        >
-          Continue
-        </button>
-      </div>
-    </div>
-  );
-}
 export default function Chat() {
   const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
@@ -114,7 +83,7 @@ export default function Chat() {
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
-  
+
 
   useEffect(() => {
     if (!showMobileInfoMessage || isDesktop) return;
@@ -199,20 +168,6 @@ export default function Chat() {
     }
   }, [data]);
 
-  // Handler for submitting recursion depth
-  const handleRecursionDepthSubmit = (depth: number) => {
-    if (!recursionPromptRef.current) return;
-    // Compose a new user message with the specified recursionDepth
-    const { url, userIntent, params } = recursionPromptRef.current;
-    const newMessage = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      role: 'user' as 'user',
-      content: `${userIntent}\nrecursionDepth ${depth}${params.maxPages ? `, maxPages ${params.maxPages}` : ''}${params.timeoutMs ? `, timeoutMs ${params.timeoutMs}` : ''}`,
-    };
-    setRecursionPrompt(null);
-    setMessages([...messages, newMessage]);
-  };
-
   useEffect(() => {
     if (messages.length === 1 && messages[0].role === 'user' && !titleGeneratedRef.current) {
       const firstUserMessageContent = messages[0].content;
@@ -221,7 +176,7 @@ export default function Chat() {
     }
     if (messages.length === 0 && titleGeneratedRef.current) {
       titleGeneratedRef.current = false;
-      document.title = "Avurna AI";
+      document.title = "Avocado Avurna";
     }
   }, [messages]);
 
@@ -267,7 +222,7 @@ export default function Chat() {
 
     const observer = new ResizeObserver(measureAndUpdateHeight);
     observer.observe(elementToObserve);
-    
+
     // Keep window resize listener if it's meant to trigger remeasurement
     // for reasons beyond the element's own ResizeObserver capabilities.
     window.addEventListener('resize', measureAndUpdateHeight);
@@ -304,17 +259,13 @@ export default function Chat() {
 
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
-  const bufferForInputArea = isMobileOrTabletHook ? 200 : 50;
+  // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
+  const bufferForInputArea = isMobileOrTabletHook ? 200 : 1;
   const currentYear = new Date().getFullYear();
 
   return (
     <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
       <Header />
-
-      {/* Recursion Prompt Modal */}
-      {recursionPrompt && (
-        <RecursionPrompt prompt={recursionPrompt.prompt} onSubmit={handleRecursionDepthSubmit} />
-      )}
 
       <div
         ref={containerRef}
@@ -325,8 +276,10 @@ export default function Chat() {
         style={{
           paddingTop:
             typeof isDesktop !== 'undefined' && !isDesktop
-              ? '18px' 
-              : undefined,
+              ? '18px'
+              : typeof isDesktop !== 'undefined' && isDesktop
+                ? '18px' // Add extra top padding for desktop
+                : undefined,
           paddingBottom:
             typeof isDesktop !== 'undefined' && isDesktop
               ? `${inputAreaHeight + bufferForInputArea}px`
@@ -355,7 +308,7 @@ export default function Chat() {
               )}
               {isDesktop && (
                 <>
-                  <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
+                  <div className="fixed left-1/2 -translate-x-1/2 bottom-1 z-30 flex justify-center pointer-events-none">
                     <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
                       By messaging Avurna, you agree to our{' '}
                       <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
@@ -418,7 +371,7 @@ export default function Chat() {
                 />
               </form>
               {(hasSentMessage) && (
-                <div className="text-center mt-1.5">
+                <div className="text-center">
                   <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
                     Avurna uses AI. Double check response.
                   </span>
@@ -429,7 +382,8 @@ export default function Chat() {
         ) : (
           <div
             ref={inputAreaRef}
-            className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
+            className="fixed left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
+            style={{ bottom: '-10px' }}
           >
             <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative">
               <form onSubmit={handleSubmit} className="w-full relative z-10">
@@ -447,7 +401,7 @@ export default function Chat() {
                 />
               </form>
               {(hasSentMessage) && (
-                <div className="text-center mt-1.5">
+                <div className="text-center">
                   <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
                     Avurna uses AI. Double check response.
                   </span>

@@ -1,4 +1,5 @@
 "use client";
+
 import { Modal } from "./ui/modal";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
@@ -9,23 +10,24 @@ import { toast } from "sonner";
 import {
   Drawer,
   DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
+  // DrawerDescription,
+  // DrawerFooter,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import equal from "fast-deep-equal";
-
 import { Markdown } from "./markdown";
 import { cn } from "@/lib/utils";
 import {
-  CheckCircle,
+  // CheckCircle,
   ChevronDownIcon,
   ChevronUpIcon,
 } from "lucide-react";
 import { StreamingTextRenderer } from "./streaming-text-renderer";
 
+
+// TODO, WIP: EXPORT ALL THIS HARDCODED ICONS DEFINED HERE TO THE ICONS.TSX FILE AND IMPORT BACK.
 // Copy icon SVG as a React component
 const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-[2] size-4" {...props}>
@@ -50,18 +52,25 @@ function SpinnerIcon() {
   );
 }
 
+// Utility: Get favicon URL for a given site
+export function getFaviconUrl(siteUrl: string): string {
+  try {
+    const url = new URL(siteUrl);
+    // return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=64`; // More robust option
+    return `${url.origin}/favicon.ico`;
+  } catch {
+    return "/globe.svg"; // Fallback to a generic globe icon
+  }
+}
+
 // Show AI action icons on hover of any part of the AI message (desktop only).
-// The `data-ai-action` elements (which include the copy icon) are only rendered for AI messages on desktop.
+// The data-ai-action elements (which include the copy icon) are only rendered for AI messages on desktop.
 if (typeof window !== 'undefined') {
   const styleId = 'ai-message-hover-style';
   if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
-    style.innerHTML = `
-      .group\\/ai-message-hoverable:hover [data-ai-action] { /* Ensure opacity for elements with data-ai-action on hover of parent group */
-        opacity: 1 !important;
-      }
-    `;
+    style.innerHTML = `.group\\/ai-message-hoverable:hover [data-ai-action] { /* Ensure opacity for elements with data-ai-action on hover of parent group */ opacity: 1 !important; };`;
     document.head.appendChild(style);
   }
 }
@@ -96,7 +105,10 @@ function copyToClipboard(text: string) {
 interface ReasoningPart {
   type: "reasoning";
   reasoning: string;
-  details: Array<{ type: "text"; text: string }>;
+  details: Array<
+    | { type: "text"; text: string; signature?: string }
+    | { type: "redacted"; data: string }
+  >;
 }
 
 interface ReasoningMessagePartProps {
@@ -149,10 +161,7 @@ export function ReasoningMessagePart({
     memoizedSetIsExpanded(isReasoning);
   }, [isReasoning, memoizedSetIsExpanded]);
 
-  // No flash effect needed for finished message
-
   const { theme } = useTheme ? useTheme() : { theme: undefined };
-  // No flash effect needed for finished message
 
   return (
     <div className="flex flex-col">
@@ -169,8 +178,6 @@ export function ReasoningMessagePart({
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
-                // animation: 'Avurna-shimmer-text 1.3s linear infinite',
-                // animationTimingFunction: 'linear',
                 willChange: 'background-position',
                 display: 'inline-block',
                 transition: 'background 0.2s, color 0.2s',
@@ -179,19 +186,10 @@ export function ReasoningMessagePart({
             >
               Reasoning
             </span>
-            {/* <style>{`
-              @keyframes Avurna-shimmer-text {
-                0% { background-position: -100% 0; }
-                50% { background-position: 100% 0; }
-                100% { background-position: -100% 0; }
-              }
-            `}</style> */}
           </span>
-          {/* SpinnerIcon removed as requested */}
         </div>
       ) : (
         <div className="flex flex-row gap-2 items-center">
-          {/* Click on text expands/collapses reasoning parts */}
           <span
             className="font-medium text-sm pl-4 mt-1 relative inline-block"
             style={{ minWidth: 120, cursor: 'pointer' }}
@@ -254,9 +252,7 @@ const PurePreviewMessage = ({
   status: "error" | "submitted" | "streaming" | "ready";
   isLatestMessage: boolean;
 }) => {
-  // Move useTheme to the top to ensure consistent hook order
   const { theme } = useTheme ? useTheme() : { theme: undefined };
-  // Extract sources from all text parts
   const allText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
   const sources = extractSourcesFromText(allText);
   const [showSources, setShowSources] = useState(false);
@@ -265,21 +261,105 @@ const PurePreviewMessage = ({
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // Favicon Animation State: Track searched sites for each tool-invocation part by index
+  const [searchedSitesByPart, setSearchedSitesByPart] = useState<Record<number, string[]>>({});
+
+  // EFFECT TO UPDATE SEARCHED SITES BASED ON TOOL INVOCATION STATE AND RESULTS
+  useEffect(() => {
+    if (!message.parts) {
+      return;
+    }
+
+    // Create a temporary map to store updates for this render cycle
+    const currentUpdates: Record<number, string[]> = {};
+
+    message.parts.forEach((part, i) => {
+      if (part.type !== "tool-invocation") {
+        return;
+      }
+
+      const { toolName, state, args } = part.toolInvocation;
+      const result = (part.toolInvocation as any)?.result; // Access result
+      // Get existing sites for this part, or an empty array if none
+      let sitesForThisPart = searchedSitesByPart[i] || [];
+
+      // Logic for "call" state: When the tool is invoked
+      // For fetchUrl, the URL is known immediately.
+      if (state === "call" && isLatestMessage && status !== "ready") {
+        if (toolName === "fetchUrl" && args && typeof args === "object" && args.url) {
+          const url = args.url;
+          if (url && !sitesForThisPart.includes(url)) {
+            sitesForThisPart = [...sitesForThisPart, url];
+          }
+        }
+      }
+
+      // WIP: Add a save state to store urls when done. (EXPLAIN LATER)
+
+      // Logic for "result" state: When the tool execution completes and returns data
+      else if (state === "result") {
+        if (toolName === "googleSearch" && result && result.sources && Array.isArray(result.sources)) {
+          const sourceUrls = result.sources.map((s: any) => {
+            // Prioritize sourceUrl if available, otherwise use the regular url
+            return s.sourceUrl || s.url;
+          }).filter(Boolean); // Filter out any null/undefined URLs
+          sourceUrls.forEach((url: string) => {
+            if (url && !sitesForThisPart.includes(url)) {
+              sitesForThisPart = [...sitesForThisPart, url];
+            }
+          });
+        } else if (toolName === "fetchUrl" && result && result.url) {
+          // Add the main URL of the fetched page
+          if (!sitesForThisPart.includes(result.url)) {
+            sitesForThisPart = [...sitesForThisPart, result.url];
+          }
+          // If recursive, add child results
+          if (result.childResults && Array.isArray(result.childResults)) {
+            result.childResults.forEach((childRes: any) => {
+              if (childRes.url && !sitesForThisPart.includes(childRes.url)) {
+                sitesForThisPart = [...sitesForThisPart, childRes.url];
+              }
+            });
+          }
+        }
+      }
+
+      // If sitesForThisPart has new entries compared to the previous state, mark for update
+      if (sitesForThisPart.length > (searchedSitesByPart[i]?.length || 0)) {
+        currentUpdates[i] = sitesForThisPart;
+      }
+    });
+
+    // Apply updates to the state only if there are actual changes
+    if (Object.keys(currentUpdates).length > 0) {
+      setSearchedSitesByPart(prev => {
+        let changed = false;
+        const newState = { ...prev };
+        for (const partIdxStr in currentUpdates) {
+          const partIdx = parseInt(partIdxStr, 10);
+          // Use fast-deep-equal to compare arrays for deep equality, preventing unnecessary re-renders
+          if (!equal(newState[partIdx], currentUpdates[partIdx])) {
+            newState[partIdx] = currentUpdates[partIdx];
+            changed = true;
+          }
+        }
+        return changed ? newState : prev;
+      });
+    }
+  }, [message.parts, isLatestMessage, status, searchedSitesByPart]); // searchedSitesByPart is a dependency because we read its current value inside the effect
 
   // Get the full AI message text (all text parts, sources block stripped)
-  // Remove sources block (between <!-- AVURNA_SOURCES_START --> and <!-- AVURNA_SOURCES_END -->) and the sources themselves
   function stripSourcesBlock(text: string): string {
-    // Remove everything between <!-- AVURNA_SOURCES_START --> and <!-- AVURNA_SOURCES_END --> (including the markers)
     return text.replace(/<!-- AVURNA_SOURCES_START -->[\s\S]*?<!-- AVURNA_SOURCES_END -->/g, "").trim();
   }
+
   const aiMessageText = stripSourcesBlock(
     message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || ""
   );
 
   const handleCopy = () => {
-    copyToClipboard(aiMessageText); // For AI messages
+    copyToClipboard(aiMessageText);
     setCopied(true);
-    // Only show Sonner toast on mobile/tablet
     if (isMobileOrTablet) {
       toast("Copied to Clipboard");
     }
@@ -289,8 +369,7 @@ const PurePreviewMessage = ({
 
   const handleUserMessageCopy = (textToCopy: string) => {
     copyToClipboard(textToCopy);
-    setCopied(true); // This state is shared, might be fine or might need separate states if interactions overlap
-    // Only show Sonner toast on mobile/tablet
+    setCopied(true);
     if (isMobileOrTablet) {
       toast("Copied to Clipboard");
     }
@@ -298,28 +377,17 @@ const PurePreviewMessage = ({
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
 
-
   useEffect(() => () => { if (copyTimeout.current) clearTimeout(copyTimeout.current); }, []);
-  // --- Fix: Per-part state for user message copy icon row ---
-  // Only relevant for user messages, so we only create state if needed
+
   const userMessageParts = message.role === "user" ? message.parts?.filter((p: any) => p.type === "text") : [];
-  // For each user message part, track showIcons state (for mobile copy row)
   const [userShowIcons, setUserShowIcons] = useState(() =>
     userMessageParts ? userMessageParts.map((_, i) => isLatestMessage && i === userMessageParts.length - 1) : []
   );
 
-  // Keep showIcons in sync if message count or latest changes
   useEffect(() => {
     if (!userMessageParts) return;
     setUserShowIcons(userMessageParts.map((_, i) => isMobileOrTablet && isLatestMessage && i === userMessageParts.length - 1));
   }, [isMobileOrTablet, isLatestMessage, userMessageParts?.length]);
-
-  // Handler for toggling icons row on tap (mobile, previous messages)
-  const handleUserBubbleTap = (partIdx: number, e: React.MouseEvent) => {
-    if (!isMobileOrTablet || (isLatestMessage && userMessageParts && partIdx === userMessageParts.length - 1)) return;
-    e.stopPropagation();
-    setUserShowIcons((prev) => prev.map((v, i) => (i === partIdx ? !v : v)));
-  };
 
   return (
     <AnimatePresence key={message.id}>
@@ -379,7 +447,7 @@ const PurePreviewMessage = ({
             </div>
           </div>
         </Modal>
-        {/* Mobile: assistant icon above message bubble, left-aligned */}
+
         <div
           className={cn(
             isAssistant
@@ -387,30 +455,6 @@ const PurePreviewMessage = ({
               : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit",
           )}
         >
-          {/* Desktop: Copy icon at the bottom of the AI message bubble */}
-          {/* AI icon remains at the top left, copy icon moves to bottom of bubble on desktop */}
-          {/* AI icon */}
-          {/* AI icon: show only on desktop, comment out on mobile/tablet */}
-          {/*
-          {isAssistant && !isMobileOrTablet && (
-            <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
-              <div>
-                <SparklesIcon size={14} />
-              </div>
-            </div>
-          )}
-          */}
-          {/*
-          {isAssistant && isMobileOrTablet && (
-            <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
-              <div>
-                <SparklesIcon size={14} />
-              </div>
-            </div>
-          )}
-          */}
-          {/* On mobile/tablet, add left margin to AI message to align with where the icon would be */}
-
           {isAssistant ? (
             <div
               className={cn(
@@ -420,24 +464,20 @@ const PurePreviewMessage = ({
               style={{
                 marginLeft: 0,
                 paddingLeft: 0,
-                // Add extra top margin on mobile/tablet if previous message is from user
-                marginTop: isMobileOrTablet ? 32 : undefined // 32px = 2rem, adjust as needed
+                marginTop: isMobileOrTablet ? 32 : undefined
               }}
             >
               <div className={isMobileOrTablet ? "flex flex-col space-y-4" : "flex flex-col space-y-4 w-fit"} style={{ alignItems: 'flex-start' }}>
                 {message.parts?.map((part, i) => {
                   switch (part.type) {
-                    // Inside PurePreviewMessage, when rendering a 'text' part:
                     case "text":
                       const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-                      // status here is the per-message status passed correctly
                       const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
 
                       return (
                         <motion.div
                           initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }}
                           animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }}
-                          // exit={{ opacity: 0 }} // Keep if needed
                           transition={{ duration: 0.2 }}
                           key={`message-${message.id}-part-${i}`}
                           className="flex flex-row items-start w-full pb-4"
@@ -446,12 +486,11 @@ const PurePreviewMessage = ({
                             className="flex flex-col gap-4"
                             style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
                           >
-                            <Markdown>{part.text}</Markdown> {/* Investigate this component's performance */}
+                            <Markdown>{part.text}</Markdown>
                           </div>
                         </motion.div>
                       );
                     case "tool-invocation": {
-                      // For all tools, do NOT show anything for completed state ("result"), just fade out
                       const shouldFadeOut = part.toolInvocation && part.toolInvocation.state === "result";
                       if (shouldFadeOut) {
                         return (
@@ -464,27 +503,16 @@ const PurePreviewMessage = ({
                           />
                         );
                       }
-                      // Show a friendly label for running tools (call state)
-                      function getToolStatusLabel(toolName: string, state: string) {
-                        switch (toolName) {
-                          case "googleSearch":
-                            return state === "call" ? "Searching the Web" : "";
-                          case "fetchUrl":
-                            return state === "call" ? "Analying Url data" : "";
-                          case "getWeatherdata":
-                          case "weatherTool":
-                            return "Getting weather data";
-                          default:
-                            if (state === "call") return `Running ${toolName}`;
-                            return "";
-                        }
-                      }
                       const { toolName, state } = part.toolInvocation;
-                      const isRunning = state === "call" && isLatestMessage && status !== "ready";
-                      const { theme } = useTheme ? useTheme() : { theme: undefined };
-                      const label = getToolStatusLabel(toolName, state);
+                      const label = (toolName === "googleSearch" && state === "call") ? "Searching the Web" :
+                        (toolName === "fetchUrl" && state === "call") ? "Analyzing Url data" :
+                        (toolName === "getWeatherdata" || toolName === "weatherTool") ? "Getting weather data" :
+                        (state === "call") ? `Running ${toolName}` : "";
+
+                      const searchedSites = searchedSitesByPart[i] || [];
+
                       return (
-                        <div className="flex flex-col">
+                        <div className="flex flex-col" key={`message-${message.id}-part-${i}`}>
                           <div
                             className="flex flex-row items-center gap-1"
                             style={
@@ -493,8 +521,27 @@ const PurePreviewMessage = ({
                                 : { marginLeft: '-16px', marginRight: '12px' }
                             }
                           >
+                            {/* Animated favicon row */}
+                            <div className="flex flex-row items-center gap-1">
+                              <AnimatePresence initial={false}>
+                                {searchedSites.map((url, idx) => (
+                                  <motion.img
+                                    key={url}
+                                    src={getFaviconUrl(url)}
+                                    alt="site favicon"
+                                    className="w-5 h-5 rounded mr-1"
+                                    initial={{ x: -20, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    exit={{ x: 20, opacity: 0 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                    style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+                                  />
+                                ))}
+                              </AnimatePresence>
+                            </div>
+                            {/* Shimmer text (not applied to icons) */}
                             <span className="font-medium pl-4 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
-                              {isRunning && label ? (
+                              {state === "call" && label ? (
                                 <span style={{ position: 'relative', display: 'inline-block' }}>
                                   <span style={{
                                     color: theme === 'dark' ? '#a3a3a3' : '#6b7280',
@@ -510,7 +557,6 @@ const PurePreviewMessage = ({
                                     willChange: 'background-position',
                                     display: 'inline-block',
                                   }}
-                                    // Force re-render on theme change to reset background
                                     key={theme}
                                   >
                                     {label}
@@ -534,7 +580,6 @@ const PurePreviewMessage = ({
                       return (
                         <ReasoningMessagePart
                           key={`message-${message.id}-${i}`}
-                          // @ts-expect-error part
                           part={part}
                           isReasoning={
                             (message.parts &&
@@ -549,19 +594,8 @@ const PurePreviewMessage = ({
                   }
                 })}
               </div>
-              {/* Desktop: Action icons (copy, etc) at the left start of the AI message bubble, matching mobile layout */}
-              {/* Show copy icon row on desktop: always visible for latest assistant message, hover for previous */}
-              {/* Desktop: Copy icon row is always left-aligned under the AI message bubble, but moved up closer to the bubble and shifted left with margin-right */}
-              {/*
-                To avoid "Rendered more hooks than during the previous render" error,
-                move the stateful logic for the icon row outside of the conditional rendering block.
-                This ensures hooks are always called in the same order.
-              */}
               {(() => {
-                // Only used for desktop, assistant, and status === "ready"
-                // But always call the hook to preserve order
                 const [showIconRow, setShowIconRow] = useState(isLatestMessage ? false : true);
-                // Only run the effect for desktop, assistant, and status === "ready"
                 useEffect(() => {
                   if (!isMobileOrTablet && isAssistant && status === "ready") {
                     if (isLatestMessage) {
@@ -571,7 +605,6 @@ const PurePreviewMessage = ({
                       setShowIconRow(true);
                     }
                   }
-                  // eslint-disable-next-line
                 }, [isMobileOrTablet, isAssistant, status, isLatestMessage]);
                 if (!isMobileOrTablet && isAssistant && status === "ready") {
                   const { theme } = useTheme();
@@ -620,14 +653,12 @@ const PurePreviewMessage = ({
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
                         </Tooltip>
-                        {/* Future action icons can be added here */}
                       </motion.div>
                     </div>
                   );
                 }
                 return null;
               })()}
-              {/* Mobile: Copy icon always at the bottom, after the message bubble */}
               {isMobileOrTablet && isAssistant && status === "ready" && (
                 <div className="relative w-full">
                   <div className="flex absolute left-0 right-0 justify-start z-10">
@@ -644,43 +675,30 @@ const PurePreviewMessage = ({
                       >
                         {copied ? <CheckIcon style={{ color: 'white', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: 'white', transition: 'all 0.2s' }} />}
                       </button>
-                      {/* Future action buttons can be added here as more icons */}
                     </div>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            // User messages
             <div className="flex flex-col w-full space-y-4">
               {message.parts?.map((part, i) => {
-                // Add extra bottom margin after the last part of a user message on mobile/tablet only
                 const isLastPart = i === (message.parts?.length || 0) - 1;
                 switch (part.type) {
                   case "text":
                     const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
                     const isLatestActivelyStreamingTextPart =
-                      isAssistant && // This will always be false here, as we are in the !isAssistant branch
+                      isAssistant &&
                       status === "streaming" &&
                       isLatestMessage &&
                       isEffectivelyLastPart;
 
                     const LONG_MESSAGE_CHAR_LIMIT = 400;
-                    const isUserMessage = message.role === "user"; // Always true here
+                    const isUserMessage = message.role === "user";
                     const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT;
-                    // Expand/collapse state for long user messages (per part)
                     const [expanded, setExpanded] = useState(false);
                     const shouldCollapse = false;
                     const isCollapsed = false;
-
-
-                    // Copy icon row visibility (per part)
-                    const showIcons = userShowIcons[i];
-                    // Desktop: show on hover (using group-hover), always for latest
-                    // Mobile: controlled by showIcons state
-                    const iconsRowVisible = isMobileOrTablet ? showIcons : isLatestMessage;
-
-                    // Drawer state for mobile/tablet actions
                     const [drawerOpen, setDrawerOpen] = useState(false);
 
                     return (
@@ -714,7 +732,6 @@ const PurePreviewMessage = ({
                             />
                           ) : (
                             <div className="group/user-message flex flex-col items-end w-full gap-1 relative justify-center max-w-3xl md:px-4 pb-2">
-                              {/* User Message Bubble */}
                               <motion.div
                                 className={cn(
                                   "prose-p:opacity-95",
@@ -764,7 +781,6 @@ const PurePreviewMessage = ({
                                       ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...'
                                       : part.text}
                                   </Markdown>
-                                  {/* Expand/collapse chevron for long user messages */}
                                   {!shouldCollapse && isLongUserMessage && (
                                     <div
                                       style={{
@@ -803,7 +819,6 @@ const PurePreviewMessage = ({
                                   )}
                                 </div>
                               </motion.div>
-                              {/* Overlay for previous messages on mobile to toggle drawer */}
                               {isMobileOrTablet && (
                                 <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
                                   <DrawerTrigger asChild>
@@ -827,7 +842,6 @@ const PurePreviewMessage = ({
                                         className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                                         onClick={async () => {
                                           handleUserMessageCopy(part.text);
-                                          // Show copied state for 1s before closing drawer
                                           await new Promise(res => setTimeout(res, 1000));
                                           setDrawerOpen(false);
                                         }}
@@ -839,13 +853,10 @@ const PurePreviewMessage = ({
                                         )}
                                         <span className="text-base font-medium">{copied ? 'Copied!' : 'Copy'}</span>
                                       </button>
-                                      {/* Future actions can be added here */}
                                     </div>
-                                    {/* DrawerFooter intentionally omitted: close button removed. */}
                                   </DrawerContent>
                                 </Drawer>
                               )}
-                              {/* Desktop: Copy icon row (unchanged) */}
                               {!isMobileOrTablet && (
                                 <div
                                   className={cn(
@@ -891,13 +902,11 @@ const PurePreviewMessage = ({
   );
 };
 
-// Message.tsx (memo comparison)
 export const Message = memo(PurePreviewMessage, (prevProps, nextProps) => {
   if (prevProps.status !== nextProps.status) return false;
-  if (prevProps.isLoading !== nextProps.isLoading) return false; 
-  if (prevProps.isLatestMessage !== nextProps.isLatestMessage) return false; 
+  if (prevProps.isLoading !== nextProps.isLoading) return false;
+  if (prevProps.isLatestMessage !== nextProps.isLatestMessage) return false;
   if (prevProps.message.annotations !== nextProps.message.annotations) return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
-  // if (prevProps.message.id !== nextProps.message.id) return false; // Key change handles this
   return true;
 });
