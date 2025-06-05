@@ -77,7 +77,7 @@ export const OAuthButton = ({
         hover:shadow-[0_2px_4px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.04)]
         dark:hover:shadow-none
         backdrop-blur-sm
-        overflow-hidden
+        overflow-hidden cursor-pointer
         group
       `, className)}
     >

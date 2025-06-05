@@ -16,8 +16,8 @@ export default function SignInPage() {
     if (!isLoaded) return;
     return signIn.authenticateWithRedirect({
       strategy,
-      redirectUrl: "/sso-callback",
-      redirectUrlComplete: "/dashboard", // Changed from "/" to "/dashboard"
+      redirectUrl: "/callback",
+      redirectUrlComplete: "/", // Changed from "/" to "/dashboard"
     });
   };
 
