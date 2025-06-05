@@ -16,6 +16,7 @@ export const user = pgTable('User', {
   email: varchar('email', { length: 64 }).notNull().unique(),
   username: varchar('username', { length: 255 }).notNull().unique(),
   profilePic: varchar('profile_pic', { length: 255 }),
+  birthday: varchar('birthday', { length: 10 }), // ISO date string: YYYY-MM-DD
   createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow(),
 });
 

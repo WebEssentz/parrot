@@ -5,6 +5,14 @@ import "./styles/text-animations.css" // Import the animations CSS
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from '@clerk/nextjs'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,20 +32,22 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <TooltipProvider delayDuration={0}>
-            {children}
-            <Toaster />
-          </TooltipProvider>
-        </ThemeProvider>
+        <ClerkProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <TooltipProvider delayDuration={0}>
+              {children}
+              <Toaster />
+            </TooltipProvider>
+          </ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   );
