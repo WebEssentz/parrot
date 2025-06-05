@@ -305,7 +305,13 @@ export async function POST(req: Request) {
   let systemPrompt = fs.readFileSync(path.join(promptDir, "criticalPrompt.txt"), "utf8");
   // Always include critical rules
   // Always include the tool selection policy and system prompt
-  systemPrompt += "\n\n" + fs.readFileSync(path.join(promptDir, "systemPrompt.txt"), "utf8");
+  let systemPromptTxt = fs.readFileSync(path.join(promptDir, "systemPrompt.txt"), "utf8");
+  // Inject the current year dynamically
+  const currentYear = new Date().getFullYear();
+  systemPromptTxt = systemPromptTxt.replace(/# The current year is:.*\n?/i, `# The current year is: ${currentYear}\n`);
+  // Inject the current date and time dynamically
+  systemPromptTxt = systemPromptTxt.replace(/# The current date and time is: \{currentDate\} \(UTC\)/i, `# The current date and time is: ${currentDate} (UTC)`);
+  systemPrompt += "\n\n" + systemPromptTxt;
   // Add Agent X prompt if user intent is web/automation (URL present or web task keywords)
   // const agentXNeeded = !!urlToAnalyze || /website|site|web|browser|agent|automation|scrape|extract|analyze|navigate|product|video|post|news|shopping|social|table|data|csv|spreadsheet/i.test(userIntent);
   // if (agentXNeeded) {

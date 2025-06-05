@@ -371,7 +371,7 @@ export default function Chat() {
                 />
               </form>
               {(hasSentMessage) && (
-                <div className="text-center">
+                <div className="text-center -mt-4">
                   <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
                     Avurna uses AI. Double check response.
                   </span>
@@ -401,7 +401,7 @@ export default function Chat() {
                 />
               </form>
               {(hasSentMessage) && (
-                <div className="text-center">
+                <div className="text-center" style={{ marginTop: '-4px' }}>
                   <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
                     Avurna uses AI. Double check response.
                   </span>
