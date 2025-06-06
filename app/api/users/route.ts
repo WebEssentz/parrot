@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       profilePic: body.profilePic || null,
       birthday: body.birthday
         ? (typeof body.birthday === "string"
-            ? body.birthday
+            ? body.birthday.slice(0, 10)
             : new Date(body.birthday).toISOString().slice(0, 10))
         : null,
     };
