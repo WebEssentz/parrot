@@ -1254,7 +1254,7 @@ export const WarningIcon = ({ size = 16 }: { size?: number }) => {
   );
 };
 
-export const SpinnerIcon = ({ size = 16 }: { size?: number }) => (
+export const SpinnerIcon = ({ size = 16, className }: { size?: number, className: any }) => (
   <svg
     height={size}
     strokeLinejoin="round"

@@ -1,11 +1,10 @@
 "use client";
 
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea"; // Ensure this path is correct
-import { defaultModel } from "@/ai/providers"; // Ensure this path is correct and defaultModel is a string
+import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea";
+import { defaultModel } from "@/ai/providers"; 
 import { ArrowUp, ArrowRight } from "lucide-react";
-import { PauseIcon } from "./icons"; // Ensure this path is correct
-import React, { useEffect, useState, useRef, useCallback } from "react"; // Added useState, useRef, useCallback
-
+import { PauseIcon } from "./icons"; 
+import React from "react";
 import { useMobile } from "../hooks/use-mobile";
 
 interface InputProps {
@@ -184,7 +183,7 @@ export const Textarea = ({
 
   // Memoize textareaStyle to prevent unnecessary re-renders of the child if this component updates.
   const textareaStyle = React.useMemo(() => ({ 
-    minHeight: 40, // Corresponds to min-h-10 if 1rem=16px (2.5rem)
+    minHeight: 46, // Corresponds to min-h-10 if 1rem=16px (2.5rem)
     maxHeight: 208 // Corresponds to max-h-52 if 1rem=16px (13rem)
   }), []);
 
@@ -194,12 +193,12 @@ export const Textarea = ({
         
         {shouldShowCustomPlaceholderElements && (
           <div 
-              className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-3 z-10 overflow-hidden"
+              className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
               style={{ height: '40px' }} // Matches minHeight of textarea
           >
               <div
                   className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
-                      staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
+                    staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
                   }`}
               >
                   Ask Avurna...
@@ -212,9 +211,9 @@ export const Textarea = ({
                             ? 'opacity-100 translate-y-0' 
                             : (previousPromptIndex !== null 
                                 ? 'opacity-0 -translate-y-3' // Animate out upwards
-                                : 'opacity-0 translate-y-3') // Initial animate in from downwards
+                                : 'opacity-0 -translate-y-3') // Initial animate in from upwards
                       }`}
-                      style={{ marginLeft: '15px' }} // Adjust as needed
+                      style={{ marginLeft: '12px' }} // Adjust as needed
                     >
                       <span className="truncate">
                           {activePromptText}
@@ -222,9 +221,9 @@ export const Textarea = ({
                       {showTabBadge && (
                         <span 
                           className="ml-1.5 flex-shrink-0 text-[10px] leading-tight text-zinc-400 dark:text-zinc-500 border border-zinc-300 dark:border-zinc-600 rounded-sm px-1 py-[1px] bg-transparent"
-                          style={{ marginRight: '32px' }} // Space from the edge
+                          style={{ marginRight: '29px' }} // Space from the edge
                         >
-                            TAB
+                          TAB
                         </span>
                       )}
                    </div>
@@ -250,6 +249,7 @@ export const Textarea = ({
           disabled={isMobileOnly && (status === 'streaming' || status === 'submitted')}
           onKeyDown={handleKeyDown}
         />
+        
         {/* This div acts as a spacer for the absolutely positioned buttons */}
         <div style={{paddingBottom: '48px'}} /> 
         
@@ -261,8 +261,8 @@ export const Textarea = ({
               style={{ marginRight: 98 }} // Space for the send/stop button
             >
               <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isLoading} />
-              <SearchButton isSearchEnabled={searchToggleIsOn} setIsSearchEnabled={handleSetSearchEnabled} disabled={isLoading} />
-              <ReasonButton isReasonEnabled={reasonToggleIsOn} setIsReasonEnabled={handleSetReasonEnabled} hideTextOnMobile disabled={isLoading} />
+              <SearchButton isSearchEnabled={searchToggleIsOn} setIsSearchEnabled={handleSetSearchEnabled} />
+              <ReasonButton isReasonEnabled={reasonToggleIsOn} setIsReasonEnabled={handleSetReasonEnabled} hideTextOnMobile />
             </div>
             <div className="absolute end-3 bottom-0 flex items-center gap-2">
               <div className="ms-auto flex items-center gap-1.5">
@@ -284,6 +284,7 @@ export const Textarea = ({
                     )}
                   </button>
                 )}
+                {/** WIP: We should update this, immediately the message is submitted, we should enable the button, so we can stop response or stream of the ai. */}
                 {(status === "streaming" || status === "submitted") && (
                   <button
                     type="button"

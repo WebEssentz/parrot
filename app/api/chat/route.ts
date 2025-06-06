@@ -94,10 +94,38 @@ export async function POST(req: Request) {
     });
   }
 
-  // --- Title Generation Handling ---
+  // --- Title Generation Handling (Robust: Only generate if message is clear) ---
   if (action === 'generateTitle' && messages && messages.length > 0) {
+
     const userMessageContent = messages[messages.length - 1]?.content ?? '';
-    const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like "New Chat".
+
+    // Improved vague message detection: only treat as vague if the entire message is a short greeting or filler, not if it contains a real question or statement.
+    function isVagueMessage(msg: string) {
+      if (!msg || typeof msg !== 'string') return true;
+      const trimmed = msg.trim();
+      if (trimmed.length < 2) return true;
+      // Only treat as vague if the WHOLE message is a greeting/filler, not if it contains a question or real content
+      const vagueExact = [
+        'hi', 'hello', 'hey', 'yo', 'sup', 'start', 'begin', 'new chat', 'test', 'ok', 'okay', 'help', 'continue', 'again', 'repeat', 'next', 'more', 'info', 'details', 'expand', 'elaborate', 'explain', 'yes', 'no', 'maybe', 'sure', 'thanks', 'thank you', 'cool', 'nice', 'good', 'great', 'awesome', 'wow', 'hmm', 'huh', 'pls', 'please'
+      ];
+      if (vagueExact.includes(trimmed.toLowerCase())) return true;
+      // Only treat as vague if the message is just punctuation or whitespace
+      if (/^\s*$/.test(trimmed) || /^([?.!\s]+)$/.test(trimmed)) return true;
+      // If message is just a single word and not a question
+      if (trimmed.split(/\s+/).length === 1 && !trimmed.endsWith('?')) return true;
+      // Otherwise, not vague
+      return false;
+    }
+
+    if (isVagueMessage(userMessageContent)) {
+      // Signal to frontend to wait for a clearer message
+      return new Response(JSON.stringify({ title: null, reason: "vague" }), {
+        headers: { 'Content-Type': 'application/json' }, status: 200,
+      });
+    }
+
+    // Only generate title if message is clear
+    const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like \"New Chat\".
 
     User Message: "${userMessageContent}"`;
     try {
