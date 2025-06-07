@@ -78,83 +78,207 @@ function useReconnectToClerk() {
   const { isLoaded, isSignedIn } = useUser();
   const [isOnline, setIsOnline] = useState(true);
   const [hasShownReconnect, setHasShownReconnect] = useState(false);
-  const [offlineTimeout, setOfflineTimeout] = useState<NodeJS.Timeout | null>(null);
-
-  // Expose online state to parent
   const [offlineState, setOfflineState] = useState<'online' | 'reconnecting' | 'offline'>('online');
+  const [retryCount, setRetryCount] = useState(0);
+  const [offlineSince, setOfflineSince] = useState<number | null>(null);
+  const retryIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const offlineDurationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectToastId = "reconnect";
+  const offlineToastId = "offline";
+
+  // Helper to format duration in mm:ss
+  const formatDuration = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
+
+  // Helper to update the reconnect toast with countdown
+  const updateReconnectToast = (secondsLeft: number) => {
+    let offlineMsg = '';
+    if (offlineSince) {
+      const duration = Date.now() - offlineSince;
+      offlineMsg = ` | Offline for ${formatDuration(duration)}`;
+    }
+    toast.loading(`Reconnecting... (retry in ${secondsLeft}s)${offlineMsg}`, {
+      id: reconnectToastId,
+      duration: 5000,
+      position: "top-center",
+      richColors: true,
+    });
+  };
+
+  // Helper to show offline toast with duration
+  const showOfflineToast = () => {
+    let offlineMsg = '';
+    if (offlineSince) {
+      const duration = Date.now() - offlineSince;
+      offlineMsg = `You’ve been offline for ${formatDuration(duration)}`;
+    } else {
+      offlineMsg = 'You are offline.';
+    }
+    toast.error(offlineMsg, { id: offlineToastId, duration: 999999, position: "top-center", richColors: true });
+  };
+
+  // Track offline duration
+  useEffect(() => {
+    if (offlineState === 'offline' || offlineState === 'reconnecting') {
+      if (!offlineSince) setOfflineSince(Date.now());
+      if (!offlineDurationIntervalRef.current) {
+        offlineDurationIntervalRef.current = setInterval(() => {
+          // Update toast with new duration
+          if (offlineState === 'offline') showOfflineToast();
+          if (offlineState === 'reconnecting') updateReconnectToast(5);
+        }, 1000);
+      }
+    } else {
+      setOfflineSince(null);
+      if (offlineDurationIntervalRef.current) {
+        clearInterval(offlineDurationIntervalRef.current);
+        offlineDurationIntervalRef.current = null;
+      }
+    }
+    return () => {
+      if (offlineDurationIntervalRef.current) {
+        clearInterval(offlineDurationIntervalRef.current);
+        offlineDurationIntervalRef.current = null;
+      }
+    };
+  }, [offlineState, offlineSince]);
 
   useEffect(() => {
+    let countdown = 5;
+
     function handleOnline() {
       setIsOnline(true);
       setOfflineState('online');
-      toast.dismiss("reconnect");
-      toast.dismiss("offline");
+      toast.dismiss(reconnectToastId);
+      toast.dismiss(offlineToastId);
       setHasShownReconnect(false);
-      if (offlineTimeout) {
-        clearTimeout(offlineTimeout);
-        setOfflineTimeout(null);
+      setRetryCount(0);
+      setOfflineSince(null);
+      if (retryIntervalRef.current) {
+        clearInterval(retryIntervalRef.current);
+        retryIntervalRef.current = null;
       }
     }
+
     function handleOffline() {
       setIsOnline(false);
       setOfflineState('reconnecting');
+      if (!offlineSince) setOfflineSince(Date.now());
       if (!hasShownReconnect) {
-        toast.loading("Reconnecting...", { id: "reconnect", duration: 15000, position: "top-center", richColors: true });
+        updateReconnectToast(countdown);
         setHasShownReconnect(true);
-        // After 15s, show Offline if still offline
-        const timeout = setTimeout(() => {
-          if (!navigator.onLine) {
-            setOfflineState('offline');
-            toast.dismiss("reconnect");
-            toast.error("Offline. Please check your connection.", { id: "offline", duration: 999999, position: "top-center", richColors: true });
-          }
-        }, 15000);
-        setOfflineTimeout(timeout);
       }
+      // Start retry interval
+      if (!retryIntervalRef.current) {
+        retryIntervalRef.current = setInterval(() => {
+          countdown--;
+          if (countdown > 0) {
+            updateReconnectToast(countdown);
+          } else {
+            setRetryCount((c) => c + 1);
+            countdown = 5;
+            updateReconnectToast(countdown);
+            // Try to reconnect
+            if (navigator.onLine) {
+              handleOnline();
+            }
+          }
+        }, 1000);
+      }
+      // After 15s, show Offline if still offline
+      setTimeout(() => {
+        if (!navigator.onLine) {
+          setOfflineState('offline');
+          toast.dismiss(reconnectToastId);
+          showOfflineToast();
+        }
+      }, 15000);
     }
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-    // Initial state
     if (!navigator.onLine) handleOffline();
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
-      toast.dismiss("reconnect");
-      toast.dismiss("offline");
-      if (offlineTimeout) clearTimeout(offlineTimeout);
+      toast.dismiss(reconnectToastId);
+      toast.dismiss(offlineToastId);
+      if (retryIntervalRef.current) clearInterval(retryIntervalRef.current);
     };
-  }, [hasShownReconnect, offlineTimeout]);
+  }, [hasShownReconnect, offlineSince]);
 
   // If Clerk is not loaded but user was signed in, show reconnect
   useEffect(() => {
     if (!isLoaded && isSignedIn && !hasShownReconnect) {
       setOfflineState('reconnecting');
-      toast.loading("Reconnecting...", { id: "reconnect", duration: 15000, position: "top-center", richColors: true });
+      if (!offlineSince) setOfflineSince(Date.now());
+      updateReconnectToast(5);
       setHasShownReconnect(true);
+      // Start retry interval
+      if (!retryIntervalRef.current) {
+        let countdown = 5;
+        retryIntervalRef.current = setInterval(() => {
+          countdown--;
+          if (countdown > 0) {
+            updateReconnectToast(countdown);
+          } else {
+            setRetryCount((c) => c + 1);
+            countdown = 5;
+            updateReconnectToast(countdown);
+            if (navigator.onLine) {
+              setOfflineState('online');
+              toast.dismiss(reconnectToastId);
+              toast.dismiss(offlineToastId);
+              setHasShownReconnect(false);
+              setRetryCount(0);
+              setOfflineSince(null);
+              if (retryIntervalRef.current) {
+                clearInterval(retryIntervalRef.current);
+                retryIntervalRef.current = null;
+              }
+            }
+          }
+        }, 1000);
+      }
       // After 15s, show Offline if still offline
-      const timeout = setTimeout(() => {
+      setTimeout(() => {
         if (!navigator.onLine) {
           setOfflineState('offline');
-          toast.dismiss("reconnect");
-          toast.error("Offline. Please check your connection.", { id: "offline", duration: 999999, position: "top-center", richColors: true });
+          toast.dismiss(reconnectToastId);
+          showOfflineToast();
         }
       }, 15000);
-      setOfflineTimeout(timeout);
     }
     if (isLoaded && hasShownReconnect) {
       setOfflineState('online');
-      toast.dismiss("reconnect");
-      toast.dismiss("offline");
+      toast.dismiss(reconnectToastId);
+      toast.dismiss(offlineToastId);
       setHasShownReconnect(false);
-      if (offlineTimeout) {
-        clearTimeout(offlineTimeout);
-        setOfflineTimeout(null);
+      setRetryCount(0);
+      setOfflineSince(null);
+      if (retryIntervalRef.current) {
+        clearInterval(retryIntervalRef.current);
+        retryIntervalRef.current = null;
       }
     }
-  }, [isLoaded, isSignedIn, hasShownReconnect, offlineTimeout]);
+  }, [isLoaded, isSignedIn, hasShownReconnect, offlineSince]);
 
   return offlineState;
 }
+
+// Go offline (disable network or use browser dev tools).
+// Send a message: It should show as “Pending” with a clock icon.
+// Send more messages: Each should queue as pending.
+// Go back online: All pending messages should be sent in order, and a toast should appear:
+// “N pending messages were sent after reconnecting.”
+// If a message fails (e.g., server error), it should show as “Failed. Retry?” (if you implemented that).
+// Try sending a message while a previous one is still waiting for an AI response: The input should be disabled until the AI responds.
 
 export default function UserChat() {
   const offlineState = useReconnectToClerk();
@@ -170,6 +294,76 @@ export default function UserChat() {
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
+
+  // --- Offline message queue ---
+  const [pendingMessages, setPendingMessages] = useState<any[]>(() => {
+    // Load from localStorage if available
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('avurna_pending_messages');
+        if (stored) return JSON.parse(stored);
+      } catch {}
+    }
+    return [];
+  });
+
+  // Save pending messages to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('avurna_pending_messages', JSON.stringify(pendingMessages));
+    }
+  }, [pendingMessages]);
+
+  // Helper to add a pending message
+  const queuePendingMessage = (msg: any) => {
+    setPendingMessages((prev) => [...prev, msg]);
+  };
+
+  // Helper to update a pending message's status
+  const updatePendingMessage = (id: string, updates: any) => {
+    setPendingMessages((prev) => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+  };
+
+  // Helper to remove a pending message
+  const removePendingMessage = (id: string) => {
+    setPendingMessages((prev) => prev.filter(m => m.id !== id));
+  };
+
+  // On reconnect, send all pending messages and show a toast when any are sent
+  useEffect(() => {
+    if (offlineState === 'online' && pendingMessages.length > 0) {
+      let sentCount = 0;
+      (async () => {
+        for (const msg of pendingMessages) {
+          updatePendingMessage(msg.id, { status: 'sending' });
+          try {
+            const res = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: [{ role: 'user', content: msg.content }],
+                selectedModel,
+              }),
+            });
+            if (res.ok) {
+              removePendingMessage(msg.id);
+              sentCount++;
+            } else {
+              updatePendingMessage(msg.id, { status: 'failed' });
+            }
+          } catch {
+            updatePendingMessage(msg.id, { status: 'failed' });
+          }
+        }
+        if (sentCount > 0) {
+          toast.success(`${sentCount} pending message${sentCount > 1 ? 's were' : ' was'} sent after reconnecting.`, {
+            position: 'top-center',
+            richColors: true,
+          });
+        }
+      })();
+    }
+  }, [offlineState]);
 
   useEffect(() => {
     if (!showMobileInfoMessage || isDesktop) return;
@@ -273,6 +467,21 @@ export default function UserChat() {
     const intendedModelForThisSubmit = selectedModel;
     modelForCurrentSubmissionRef.current = intendedModelForThisSubmit;
 
+    // If offline, queue the message
+    if (offlineState !== 'online') {
+      const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      queuePendingMessage({
+        id,
+        content: input,
+        status: 'pending',
+        createdAt: Date.now(),
+      });
+      setInput('');
+      if (showMobileInfoMessage) setShowMobileInfoMessage(false);
+      setTimeout(() => scrollToBottom(), 200);
+      return;
+    }
+
     if (intendedModelForThisSubmit === SEARCH_MODE) {
       if (isSubmittingSearch) return;
       setIsSubmittingSearch(true);
@@ -286,9 +495,22 @@ export default function UserChat() {
 
     if (showMobileInfoMessage) setShowMobileInfoMessage(false);
     setTimeout(() => scrollToBottom(), 200);
-  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom]);
+  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom, offlineState]);
 
-  const hasSentMessage = messages.length > 0;
+  // Merge pending messages with chat messages for display
+  const mergedMessages = [
+    ...messages,
+    ...pendingMessages.map((msg) => ({
+      id: msg.id,
+      role: 'user' as const,
+      content: msg.content,
+      parts: [{ type: 'text', text: msg.content } as { type: 'text'; text: string }],
+      status: msg.status || 'pending',
+      pending: true,
+    })),
+  ];
+
+  const hasSentMessage = mergedMessages.length > 0;
 
   useEffect(() => {
     const elementToObserve = inputAreaRef.current;
@@ -391,7 +613,7 @@ export default function UserChat() {
           </div>
         ) : (
           <Messages
-            messages={messages}
+            messages={mergedMessages}
             isLoading={uiIsLoading}
             status={status as any}
             endRef={endRef as React.RefObject<HTMLDivElement>}

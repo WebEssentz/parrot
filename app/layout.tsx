@@ -30,6 +30,14 @@ export const metadata: Metadata = {
     "This starter project uses Groq with the AI SDK via the Vercel Marketplace",
 };
 
+
+// Register service worker for PWA support
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+  });
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -37,6 +45,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#18181b" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
