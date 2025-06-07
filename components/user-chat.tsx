@@ -281,6 +281,7 @@ function useReconnectToClerk() {
 // Try sending a message while a previous one is still waiting for an AI response: The input should be disabled until the AI responds.
 
 export default function UserChat() {
+  // --- Robust offline/online detection ---
   const offlineState = useReconnectToClerk();
   const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
@@ -289,15 +290,13 @@ export default function UserChat() {
   const inputAreaRef = useRef<HTMLDivElement>(null);
 
   const [isDesktop, setIsDesktop] = useState<undefined | boolean>(undefined);
-  const [showMobileInfoMessage, setShowMobileInfoMessage] = useState(false);
-  const [hasShownMobileInfoMessageOnce, setHasShownMobileInfoMessageOnce] = useState(false);
+  // Removed mobile fadeinfo state
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
 
   // --- Offline message queue ---
   const [pendingMessages, setPendingMessages] = useState<any[]>(() => {
-    // Load from localStorage if available
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('avurna_pending_messages');
@@ -307,27 +306,35 @@ export default function UserChat() {
     return [];
   });
 
-  // Save pending messages to localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('avurna_pending_messages', JSON.stringify(pendingMessages));
     }
   }, [pendingMessages]);
 
-  // Helper to add a pending message
   const queuePendingMessage = (msg: any) => {
     setPendingMessages((prev) => [...prev, msg]);
   };
-
-  // Helper to update a pending message's status
   const updatePendingMessage = (id: string, updates: any) => {
     setPendingMessages((prev) => prev.map(m => m.id === id ? { ...m, ...updates } : m));
   };
-
-  // Helper to remove a pending message
   const removePendingMessage = (id: string) => {
     setPendingMessages((prev) => prev.filter(m => m.id !== id));
   };
+
+  // --- NEW: Only hide chat UI if *network* is offline, not just Clerk ---
+  const [networkOnline, setNetworkOnline] = useState(true);
+  useEffect(() => {
+    const handleOnline = () => setNetworkOnline(true);
+    const handleOffline = () => setNetworkOnline(false);
+    setNetworkOnline(navigator.onLine);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // On reconnect, send all pending messages and show a toast when any are sent
   useEffect(() => {
@@ -365,22 +372,7 @@ export default function UserChat() {
     }
   }, [offlineState]);
 
-  useEffect(() => {
-    if (!showMobileInfoMessage || isDesktop) return;
-    function handleTapOutside(e: MouseEvent | TouchEvent) {
-      const safearea = document.getElementById("safearea");
-      if (!safearea) return;
-      if (!safearea.contains(e.target as Node)) {
-        setShowMobileInfoMessage(false);
-      }
-    }
-    document.addEventListener("mousedown", handleTapOutside);
-    document.addEventListener("touchstart", handleTapOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleTapOutside);
-      document.removeEventListener("touchstart", handleTapOutside);
-    };
-  }, [showMobileInfoMessage, isDesktop]);
+  // Removed mobile fadeinfo effect
 
   useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 1024);
@@ -477,7 +469,6 @@ export default function UserChat() {
         createdAt: Date.now(),
       });
       setInput('');
-      if (showMobileInfoMessage) setShowMobileInfoMessage(false);
       setTimeout(() => scrollToBottom(), 200);
       return;
     }
@@ -493,9 +484,8 @@ export default function UserChat() {
       body: { selectedModel: modelForCurrentSubmissionRef.current }
     });
 
-    if (showMobileInfoMessage) setShowMobileInfoMessage(false);
     setTimeout(() => scrollToBottom(), 200);
-  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom, offlineState]);
+  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, scrollToBottom, offlineState]);
 
   // Merge pending messages with chat messages for display
   const mergedMessages = [
@@ -514,55 +504,36 @@ export default function UserChat() {
 
   useEffect(() => {
     const elementToObserve = inputAreaRef.current;
-
-    if (!elementToObserve) {
-      return;
-    }
-
+    if (!elementToObserve) return;
     const measureAndUpdateHeight = () => {
       const newHeight = elementToObserve.offsetHeight;
       setInputAreaHeight(newHeight);
     };
-
     measureAndUpdateHeight();
-
     const observer = new ResizeObserver(measureAndUpdateHeight);
     observer.observe(elementToObserve);
-
     window.addEventListener('resize', measureAndUpdateHeight);
-
     return () => {
       observer.unobserve(elementToObserve);
       window.removeEventListener('resize', measureAndUpdateHeight);
     };
-  }, [isDesktop, hasSentMessage, showMobileInfoMessage]);
+  }, [isDesktop, hasSentMessage]);
 
-  useEffect(() => {
-    const onMobileOrTablet = typeof isDesktop !== 'undefined' && !isDesktop;
-    if (onMobileOrTablet) {
-      if (
-        messages.length === 2 &&
-        messages[1]?.role === 'assistant' &&
-        (status === 'streaming' || status === 'submitted') &&
-        !hasShownMobileInfoMessageOnce
-      ) {
-        setShowMobileInfoMessage(true);
-        setHasShownMobileInfoMessageOnce(true);
-      }
-    } else {
-      if (showMobileInfoMessage) {
-        setShowMobileInfoMessage(false);
-      }
-    }
-    if (messages.length === 0 && hasShownMobileInfoMessageOnce) {
-      setHasShownMobileInfoMessageOnce(false);
-      setShowMobileInfoMessage(false);
-    }
-  }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
+  // Removed mobile fadeinfo logic
 
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
   const bufferForInputArea = isMobileOrTabletHook ? 200 : 12;
+
+  // --- MAIN RENDER: Only delay/hide UI if *network* is offline, not just Clerk ---
+  if (!networkOnline) {
+    return (
+      <div className="flex flex-col items-center justify-center h-dvh w-full">
+        <div className="text-lg text-zinc-600 dark:text-zinc-300 mb-4">You are offline.</div>
+        <div className="text-sm text-zinc-500 dark:text-zinc-400">Reconnect to continue using Avurna chat.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
@@ -622,7 +593,6 @@ export default function UserChat() {
         <div ref={endRef as React.RefObject<HTMLDivElement>} style={{ height: 1 }} />
       </div>
 
-      
       {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (
         !isDesktop ? (
           <div
@@ -648,13 +618,11 @@ export default function UserChat() {
                   offlineState={offlineState}
                 />
               </form>
-              {(hasSentMessage) && (
-                <div className="text-center -mt-4">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
-                    Avurna uses AI. Double check response.
-                  </span>
-                </div>
-              )}
+              <div className="text-center mt-2">
+                <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
+                  Avurna uses AI. Double check response.
+                </span>
+              </div>
             </div>
           </div>
         ) : (

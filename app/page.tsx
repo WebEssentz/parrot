@@ -22,8 +22,25 @@ export default function Page() {
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center min-h-screen w-full animate-spin">
-        <SpinnerIcon size={48} className="text-zinc-400" />
+      <div
+        className="flex items-center justify-center min-h-screen w-full animate-spin"
+        style={{
+          overscrollBehavior: 'none',
+          overflow: 'hidden',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        <style>{`
+          html, body, #__next {
+            overflow: hidden !important;
+            overscroll-behavior: none !important;
+          }
+          .hide-scrollbar::-webkit-scrollbar {
+            display: none !important;
+          }
+        `}</style>
+        <SpinnerIcon size={48} className="text-zinc-400 hide-scrollbar" />
       </div>
     );
   }
