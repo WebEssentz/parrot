@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
 import { useRouter } from "next/navigation";
 import { useSignUp, useUser } from "@clerk/nextjs";
 import { SpinnerIcon } from "../../../components/icons";
@@ -41,8 +40,20 @@ export default function CallbackPage() {
         console.log('[CallbackPage] Missing createdAt or updatedAt', { createdAt: user.createdAt, updatedAt: user.updatedAt });
         return;
       }
+
       const created = new Date(user.createdAt).getTime();
       const updated = new Date(user.updatedAt).getTime();
+
+      /**
+       * WIP: It is possible that the user may try to signup and already exist on the db.
+       * We want to push them to sign in page alerting them, that this user already exist, sign in instead.
+       * Else we want to continue with the signup.
+       * 
+       * WIP2: So we want to check if the user is redirected from the signin page, and if they do not have an account already in our db.
+       * If they do not have an account, we push them to the signup page, telling them this user doesn't exist, sign up to continue.
+       * ELSE WE SIGN THEM IN AND PUSH THE TO THIS ROUTE /
+      */
+
 
       // 1. If not a new user, treat as sign-in: send to home page
       if (Math.abs(created - updated) > 2000) {
@@ -63,6 +74,7 @@ export default function CallbackPage() {
         imageUrl: user.imageUrl || "",
         username: user.username || "",
       };
+
       try {
         localStorage.setItem("pendingUser", JSON.stringify(userData));
         setNetworkError(false);
@@ -118,7 +130,8 @@ export default function CallbackPage() {
                 ? `Network error. Retrying... (${retryCount}/${maxRetries})`
                 : isRedirecting
                   ? "You are being redirected, please wait…"
-                  : "Setting up your account, please wait…"}
+                  : "Setting up your account, please wait…"
+            }
           </span>
         </div>
       </div>

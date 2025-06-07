@@ -11,12 +11,14 @@ export const Messages = ({
   status,
   endRef,
   headerHeight = 0,
+  offlineState = 'online',
 }: {
   messages: TMessage[];
   isLoading: boolean;
   status: "error" | "submitted" | "streaming" | "ready";
   endRef: React.RefObject<HTMLDivElement>;
   headerHeight?: number;
+  offlineState?: 'online' | 'reconnecting' | 'offline';
 }) => {
   // Ref for the latest message
   const latestMsgRef = useRef<HTMLDivElement>(null);
@@ -69,7 +71,9 @@ export const Messages = ({
   }, []);
     return (
       <div
-        className="flex-1 max-w-full py-8 sm:py-10 overflow-y-auto overscroll-auto"
+        className={"flex-1 max-w-full py-8 sm:py-10 overflow-y-auto overscroll-auto " +
+          (offlineState !== 'online' ? ' opacity-60 pointer-events-none select-none' : '')
+        }
         ref={containerRef}
         onScroll={handleScroll}
         style={{ position: 'relative' }}
@@ -79,7 +83,11 @@ export const Messages = ({
             const isLatest = i === messages.length - 1;
             let messageStatus: "error" | "submitted" | "streaming" | "ready" = "ready";
             let messageIsLoading = false;
-  
+            let isPending = false;
+            // If offline and this is a user message, mark as pending
+            if (offlineState !== 'online' && m.role === 'user' && isLatest) {
+              isPending = true;
+            }
             if (m.role === "assistant" && isLatest) {
               messageStatus = status;
               messageIsLoading = isLoading || status === "streaming" || status === "submitted";
@@ -92,7 +100,7 @@ export const Messages = ({
                 key={m.id}
                 ref={isLatest ? latestMsgRef : undefined}
                 data-latest-message={isLatest ? "true" : undefined}
-                className="w-full" // Ensures each message takes full width
+                className="w-full relative"
               >
                 <Message
                   isLatestMessage={isLatest}
@@ -100,6 +108,14 @@ export const Messages = ({
                   message={m}
                   status={messageStatus}
                 />
+               {/* Pending indicator for user message */}
+               {isPending && m.role === 'user' && (
+                 <div className="absolute right-2 top-1 flex items-center gap-1 z-10">
+                   {/* WhatsApp-style clock icon */}
+                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 animate-pulse"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                   <span className="text-xs text-zinc-400">Pending</span>
+                 </div>
+               )}
               </div>
             );
           })}

@@ -1,11 +1,13 @@
 "use client";
 
+
 import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea";
 import { defaultModel } from "@/ai/providers"; 
 import { ArrowUp, ArrowRight } from "lucide-react";
 import { PauseIcon } from "./icons"; 
 import React from "react";
 import { useMobile } from "../hooks/use-mobile";
+import { useUser } from "@clerk/nextjs";
 
 interface InputProps {
   input: string;
@@ -18,6 +20,8 @@ interface InputProps {
   setSelectedModel: (model: string) => void;
   hasSentMessage: boolean;
   isDesktop: boolean;
+  disabled?: boolean;
+  offlineState?: 'online' | 'reconnecting' | 'offline';
 }
 
 
@@ -32,7 +36,10 @@ export const Textarea = ({
   setSelectedModel,
   hasSentMessage,
   isDesktop,
+  disabled = false,
+  offlineState = 'online',
 }: InputProps) => {
+  const { isSignedIn } = useUser();
   // Use the useMobile hook to detect mobile (not tablet)
   const isMobileOnly = useMobile();
   const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
@@ -47,7 +54,8 @@ export const Textarea = ({
   const [promptVisible, setPromptVisible] = React.useState(false);
 
   const REASON_MODEL_ID = "qwen-qwq-32b"; // Example
-  const featureActive = isDesktop && !hasSentMessage;
+  // Remove suggested prompts for signed-in users
+  const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
 
   React.useEffect(() => {
     if (featureActive) {
@@ -190,7 +198,6 @@ export const Textarea = ({
   return (
     <div className="relative flex w-full items-end px-3 py-3">
       <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
-        
         {shouldShowCustomPlaceholderElements && (
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
@@ -231,28 +238,45 @@ export const Textarea = ({
           </div>
         )}
 
-        <ShadcnTextarea 
-          className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
-          value={input}
-          autoFocus
-          placeholder={shadcnTextareaNativePlaceholder}
-          style={textareaStyle}
-          onChange={(e) => {
-            handleInputChange(e);
-            if (e.target.value) {
-                setIsTabToAcceptEnabled(false);
-                setPromptVisible(false);
-            } else {
-                if (featureActive) setIsTabToAcceptEnabled(true); 
+        <div className="relative">
+          <ShadcnTextarea 
+            className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
+            value={input}
+            autoFocus
+            placeholder={
+              offlineState === 'offline'
+                ? "You’re offline. Please reconnect to continue."
+                : offlineState === 'reconnecting'
+                  ? "Reconnecting..."
+                  : shadcnTextareaNativePlaceholder
             }
-          }}
-          disabled={isMobileOnly && (status === 'streaming' || status === 'submitted')}
-          onKeyDown={handleKeyDown}
-        />
-        
+            disabled={disabled}
+            style={textareaStyle}
+            onChange={(e) => {
+              handleInputChange(e);
+              if (e.target.value) {
+                  setIsTabToAcceptEnabled(false);
+                  setPromptVisible(false);
+              } else {
+                  if (featureActive) setIsTabToAcceptEnabled(true);
+              }
+            }}
+            onKeyDown={handleKeyDown}
+            {...(disabled && offlineState !== 'online' ? { 'aria-disabled': true } : {})}
+          />
+          {/* Tooltip for offline state */}
+          {disabled && offlineState !== 'online' && (
+            <div className="absolute left-0 right-0 top-0 bottom-0 flex items-center justify-center pointer-events-none select-none z-20">
+              <span className="bg-zinc-800 text-white text-xs rounded px-3 py-1 opacity-90 shadow-lg">
+                {offlineState === 'offline' ? "You’re offline. Please reconnect to continue." : "Reconnecting..."}
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* This div acts as a spacer for the absolutely positioned buttons */}
         <div style={{paddingBottom: '48px'}} /> 
-        
+
         <div className="bg-primary-surface-primary absolute start-3 end-0 bottom-3 z-20 flex items-center">
           <div className="w-full">
             <div
@@ -269,35 +293,31 @@ export const Textarea = ({
                 {status !== "streaming" && status !== "submitted" && (
                   <button
                     type="submit"
-                    disabled={isLoading || !input.trim()} 
+                    disabled={isLoading || !input.trim() || disabled} 
                     className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
-                      isLoading || !input.trim()
+                      isLoading || !input.trim() || disabled
                         ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-                        : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white cursor-pointer'
+                        : 'dark:bg-white bg-black hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
                     }`}
                     aria-label="Send" data-testid="composer-button-send" style={{ minWidth: 36, minHeight: 36, padding: 0 }}
                   >
                     {!hasSentMessage ? (
-                      <ArrowRight className="h-5 w-5 transition-colors duration-300 mx-auto my-auto" />
+                      <ArrowRight className="h-5 w-5 transition-colors duration-300 mx-auto my-auto text-white dark:text-black" />
                     ) : (
-                      <ArrowUp className="h-5 w-5 transition-colors duration-300 mx-auto my-auto" />
+                      <ArrowUp className="h-5 w-5 transition-colors duration-300 mx-auto my-auto text-white dark:text-black" />
                     )}
                   </button>
                 )}
-                {/** WIP: We should update this, immediately the message is submitted, we should enable the button, so we can stop response or stream of the ai. */}
                 {(status === "streaming" || status === "submitted") && (
                   <button
                     type="button"
-                    onClick={status === "streaming" ? stop : undefined} // Only allow stop if actually streaming
-                    disabled={status === "submitted"} // Disable if submitted but not yet streaming, or if isLoading general
-                    className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
-                      status === "submitted" // More specific disabled style
-                      ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-                      : 'bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
-                    }`}
-                    title={status === "streaming" ? "Stop generating" : "Processing..."} style={{ minWidth: 40, minHeight: 40 }}
+                    onClick={stop}
+                    disabled={false}
+                    className={`rounded-full flex items-center justify-center transition-colors duration-300 bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer`}
+                    title={status === "streaming" ? "Stop generating" : "Processing..."}
+                    style={{ minWidth: 40, minHeight: 40, cursor: 'pointer' }}
                   >
-                    <PauseIcon size={28} className={`h-6 w-6 transition-colors duration-300 ${ status === "submitted" ? 'text-zinc-400 dark:text-zinc-500' : 'text-white dark:text-black' }`} />
+                    <PauseIcon size={28} className="h-6 w-6 transition-colors duration-300 text-white dark:text-black" />
                   </button>
                 )}
               </div>

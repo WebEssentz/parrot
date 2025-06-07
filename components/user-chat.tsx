@@ -8,43 +8,43 @@ import { useChat } from "@ai-sdk/react";
 import { useRef as useReactRef } from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
-import { ProjectOverview } from "./project-overview";
+import { useUser } from "@clerk/nextjs";
 import { Messages } from "./messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
-import { Header } from "./header";
 import { toast } from "sonner";
-import { Github, LinkedInIcon, XIcon } from "./icons";
 import { motion, AnimatePresence } from "framer-motion";
+import { UserChatHeader } from "./user-chat-header";
 
-// Move FadeMobileInfo OUTSIDE of Chat to prevent remounting on every render
-// Updated FadeMobileInfo: minHeight prop is now optional and defaults to 'auto' if not a positive number.
-function FadeMobileInfo({ show, minHeight }: { show: boolean; minHeight?: number }) {
+// GreetingBanner component for personalized greeting
+function GreetingBanner() {
+  const { user, isLoaded } = useUser();
+  let displayName = "dear";
+  if (isLoaded && user) {
+    if (user.lastName && user.lastName.trim().length > 0) {
+      displayName = user.lastName;
+    } else if (user.firstName && user.firstName.trim().length > 0) {
+      displayName = user.firstName;
+    } else if (user.username && user.username.trim().length > 0) {
+      displayName = user.username;
+    }
+  }
+  /**
+   * WIP: Later we want to add some weird greetings too.
+   * Also we want to integrate with Google Doodle to know the celebration of days and render it depending on that day.
+   * ie. Happy Mothers' day, {displayName}, that is the {greeting}, {displayName}
+   */
+  // Time-based greeting
+  const hour = new Date().getHours();
+  let greeting = "Hello";
+  if (hour < 12) greeting = "Good morning";
+  else if (hour < 18) greeting = "Good afternoon";
+  else greeting = "Good evening";
   return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 10 }}
-          transition={{ duration: 0.35, ease: "easeInOut" }}
-          className="text-left text-base sm:text-lg text-zinc-700 dark:text-zinc-400 mb-2 mx-0.5 p-4 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl flex flex-col justify-center shadow-lg"
-          style={{ minHeight: (minHeight && minHeight > 0) ? `${minHeight}px` : 'auto' }}
-        >
-          <div>
-            <p>
-              By messaging Avurna you agree with our{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Terms</a>
-              {' '}and have read our{' '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">Privacy Policy</a>.
-            </p>
-            <p className="mt-1">
-              We recommend checking out our{' '}
-              <a href="/community-guidelines" target="_blank" rel="noopener noreferrer" className="font-semibold hover:underline text-zinc-800 dark:text-zinc-300">community guidelines</a>.
-            </p>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-[50rem]" style={{ marginTop: '-60px' }}>
+      <div className="text-2xl sm:text-3xl font-semibold text-zinc-800 dark:text-zinc-100 text-center select-none">
+        {greeting}, {displayName}
+      </div>
+    </div>
   );
 }
 
@@ -67,15 +67,97 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
       document.title = data.title;
     } else if (data.reason === 'vague') {
       // Do not set title, wait for a clearer message
-      // Optionally, could show a tooltip or log
-      // console.log('Waiting for a clearer message to generate chat title.');
     }
   } catch (error) {
     console.error("Error generating title:", error);
   }
 }
 
-export default function Chat() {
+// --- Network/Clerk reconnect logic ---
+function useReconnectToClerk() {
+  const { isLoaded, isSignedIn } = useUser();
+  const [isOnline, setIsOnline] = useState(true);
+  const [hasShownReconnect, setHasShownReconnect] = useState(false);
+  const [offlineTimeout, setOfflineTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  // Expose online state to parent
+  const [offlineState, setOfflineState] = useState<'online' | 'reconnecting' | 'offline'>('online');
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+      setOfflineState('online');
+      toast.dismiss("reconnect");
+      toast.dismiss("offline");
+      setHasShownReconnect(false);
+      if (offlineTimeout) {
+        clearTimeout(offlineTimeout);
+        setOfflineTimeout(null);
+      }
+    }
+    function handleOffline() {
+      setIsOnline(false);
+      setOfflineState('reconnecting');
+      if (!hasShownReconnect) {
+        toast.loading("Reconnecting...", { id: "reconnect", duration: 15000, position: "top-center", richColors: true });
+        setHasShownReconnect(true);
+        // After 15s, show Offline if still offline
+        const timeout = setTimeout(() => {
+          if (!navigator.onLine) {
+            setOfflineState('offline');
+            toast.dismiss("reconnect");
+            toast.error("Offline. Please check your connection.", { id: "offline", duration: 999999, position: "top-center", richColors: true });
+          }
+        }, 15000);
+        setOfflineTimeout(timeout);
+      }
+    }
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    // Initial state
+    if (!navigator.onLine) handleOffline();
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      toast.dismiss("reconnect");
+      toast.dismiss("offline");
+      if (offlineTimeout) clearTimeout(offlineTimeout);
+    };
+  }, [hasShownReconnect, offlineTimeout]);
+
+  // If Clerk is not loaded but user was signed in, show reconnect
+  useEffect(() => {
+    if (!isLoaded && isSignedIn && !hasShownReconnect) {
+      setOfflineState('reconnecting');
+      toast.loading("Reconnecting...", { id: "reconnect", duration: 15000, position: "top-center", richColors: true });
+      setHasShownReconnect(true);
+      // After 15s, show Offline if still offline
+      const timeout = setTimeout(() => {
+        if (!navigator.onLine) {
+          setOfflineState('offline');
+          toast.dismiss("reconnect");
+          toast.error("Offline. Please check your connection.", { id: "offline", duration: 999999, position: "top-center", richColors: true });
+        }
+      }, 15000);
+      setOfflineTimeout(timeout);
+    }
+    if (isLoaded && hasShownReconnect) {
+      setOfflineState('online');
+      toast.dismiss("reconnect");
+      toast.dismiss("offline");
+      setHasShownReconnect(false);
+      if (offlineTimeout) {
+        clearTimeout(offlineTimeout);
+        setOfflineTimeout(null);
+      }
+    }
+  }, [isLoaded, isSignedIn, hasShownReconnect, offlineTimeout]);
+
+  return offlineState;
+}
+
+export default function UserChat() {
+  const offlineState = useReconnectToClerk();
   const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
   const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
   const titleGeneratedRef = useRef(false);
@@ -88,7 +170,6 @@ export default function Chat() {
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
-7
 
   useEffect(() => {
     if (!showMobileInfoMessage || isDesktop) return;
@@ -130,19 +211,11 @@ export default function Chat() {
     stop,
     setMessages,
     data,
-    // appendMessage, (not present in useChat)
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
     body: { selectedModel },
     initialMessages: [],
-    // onStream: (data) => {
-    //   if (data && typeof data === 'object' && data.type === 'recursionPrompt') {
-    //     setRecursionPrompt(data);
-    //     return false;
-    //   }
-    //   return true;
-    // },
     onFinish: (_message, _options) => {
       setSelectedModel(defaultModel);
       setIsSubmittingSearch(false);
@@ -161,7 +234,6 @@ export default function Chat() {
     },
   });
 
-  // Watch for recursionPrompt in data
   useEffect(() => {
     if (data && data.length > 0) {
       for (const dataObj of data) {
@@ -173,13 +245,10 @@ export default function Chat() {
     }
   }, [data]);
 
-
-  // Robust title generation: only set title when backend says message is clear
   useEffect(() => {
     if (messages.length === 1 && messages[0].role === 'user' && !titleGeneratedRef.current) {
       const firstUserMessageContent = messages[0].content;
       generateAndSetTitle(firstUserMessageContent).then(() => {
-        // Only set ref if title was actually set (handled in generateAndSetTitle)
         titleGeneratedRef.current = true;
       });
     }
@@ -187,9 +256,7 @@ export default function Chat() {
       titleGeneratedRef.current = false;
       document.title = "Avocado Avurna";
     }
-    // If user sends a second message and title hasn't been set, try again
     if (messages.length > 1 && !titleGeneratedRef.current) {
-      // Find the most recent user message that is not vague
       const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
       if (lastUserMsg) {
         generateAndSetTitle(lastUserMsg.content).then(() => {
@@ -227,8 +294,6 @@ export default function Chat() {
     const elementToObserve = inputAreaRef.current;
 
     if (!elementToObserve) {
-      // Optionally, consider if inputAreaHeight should be reset if the element is not present.
-      // setInputAreaHeight(0); 
       return;
     }
 
@@ -237,21 +302,18 @@ export default function Chat() {
       setInputAreaHeight(newHeight);
     };
 
-    measureAndUpdateHeight(); // Measure immediately
+    measureAndUpdateHeight();
 
     const observer = new ResizeObserver(measureAndUpdateHeight);
     observer.observe(elementToObserve);
 
-    // Keep window resize listener if it's meant to trigger remeasurement
-    // for reasons beyond the element's own ResizeObserver capabilities.
     window.addEventListener('resize', measureAndUpdateHeight);
 
     return () => {
       observer.unobserve(elementToObserve);
       window.removeEventListener('resize', measureAndUpdateHeight);
     };
-    // --- Critical Change: Updated dependency array ---
-  }, [isDesktop, hasSentMessage, showMobileInfoMessage]); // Added isDesktop and hasSentMessage
+  }, [isDesktop, hasSentMessage, showMobileInfoMessage]);
 
   useEffect(() => {
     const onMobileOrTablet = typeof isDesktop !== 'undefined' && !isDesktop;
@@ -278,13 +340,11 @@ export default function Chat() {
 
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
-  // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
   const bufferForInputArea = isMobileOrTabletHook ? 200 : 12;
-  const currentYear = new Date().getFullYear();
 
   return (
     <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
-      <Header />
+      <UserChatHeader />
 
       <div
         ref={containerRef}
@@ -297,7 +357,7 @@ export default function Chat() {
             typeof isDesktop !== 'undefined' && !isDesktop
               ? '18px'
               : typeof isDesktop !== 'undefined' && isDesktop
-                ? '18px' // Add extra top padding for desktop
+                ? '18px'
                 : undefined,
           paddingBottom:
             typeof isDesktop !== 'undefined' && isDesktop
@@ -308,7 +368,7 @@ export default function Chat() {
         {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (
           <div className="flex h-full items-center justify-center">
             <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-[50rem]">
-              <ProjectOverview />
+               <GreetingBanner />
               {isDesktop && (
                 <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto mt-6 ">
                   <CustomTextareaWrapper
@@ -322,32 +382,10 @@ export default function Chat() {
                     stop={stop}
                     hasSentMessage={hasSentMessage}
                     isDesktop={isDesktop}
+                    disabled={offlineState !== 'online'}
+                    offlineState={offlineState}
                   />
                 </form>
-              )}
-              {isDesktop && (
-                <>
-                  <div className="fixed left-1/2 -translate-x-1/2 bottom-1 z-30 flex justify-center pointer-events-none">
-                    <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
-                      By messaging Avurna, you agree to our{' '}
-                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
-                      {' '}and our{' '}
-                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Privacy Policy</a>.
-                    </span>
-                  </div>
-                  <div className="fixed left-4 bottom-0 z-30 py-2">
-                    <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none">
-                      © {currentYear} Avocado
-                    </span>
-                  </div>
-                  <div className="fixed right-4 bottom-0 z-30 py-2">
-                    <div className="inline-flex items-center gap-x-3">
-                      <a href="https://x.com/YourXProfile" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our X profile"><XIcon size={18} /></a>
-                      <a href="https://linkedin.com/company/YourLinkedIn" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn profile"><LinkedInIcon size={18} /></a>
-                      <a href="https://github.com/YourGithub" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our GitHub"><Github className="size-[18px]" /></a>
-                    </div>
-                  </div>
-                </>
               )}
             </div>
           </div>
@@ -362,19 +400,16 @@ export default function Chat() {
         <div ref={endRef as React.RefObject<HTMLDivElement>} style={{ height: 1 }} />
       </div>
 
+      
       {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (
         !isDesktop ? (
           <div
             className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
-            style={{ pointerEvents: showMobileInfoMessage ? 'auto' : undefined }}
           >
             <div
-              id="safearea"
               ref={inputAreaRef}
               className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative"
-              style={{ pointerEvents: 'auto' }}
             >
-              <FadeMobileInfo show={showMobileInfoMessage} />
               <form onSubmit={handleSubmit} className="w-full relative z-10">
                 <CustomTextareaWrapper
                   selectedModel={selectedModel}
@@ -387,6 +422,8 @@ export default function Chat() {
                   stop={stop}
                   hasSentMessage={hasSentMessage}
                   isDesktop={false}
+                  disabled={offlineState !== 'online'}
+                  offlineState={offlineState}
                 />
               </form>
               {(hasSentMessage) && (
@@ -417,6 +454,8 @@ export default function Chat() {
                   stop={stop}
                   hasSentMessage={hasSentMessage}
                   isDesktop={true}
+                  disabled={offlineState !== 'online'}
+                  offlineState={offlineState}
                 />
               </form>
               {(hasSentMessage) && (
