@@ -220,7 +220,7 @@ export const Textarea = ({
                                 ? 'opacity-0 -translate-y-3' // Animate out upwards
                                 : 'opacity-0 -translate-y-3') // Initial animate in from upwards
                       }`}
-                      style={{ marginLeft: '12px' }} // Adjust as needed
+                      style={{ marginLeft: '12px' }}
                     >
                       <span className="truncate">
                           {activePromptText}

@@ -1,6 +1,7 @@
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
+// import { SidebarToggle } from '@/components/sidebar-toggle';
 
 export const UserChatHeader = () => {
   const [showBorder, setShowBorder] = useState(false);
@@ -33,6 +34,7 @@ export const UserChatHeader = () => {
     >
       <div className="flex justify-between items-center p-4">
         <div className="flex flex-row items-center gap-2 shrink-0 ">
+          {/* <SidebarToggle /> */}
           <span className="flex flex-row items-center gap-2 home-links">
             <span
               className={
@@ -50,7 +52,7 @@ export const UserChatHeader = () => {
           </span>
         </div>
         <div className="flex items-center gap-2 pr-2" style={{ marginTop: '-2px' }}>
-          <UserButton appearance={{ elements: { avatarBox: "w-9 h-9" } }} />
+          <UserButton appearance={{ elements: { avatarBox: "w-10 h-10" } }} />
         </div>
       </div>
     </div>

@@ -180,6 +180,13 @@ function UnifiedProfileForm({ defaultUsername, defaultDob, onSubmit, loading }: 
   );
 }
 
+/**
+ * WIP: We want to check, if the user has lost connection when filling their details.
+ * If true, we want to notify them and try to reconnect them.
+ * If the user is still offline, we tell them to connect and refresh the page if we have reached timeout.
+ * ELSE, just permanently show this sonner toast, "You have gone offline."
+ */
+
 export default function AboutYouPage() {
   const router = useRouter();
   const { isLoaded: clerkLoaded, isSignedIn } = useUser();
@@ -203,7 +210,25 @@ export default function AboutYouPage() {
       setUser(JSON.parse(data));
       setDbLoaded(true);
     } else {
-      router.replace("/sign-up");
+      // Try to check if user has an account (pseudo-logic, replace with real API if available)
+      const email = window.localStorage.getItem("pendingUserEmail");
+      if (email) {
+        // If you have an API to check if user exists, use it here
+        fetch(`/api/users?email=${encodeURIComponent(email)}`)
+          .then(res => res.json())
+          .then(result => {
+            if (result.exists) {
+              router.replace("/sign-in");
+            } else {
+              router.replace("/sign-up");
+            }
+          })
+          .catch(() => {
+            router.replace("/sign-up");
+          });
+      } else {
+        router.replace("/sign-up");
+      }
     }
   }, [clerkLoaded, isSignedIn, router]);
 

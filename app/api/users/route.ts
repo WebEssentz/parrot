@@ -3,16 +3,22 @@ import { user as userTable } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 
-// GET /api/users?username=...
+// GET /api/users?username=... or /api/users?email=...
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const username = searchParams.get("username");
-  if (!username) {
-    return NextResponse.json({ error: "Username is required." }, { status: 400 });
+  const email = searchParams.get("email");
+  if (username) {
+    // Check if username exists
+    const existing = await db.select().from(userTable).where(eq(userTable.username, username));
+    return NextResponse.json({ exists: existing.length > 0 });
+  } else if (email) {
+    // Check if email exists
+    const existingEmail = await db.select().from(userTable).where(eq(userTable.email, email));
+    return NextResponse.json({ exists: existingEmail.length > 0 });
+  } else {
+    return NextResponse.json({ error: "Username or email is required." }, { status: 400 });
   }
-  // Check if username exists
-  const existing = await db.select().from(userTable).where(eq(userTable.username, username));
-  return NextResponse.json({ exists: existing.length > 0 });
 }
 
 export async function POST(req: NextRequest) {

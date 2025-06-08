@@ -12,7 +12,6 @@ import { useUser } from "@clerk/nextjs";
 import { Messages } from "./messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 import { UserChatHeader } from "./user-chat-header";
 
 // GreetingBanner component for personalized greeting
@@ -20,10 +19,10 @@ function GreetingBanner() {
   const { user, isLoaded } = useUser();
   let displayName = "dear";
   if (isLoaded && user) {
-    if (user.lastName && user.lastName.trim().length > 0) {
-      displayName = user.lastName;
-    } else if (user.firstName && user.firstName.trim().length > 0) {
+    if (user.firstName && user.firstName.trim().length > 0) {
       displayName = user.firstName;
+    } else if (user.lastName && user.lastName.trim().length > 0) {
+      displayName = user.lastName;
     } else if (user.username && user.username.trim().length > 0) {
       displayName = user.username;
     }
@@ -530,13 +529,13 @@ export default function UserChat() {
     return (
       <div className="flex flex-col items-center justify-center h-dvh w-full">
         <div className="text-lg text-zinc-600 dark:text-zinc-300 mb-4">You are offline.</div>
-        <div className="text-sm text-zinc-500 dark:text-zinc-400">Reconnect to continue using Avurna chat.</div>
+        <div className="text-sm text-zinc-500 dark:text-zinc-400">Reconnect to continue using Avurna</div>
       </div>
     );
   }
 
   return (
-    <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
+    <div className="relative flex flex-1 flex-col overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
       <UserChatHeader />
 
       <div

@@ -494,6 +494,7 @@ hljs.registerLanguage('xml', xml);
 // Then we pass those values here, But now we group into two, light and dark themes. 
 // So users will have a set of themes to choose from in both light and dark mode
 // This we would use to update the header, adding themes to the header.
+
 const THEMES = [
   { name: "One Dark", value: oneDark },
   { name: "Dracula", value: dracula },
@@ -586,80 +587,202 @@ export function CodeBlock({
   const CustomKebabIcon = (
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="size-4"><path d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
   );
+   
 
-  /**
-   * WIP: We have to update this detected language with the new added languages and their language extension
-   * TODO: Update the system training to 
-   */
   // Map detected language to file extension
-  const LANGUAGE_EXTENSIONS: Record<string, string> = {
-    javascript: "js",
-    typescript: "ts",
-    python: "py",
-    bash: "sh",
-    json: "json",
-    xml: "xml",
-    css: "css",
-    markdown: "md",
-    java: "java",
-    go: "go",
-    c: "c",
-    cpp: "cpp",
-    ruby: "rb",
-    php: "php",
-    sql: "sql",
-    text: "txt",
+  const LANGUAGE_EXTENSIONS: Record<string, string[]> = {
+    javascript: ["js", "mjs", "cjs"],
+    typescript: ["ts", "tsx"],
+    python: ["py", "pyw"],
+    bash: ["sh"],
+    json: ["json"],
+    xml: ["xml", "xsd", "xsl", "xslt"],
+    css: ["css"],
+    markdown: ["md", "markdown"],
+    java: ["java"],
+    go: ["go"],
+    c: ["c", "h"],
+    cpp: ["cpp", "hpp", "h", "cc", "cxx"],
+    ruby: ["rb"],
+    php: ["php"],
+    sql: ["sql", "pgsql"],
+    text: ["txt"],
+    abnf: ["abnf"],
+    accesslog: ["log"],
+    actionscript: ["as"],
+    ada: ["ada", "adb"],
+    angelscript: ["as"],
+    apache: ["conf"],
+    applescript: ["applescript", "scpt"],
+    arcade: ["arcade"],
+    arduino: ["ino"],
+    armasm: ["s"],
+    asciidoc: ["adoc", "asciidoc"],
+    aspectj: ["aj"],
+    autohotkey: ["ahk"],
+    autoit: ["au3"],
+    avrasm: ["asm"],
+    awk: ["awk"],
+    axapta: ["xpp"],
+    basic: ["bas"],
+    bnf: ["bnf"],
+    brainfuck: ["b", "bf"],
+    cal: ["cal"],
+    ceylon: ["ceylon"],
+    clean: ["icl", "dcl"],
+    clojure: ["clj", "cljs", "cljc"],
+    cmake: ["cmake", "CMakeLists.txt"],
+    coffeescript: ["coffee"],
+    coq: ["v"],
+    cos: ["cls"],
+    crmsh: ["crm"],
+    crystal: ["cr"],
+    csharp: ["cs"],
+    csp: [],
+    d: ["d"],
+    dart: ["dart"],
+    delphi: ["pas", "dpr"],
+    diff: ["diff", "patch"],
+    django: ["py", "html"],
+    dns: ["zone", "db"],
+    dockerfile: ["Dockerfile"],
+    dos: ["bat", "cmd"],
+    dsconfig: ["dsconfig"],
+    dts: ["dts", "dtsi"],
+    dust: ["dust"],
+    ebnf: ["ebnf"],
+    elixir: ["ex", "exs"],
+    elm: ["elm"],
+    erb: ["erb"],
+    erlang: ["erl", "hrl"],
+    excel: ["xls", "xlsx", "xlsm"],
+    fix: ["fix"],
+    flix: ["flix"],
+    fortran: ["f", "for", "f90", "f95"],
+    fsharp: ["fs", "fsi", "fsx"],
+    gams: ["gms"],
+    gauss: ["gss"],
+    gcode: ["gcode", "nc"],
+    gherkin: ["feature"],
+    glsl: ["glsl", "vert", "frag"],
+    gml: ["gml"],
+    golo: ["golo"],
+    gradle: ["gradle", "gradle.kts"],
+    graphql: ["graphql", "gql"],
+    groovy: ["groovy"],
+    haml: ["haml"],
+    handlebars: ["hbs", "handlebars"],
+    haskell: ["hs", "lhs"],
+    haxe: ["hx"],
+    hsp: ["hsp"],
+    http: ["http"],
+    hy: ["hy"],
+    inform7: ["ni", "i7x"],
+    ini: ["ini"],
+    irpf90: ["f90"],
+    isbl: ["isbl"],
+    julia: ["jl"],
+    kotlin: ["kt", "kts"],
+    lasso: ["lasso"],
+    latex: ["tex"],
+    ldif: ["ldif"],
+    leaf: ["leaf"],
+    less: ["less"],
+    lisp: ["lisp", "lsp"],
+    livecodeserver: [],
+    livescript: ["ls"],
+    llvm: ["ll"],
+    lsl: ["lsl"],
+    lua: ["lua"],
+    makefile: ["Makefile", "makefile", "mk"],
+    mathematica: ["nb", "m"],
+    matlab: ["m"],
+    maxima: ["mac"],
+    mel: ["mel"],
+    mercury: ["m", "moo"],
+    mipsasm: ["s", "asm"],
+    mizar: ["miz"],
+    perl: ["pl", "pm"],
+    mojolicious: ["pl"],
+    monkey: ["monkey"],
+    moonscript: ["moon"],
+    n1ql: ["n1ql"],
+    nestedtext: ["nt"],
+    nginx: ["conf"],
+    nim: ["nim"],
+    nix: ["nix"],
+    nsis: ["nsi", "nsh"],
+    objectivec: ["m", "mm", "h"],
+    ocaml: ["ml", "mli"],
+    openscad: ["scad"],
+    oxygene: ["oxygene"],
+    parser3: ["p"],
+    pf: ["conf"],
+    pgsql: ["sql", "pgsql"],
+    plaintext: ["txt"],
+    pony: ["pony"],
+    powershell: ["ps1"],
+    processing: ["pde"],
+    profile: ["conf"],
+    prolog: ["pl", "pro"],
+    properties: ["properties"],
+    protobuf: ["proto"],
+    puppet: ["pp"],
+    purebasic: ["pb", "pbi"],
+    q: ["q"],
+    qml: ["qml"],
+    r: ["r"],
+    reasonml: ["re", "rei"],
+    rib: ["rib"],
+    roboconf: ["graph", "instances"],
+    routeros: ["rsc"],
+    rsl: ["rsl"],
+    ruleslanguage: ["rules"],
+    rust: ["rs"],
+    sas: ["sas"],
+    scala: ["scala", "sc"],
+    scheme: ["scm", "ss"],
+    scilab: ["sci", "sce"],
+    scss: ["scss"],
+    shell: ["sh", "bash"],
+    smali: ["smali"],
+    smalltalk: ["st"],
+    sml: ["sml", "sig"],
+    sqf: ["sqf"],
+    stan: ["stan"],
+    stata: ["do", "ado"],
+    step21: ["stp", "step"],
+    stylus: ["styl"],
+    subunit: [],
+    swift: ["swift"],
+    taggerscript: ["tag"],
+    yaml: ["yaml", "yml"],
+    tap: ["t"],
+    tcl: ["tcl"],
+    thrift: ["thrift"],
+    tp: [],
+    twig: ["twig"],
+    vala: ["vala"],
+    vbnet: ["vb"],
+    vbscript: ["vbs"],
+    verilog: ["v", "sv"],
+    vhdl: ["vhd", "vhdl"],
+    vim: ["vim"],
+    wasm: ["wasm"],
+    wren: ["wren"],
+    x86asm: ["asm"],
+    xl: ["xl"],
+    xquery: ["xq", "xquery"],
+    zephir: ["zep"],
   };
 
   // Download code as file
   const handleDownload = () => {
     const blob = new Blob([codeString], { type: "text/plain" });
-    const ext = LANGUAGE_EXTENSIONS[detectedLanguage] || detectedLanguage || "txt";
-    // WIP THE FILENAME SHOULD REFLECT AVURNA IN ITS NAME AS LIKE WATERMARK
-    /* UPDATE SYSTEM PROMPTS. WHENEVER AVURNA IS WRITING CODE, SHE SHOULD ALWAYS ADD THINGS LIKE THIS. BUT INSTEAD IT SHOULD REFLECT A KIND OF WATERMARK TRADEMARK SHOWING THAT IT WAS GENERATED BY AVURNA AND IS AI GENERATED, LIKE A DISCLAIMER.
-    SOMETHING LIKE THIS: 
-    /**
-     * @license
-     * Copyright 2025 Google LLC
-     * SPDX-License-Identifier: Apache-2.0
-     */
-
-    /**
-     * WIP: Update system prompts. Avurna when writing code explainations in different languages should add detailed explaination and examples for example:
-     * /**
-     * Lets your component expose a DOM node to a parent component
-     * using a ref.
-     *
-     * @see {@link https://react.dev/reference/react/forwardRef React Docs}
-     * @see {@link https://react-typescript-cheatsheet.netlify.app/docs/basic/getting-started/forward_and_create_ref/ React TypeScript Cheatsheet}
-     *
-     * @param render See the {@link ForwardRefRenderFunction}.
-     *
-     * @template T The type of the DOM node.
-     * @template P The props the component accepts, if any.
-     * AND  
-     * * @param params - The parameters for generating content with streaming response.
-         * @return The response from generating content.
-         *
-         * @example
-         * ```ts
-         * const response = await ai.models.generateContentStream({
-         *   model: 'gemini-2.0-flash',
-         *   contents: 'why is the sky blue?',
-         *   config: {
-         *     maxOutputTokens: 200,
-         *   }
-         * });
-         * for await (const chunk of response) {
-         *   console.log(chunk);
-         * }
-         * ```
-         * SHE SHOULD ADD HUMAN LIKE COMMENTS LIKE THAT.
-     */
-
-    // WIP: "const filename = `code-block.${ext}`;" The file name should show avurna's name on it.
-    // For branding and Trademark.
-    const filename = `code-block.${ext}`;
+    const exts = LANGUAGE_EXTENSIONS[detectedLanguage] || [detectedLanguage] || ["txt"];
+    const ext = Array.isArray(exts) ? exts[0] : "txt";
+    // Use Avurna watermark in filename for branding
+    const filename = `avurna-ai-codeblock.${ext}`;
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;

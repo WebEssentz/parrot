@@ -7,11 +7,6 @@ import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   ClerkProvider,
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
 } from '@clerk/nextjs'
 
 const geistSans = Geist({
@@ -46,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/favicon-chat-sdk.dev.ico" type="image/x-icon" />
+        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#18181b" />
       </head>
@@ -56,7 +51,9 @@ export default function RootLayout({
         <ClerkProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <TooltipProvider delayDuration={0}>
-              {children}
+              <main>
+                {children}
+              </main>
               <Toaster />
             </TooltipProvider>
           </ThemeProvider>
@@ -65,3 +62,4 @@ export default function RootLayout({
     </html>
   );
 }
+

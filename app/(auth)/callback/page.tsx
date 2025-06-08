@@ -6,7 +6,6 @@ import { useSignUp, useUser } from "@clerk/nextjs";
 import { SpinnerIcon } from "../../../components/icons";
 import { toast } from "sonner";
 
-
 export default function CallbackPage() {
   const router = useRouter();
   const { isLoaded: isSignUpLoaded, signUp } = useSignUp();
@@ -17,6 +16,53 @@ export default function CallbackPage() {
   const [networkError, setNetworkError] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
+  // Protect '/callback' route and handle onboarding logic
+  useEffect(() => {
+    // 1. Check if redirected from /sign-in or /sign-up (via query param or referrer)
+    const urlParams = new URLSearchParams(window.location.search);
+    const from = urlParams.get("from");
+    if (from === "sign-in" || from === "sign-up") {
+      // Allow, continue normal process
+      return;
+    }
+    // 2. Check for pendingUser in localStorage
+    const pendingUser = localStorage.getItem("pendingUser");
+    if (pendingUser) {
+      // Allow, continue normal process
+      return;
+    }
+    // 3. Try to get email from localStorage or user (if loaded)
+    let email = "";
+    try {
+      const pendingUserObj = pendingUser ? JSON.parse(pendingUser) : null;
+      if (pendingUserObj && pendingUserObj.email) {
+        email = pendingUserObj.email;
+      }
+    } catch {}
+    if (!email && user && user.emailAddresses?.[0]?.emailAddress) {
+      email = user.emailAddresses[0].emailAddress;
+    }
+    if (email) {
+      // Check if user exists in DB
+      fetch(`/api/users?email=${encodeURIComponent(email)}`)
+        .then(res => res.json())
+        .then(result => {
+          if (result.exists) {
+            router.replace("/sign-in");
+          } else {
+            router.replace("/sign-up");
+          }
+        })
+        .catch(() => {
+          router.replace("/");
+        });
+    } else {
+      // No email, send to homepage
+      router.replace("/");
+    }
+    // Block further processing
+  }, [user, router]);
+
   useEffect(() => {
     // Cleanup retry timeout on unmount
     return () => {
@@ -24,37 +70,14 @@ export default function CallbackPage() {
     };
   }, []);
 
+  // Onboarding and sign-in logic (uses created/updated)
   useEffect(() => {
     async function handleCallback() {
-      console.log('[CallbackPage] useEffect fired', { isSignUpLoaded, isUserLoaded, user });
-      if (!isSignUpLoaded || !isUserLoaded) {
-        console.log('[CallbackPage] Clerk not loaded', { isSignUpLoaded, isUserLoaded });
-        return;
-      }
-      if (!user) {
-        console.log('[CallbackPage] User missing', { user });
-        return;
-      }
-
-      if (!user.createdAt || !user.updatedAt) {
-        console.log('[CallbackPage] Missing createdAt or updatedAt', { createdAt: user.createdAt, updatedAt: user.updatedAt });
-        return;
-      }
-
+      if (!isSignUpLoaded || !isUserLoaded) return;
+      if (!user) return;
+      if (!user.createdAt || !user.updatedAt) return;
       const created = new Date(user.createdAt).getTime();
       const updated = new Date(user.updatedAt).getTime();
-
-      /**
-       * WIP: It is possible that the user may try to signup and already exist on the db.
-       * We want to push them to sign in page alerting them, that this user already exist, sign in instead.
-       * Else we want to continue with the signup.
-       * 
-       * WIP2: So we want to check if the user is redirected from the signin page, and if they do not have an account already in our db.
-       * If they do not have an account, we push them to the signup page, telling them this user doesn't exist, sign up to continue.
-       * ELSE WE SIGN THEM IN AND PUSH THE TO THIS ROUTE /
-      */
-
-
       // 1. If not a new user, treat as sign-in: send to home page
       if (Math.abs(created - updated) > 2000) {
         toast("Welcome back!", {
@@ -64,7 +87,6 @@ export default function CallbackPage() {
         router.replace("/");
         return;
       }
-
       // 2. Store basic user info in localStorage for onboarding
       const userData = {
         id: user.id,
@@ -74,19 +96,14 @@ export default function CallbackPage() {
         imageUrl: user.imageUrl || "",
         username: user.username || "",
       };
-
       try {
         localStorage.setItem("pendingUser", JSON.stringify(userData));
         setNetworkError(false);
         setIsRedirecting(true);
-        console.log('[CallbackPage] pendingUser set in localStorage', userData);
-        // Redirect to onboarding
         router.replace("/about-you");
-        console.log('[CallbackPage] router.replace to /about-you called');
       } catch (e) {
         setNetworkError(true);
         setIsRedirecting(false);
-        console.error('[CallbackPage] Failed to set localStorage', e);
         if (retryCount < maxRetries) {
           toast("Network error", {
             description: `Retrying... (${retryCount + 1}/${maxRetries})`,
@@ -104,7 +121,6 @@ export default function CallbackPage() {
       }
     }
     handleCallback();
-    // Only rerun on user, isSignUpLoaded, isUserLoaded, retryCount
   }, [isSignUpLoaded, isUserLoaded, user, router, retryCount]);
 
   return (
@@ -123,7 +139,7 @@ export default function CallbackPage() {
           </span>
         </div>
         <div className="w-full flex justify-start">
-          <span className="text-base text-zinc-600 dark:text-zinc-200 pl-44">
+          <span className="text-base text-zinc-600 dark:text-zinc-200 pl-38">
             {networkError && retryCount >= maxRetries
               ? `Failed after ${maxRetries} attempts. Please check your connection and try again.`
               : networkError

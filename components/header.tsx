@@ -17,7 +17,7 @@ export const Header = () => {
   //     const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
   //     document.documentElement.style.setProperty('--Avurna-header-color', isDark ? '#bdbdbd' : '#5d5d5d');
   //   };
-  //   setAvurnaHeaderColor();
+//   setAvurnaHeaderColor();
   //   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAvurnaHeaderColor);
   //   const observer = new MutationObserver(setAvurnaHeaderColor);
   //   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
