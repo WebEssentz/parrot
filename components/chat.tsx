@@ -50,8 +50,26 @@ function FadeMobileInfo({ show, minHeight }: { show: boolean; minHeight?: number
 
 
 
-// Robust title generation: only set title if backend says message is clear
+// Only call title generation if the message is not vague/unsupported
+function isVagueOrUnsupportedMessage(msg: string) {
+  if (!msg || typeof msg !== 'string') return true;
+  const trimmed = msg.trim();
+  if (trimmed.length < 2) return true;
+  const vagueExact = [
+    'hi', 'hello', 'hey', 'yo', 'sup', 'start', 'begin', 'new chat', 'test', 'ok', 'okay', 'help', 'continue', 'again', 'repeat', 'next', 'more', 'info', 'details', 'expand', 'elaborate', 'explain', 'yes', 'no', 'maybe', 'sure', 'thanks', 'thank you', 'cool', 'nice', 'good', 'great', 'awesome', 'wow', 'hmm', 'huh', 'pls', 'please'
+  ];
+  if (vagueExact.includes(trimmed.toLowerCase())) return true;
+  if (/^\s*$/.test(trimmed) || /^([?.!\s]+)$/.test(trimmed)) return true;
+  if (trimmed.split(/\s+/).length === 1 && !trimmed.endsWith('?')) return true;
+  return false;
+}
+
 async function generateAndSetTitle(firstUserMessageContent: string) {
+  if (isVagueOrUnsupportedMessage(firstUserMessageContent)) {
+    // Do not call the backend at all for vague/unsupported messages
+    // Optionally, could log or show a tooltip here
+    return;
+  }
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -65,10 +83,6 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
     const data = await response.json();
     if (data.title && data.title !== null) {
       document.title = data.title;
-    } else if (data.reason === 'vague') {
-      // Do not set title, wait for a clearer message
-      // Optionally, could show a tooltip or log
-      // console.log('Waiting for a clearer message to generate chat title.');
     }
   } catch (error) {
     console.error("Error generating title:", error);
@@ -178,10 +192,11 @@ export default function Chat() {
   useEffect(() => {
     if (messages.length === 1 && messages[0].role === 'user' && !titleGeneratedRef.current) {
       const firstUserMessageContent = messages[0].content;
-      generateAndSetTitle(firstUserMessageContent).then(() => {
-        // Only set ref if title was actually set (handled in generateAndSetTitle)
-        titleGeneratedRef.current = true;
-      });
+      if (!isVagueOrUnsupportedMessage(firstUserMessageContent)) {
+        generateAndSetTitle(firstUserMessageContent).then(() => {
+          titleGeneratedRef.current = true;
+        });
+      }
     }
     if (messages.length === 0 && titleGeneratedRef.current) {
       titleGeneratedRef.current = false;
@@ -189,8 +204,8 @@ export default function Chat() {
     }
     // If user sends a second message and title hasn't been set, try again
     if (messages.length > 1 && !titleGeneratedRef.current) {
-      // Find the most recent user message that is not vague
-      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+      // Find the most recent user message that is not vague/unsupported
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user' && !isVagueOrUnsupportedMessage(m.content));
       if (lastUserMsg) {
         generateAndSetTitle(lastUserMsg.content).then(() => {
           titleGeneratedRef.current = true;

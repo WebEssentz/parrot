@@ -27,7 +27,7 @@ export const UserChatHeader = () => {
   return (
     <div
       className={
-        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#1f2023] z-50 transition-all duration-200 ` +
+        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#1e1e1e] z-50 transition-all duration-200 ` +
         (showBorder ? " border-b border-zinc-200 dark:border-zinc-800" : " border-b-transparent")
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
@@ -72,7 +72,7 @@ export const UserChatHeader = () => {
                 baseTheme: resolvedTheme === 'dark' ? dark : undefined,
                 elements: {
                   card: {
-                    backgroundColor: resolvedTheme === 'dark' ? '#1F2023' : '#FFFFFF',
+                    backgroundColor: resolvedTheme === 'dark' ? '#1e1e1e' : '#FFFFFF',
                     border: `1px solid ${resolvedTheme === 'dark' ? '#3f3f46' : '#e5e5e5'}`,
                     boxShadow: 'none',
                     width: '100%',
