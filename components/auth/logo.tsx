@@ -13,7 +13,7 @@ export const BrandLogo = () => {
     >
       <div className="relative w-6 h-6 sm:w-8 sm:h-8">
         <img
-          src="/favicon-chat-sdk.dev.ico"
+          src="/favicon.ico"
           alt="Avurna Logo"
           className="w-full h-full rounded"
           style={{ display: 'block' }}
