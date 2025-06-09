@@ -21,7 +21,7 @@ export async function createOrUpdateUser(clerkUser: any) {
     firstName: clerkUser.first_name || '',
     lastName: clerkUser.last_name || '',
     profilePic: clerkUser.image_url || '',
-    username: '', // Not set yet
+    username: clerkUser.username || null, // Use null if not set
     birthday: '', // Not set yet
   }).returning();
   return newUser[0];

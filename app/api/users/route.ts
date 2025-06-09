@@ -26,15 +26,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log("[API DEBUG] Received body:", body);
 
-    if (!body.email || !body.username) {
+    if (!body.email) {
       console.log("[API DEBUG] Missing required fields");
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
-    const existing = await db.select().from(userTable).where(eq(userTable.username, body.username));
-    if (existing.length > 0) {
-      console.log("[API DEBUG] Username already exists");
-      return NextResponse.json({ error: "Username already exists." }, { status: 409 });
+    // Only check username uniqueness if provided
+    if (body.username) {
+      const existing = await db.select().from(userTable).where(eq(userTable.username, body.username));
+      if (existing.length > 0) {
+        console.log("[API DEBUG] Username already exists");
+        return NextResponse.json({ error: "Username already exists." }, { status: 409 });
+      }
     }
     const existingEmail = await db.select().from(userTable).where(eq(userTable.email, body.email));
     if (existingEmail.length > 0) {
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest) {
     // Log what you are about to insert
     const insertObj = {
       email: body.email,
-      username: body.username,
+      username: body.username || null,
       firstName: body.firstname || "",
       lastName: body.lastname || "",
       profilePic: body.profilePic || null,

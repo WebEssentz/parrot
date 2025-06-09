@@ -14,7 +14,7 @@ import {
 export const user = pgTable('User', {
   id: uuid('id').primaryKey().notNull().defaultRandom(), // CORRECTED: uuid
   email: varchar('email', { length: 64 }).notNull().unique(),
-  username: varchar('username', { length: 255 }).notNull().unique(),
+  username: varchar('username', { length: 255 }).unique(), // Now nullable
   firstName: varchar('first_name', { length: 255 }).default(''),
   lastName: varchar('last_name', { length: 255 }).default(''),
   profilePic: varchar('profile_pic', { length: 255 }),
