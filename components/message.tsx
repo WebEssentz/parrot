@@ -1,5 +1,7 @@
+
 "use client";
 
+import React from "react";
 import { Modal } from "./ui/modal";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
@@ -26,6 +28,8 @@ import {
 } from "lucide-react";
 import { StreamingTextRenderer } from "./streaming-text-renderer";
 
+import { ImageSlider } from "@/components/ui/image-slider";
+import styles from "@/components/ui/image-slider.module.css"; // Import the css module for the clearfix class
 
 // TODO, WIP: EXPORT ALL THIS HARDCODED ICONS DEFINED HERE TO THE ICONS.TSX FILE AND IMPORT BACK.
 // Copy icon SVG as a React component
@@ -257,6 +261,20 @@ const PurePreviewMessage = ({
   const sources = extractSourcesFromText(allText);
   const [showSources, setShowSources] = useState(false);
   const isAssistant = message.role === "assistant";
+  // --- ImageSlider integration: find images from tool result (fetchUrlTool)
+  let images: { src: string; alt?: string }[] = [];
+  for (const part of message.parts || []) {
+    if (part.type === "tool-invocation" && (part.toolInvocation as any)?.result) {
+      const result = (part.toolInvocation as any).result;
+      if (result && Array.isArray(result.images) && result.images.length > 0) {
+        images = result.images;
+        break;
+      }
+    }
+  }
+
+  // Find the index of the FIRST text part. This is crucial for placing the slider correctly.
+  const firstTextPartIndex = message.parts?.findIndex(p => p.type === 'text') ?? -1;
   const isMobileOrTablet = useIsMobileOrTablet();
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -398,6 +416,8 @@ const PurePreviewMessage = ({
         key={`message-${message.id}`}
         data-role={message.role}
       >
+
+
         {/* Sources Button */}
         {isAssistant && sources.length > 0 && (
           <div className="flex justify-end mb-1">
@@ -467,29 +487,44 @@ const PurePreviewMessage = ({
                 marginTop: isMobileOrTablet ? 32 : undefined
               }}
             >
-              <div className={isMobileOrTablet ? "flex flex-col space-y-4" : "flex flex-col space-y-4 w-fit"} style={{ alignItems: 'flex-start' }}>
+              <div 
+                className={cn(
+                  // On desktop, use flexbox as before
+                  !isMobileOrTablet && "flex flex-col space-y-4 w-fit",
+                  // On mobile, become a standard block container with clearfix to enable float wrapping
+                  isMobileOrTablet && styles.clearfix
+                )} 
+                style={{ alignItems: !isMobileOrTablet ? 'flex-start' : undefined }}
+              >
                 {message.parts?.map((part, i) => {
                   switch (part.type) {
-                    case "text":
+                    case "text": {
                       const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
                       const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
+                      const isFirstTextPart = i === firstTextPartIndex;
+                      const shouldRenderSlider = isAssistant && images.length > 0 && isFirstTextPart;
 
                       return (
-                        <motion.div
-                          initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }}
-                          animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }}
-                          transition={{ duration: 0.2 }}
-                          key={`message-${message.id}-part-${i}`}
-                          className="flex flex-row items-start w-full pb-4"
-                        >
-                          <div
-                            className="flex flex-col gap-4"
-                            style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
+                        <React.Fragment key={`message-${message.id}-part-${i}`}>
+                          {shouldRenderSlider && (
+                            <ImageSlider images={images} />
+                          )}
+                          <motion.div
+                            initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }}
+                            animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex flex-row items-start w-full pb-4"
                           >
-                            <Markdown>{part.text}</Markdown>
-                          </div>
-                        </motion.div>
+                            <div
+                              className="flex flex-col gap-4"
+                              style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
+                            >
+                              <Markdown>{part.text}</Markdown>
+                            </div>
+                          </motion.div>
+                        </React.Fragment>
                       );
+                    }
                     case "tool-invocation": {
                       const shouldFadeOut = part.toolInvocation && part.toolInvocation.state === "result";
                       if (shouldFadeOut) {

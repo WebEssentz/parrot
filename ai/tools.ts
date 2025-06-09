@@ -225,7 +225,7 @@ export const weatherTool = tool({
 
 export const fetchUrlTool = tool({
   description:
-    "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries. Now supports Agent X for dynamic site interaction (Amazon, YouTube, more). Now supports recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking).",
+    "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries. Now supports Agent X for dynamic site interaction (Amazon, YouTube, more). Now supports recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking). Now supports extracting and rendering images and videos embedded in HTML pages.",
   parameters: z.object({
     url: z.string().describe("The URL to fetch and analyze"),
     referer: z.string().optional().describe("The referring page, for multi-step navigation"),
@@ -326,6 +326,11 @@ export const fetchUrlTool = tool({
         // --- Process HTML ---
         steps.push('Step 2: Processing HTML content.');
         const html = await res.text();
+        // Extract images and videos from HTML
+        const images = extractImagesFromHtml(html, url);
+        const videos = extractVideosFromHtml(html, url);
+        // Render all images as Markdown previews (batch)
+        const imagesMarkdown = renderImagesAsMarkdown(images);
         const metaDescription = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
         const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
         const ogDescription = (html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
@@ -434,6 +439,9 @@ export const fetchUrlTool = tool({
           suggestedLinks,
           articleLinks,
           language, // Add detected language code (e.g., 'eng', 'spa', 'und')
+          images, // Embedded images extracted from HTML
+          imagesMarkdown, // Markdown batch preview of all images
+          videos, // Embedded videos extracted from HTML
           steps,
           elapsed: Date.now() - startTime
         };
@@ -517,3 +525,56 @@ export const googleSearchTool = tool({
     }
   },
 });
+
+// --- New Utilities: Extract Images and Videos from HTML ---
+function extractImagesFromHtml(html: string, baseUrl: string): { src: string, alt: string }[] {
+  const imgTagRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*?(?:alt=["']([^"']*)["'])?[^>]*>/gi;
+  const images: { src: string, alt: string }[] = [];
+  let match;
+  while ((match = imgTagRegex.exec(html)) !== null) {
+    let src = match[1] || '';
+    let alt = match[2] || '';
+    try {
+      src = new URL(src, baseUrl).toString();
+      images.push({ src, alt });
+    } catch {}
+  }
+  return images;
+}
+
+// Utility: Render images as Markdown previews (batch)
+function renderImagesAsMarkdown(images: { src: string, alt: string }[]): string {
+  if (!images.length) return '';
+  return images.map((img, i) => {
+    const alt = img.alt?.trim() || `Image ${i + 1}`;
+    return `![${alt}](${img.src})`;
+  }).join('\n\n');
+}
+
+function extractVideosFromHtml(html: string, baseUrl: string): { src: string, poster?: string, alt?: string }[] {
+  const videoTagRegex = /<video[^>]*?(?:poster=["']([^"']*)["'])?[^>]*>([\s\S]*?)<\/video>/gi;
+  const sourceTagRegex = /<source[^>]*src=["']([^"']+)["'][^>]*>/gi;
+  const videos: { src: string, poster?: string, alt?: string }[] = [];
+  let match;
+  while ((match = videoTagRegex.exec(html)) !== null) {
+    const poster = match[1];
+    const videoInner = match[2];
+    // Search for <source> tags inside <video>
+    let src = '';
+    let sourceMatch;
+    if ((sourceMatch = sourceTagRegex.exec(videoInner)) !== null) {
+      src = sourceMatch[1];
+    } else {
+      // Fallback: try <video src="...">
+      const videoSrcMatch = /src=["']([^"']+)["']/.exec(match[0]);
+      if (videoSrcMatch) src = videoSrcMatch[1];
+    }
+    if (src) {
+      try {
+        src = new URL(src, baseUrl).toString();
+        videos.push({ src, poster, alt: poster });
+      } catch {}
+    }
+  }
+  return videos;
+}

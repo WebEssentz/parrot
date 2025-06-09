@@ -115,11 +115,17 @@ const components: Partial<Components> = {
       {children}
     </span>
   ),
+
   a: ({ node, children, ...props }) => (
     // @ts-expect-error
     <Link className="text-blue-600 hover:underline dark:text-blue-400" target="_blank" rel="noreferrer" {...props}>
       {children}
     </Link>
+  ),
+
+  // --- Video tag support for markdown rendering ---
+  video: ({ node, ...props }) => (
+    <video controls style={{ maxWidth: "100%" }} {...props} />
   ),
 
   h1: ({ node, children, ...props }) => {
