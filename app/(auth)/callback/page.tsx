@@ -25,21 +25,9 @@ export default function CallbackPage() {
       // Allow, continue normal process
       return;
     }
-    // 2. Check for pendingUser in localStorage
-    const pendingUser = localStorage.getItem("pendingUser");
-    if (pendingUser) {
-      // Allow, continue normal process
-      return;
-    }
-    // 3. Try to get email from localStorage or user (if loaded)
+    // 2. Try to get email from user (if loaded)
     let email = "";
-    try {
-      const pendingUserObj = pendingUser ? JSON.parse(pendingUser) : null;
-      if (pendingUserObj && pendingUserObj.email) {
-        email = pendingUserObj.email;
-      }
-    } catch {}
-    if (!email && user && user.emailAddresses?.[0]?.emailAddress) {
+    if (user && user.emailAddresses?.[0]?.emailAddress) {
       email = user.emailAddresses[0].emailAddress;
     }
     if (email) {
@@ -84,23 +72,15 @@ export default function CallbackPage() {
           description: "You are being signed in...",
           duration: 3500,
         });
+        setIsRedirecting(true);
         router.replace("/");
         return;
       }
-      // 2. Store basic user info in localStorage for onboarding
-      const userData = {
-        id: user.id,
-        email: user.emailAddresses?.[0]?.emailAddress || "",
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        imageUrl: user.imageUrl || "",
-        username: user.username || "",
-      };
+      // 2. Network error handling for onboarding logic (no localStorage)
       try {
-        localStorage.setItem("pendingUser", JSON.stringify(userData));
         setNetworkError(false);
         setIsRedirecting(true);
-        router.replace("/about-you");
+        router.replace("/sign-up");
       } catch (e) {
         setNetworkError(true);
         setIsRedirecting(false);
