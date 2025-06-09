@@ -16,40 +16,13 @@ export default function CallbackPage() {
   const [networkError, setNetworkError] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Protect '/callback' route and handle onboarding logic
+  // After sign-in or sign-up, always redirect to home (or dashboard if you want)
   useEffect(() => {
-    // 1. Check if redirected from /sign-in or /sign-up (via query param or referrer)
-    const urlParams = new URLSearchParams(window.location.search);
-    const from = urlParams.get("from");
-    if (from === "sign-in" || from === "sign-up") {
-      // Allow, continue normal process
-      return;
+    // If Clerk user is loaded, redirect to home
+    if (user && isUserLoaded) {
+      router.replace("/"); // or "/dashboard" if you want
     }
-    // 2. Try to get email from user (if loaded)
-    let email = "";
-    if (user && user.emailAddresses?.[0]?.emailAddress) {
-      email = user.emailAddresses[0].emailAddress;
-    }
-    if (email) {
-      // Check if user exists in DB
-      fetch(`/api/users?email=${encodeURIComponent(email)}`)
-        .then(res => res.json())
-        .then(result => {
-          if (result.exists) {
-            router.replace("/sign-in");
-          } else {
-            router.replace("/sign-up");
-          }
-        })
-        .catch(() => {
-          router.replace("/");
-        });
-    } else {
-      // No email, send to homepage
-      router.replace("/");
-    }
-    // Block further processing
-  }, [user, router]);
+  }, [user, isUserLoaded, router]);
 
   useEffect(() => {
     // Cleanup retry timeout on unmount
@@ -58,50 +31,17 @@ export default function CallbackPage() {
     };
   }, []);
 
-  // Onboarding and sign-in logic (uses created/updated)
+  // Onboarding and sign-in logic: just redirect to home if user is loaded
   useEffect(() => {
-    async function handleCallback() {
-      if (!isSignUpLoaded || !isUserLoaded) return;
-      if (!user) return;
-      if (!user.createdAt || !user.updatedAt) return;
-      const created = new Date(user.createdAt).getTime();
-      const updated = new Date(user.updatedAt).getTime();
-      // 1. If not a new user, treat as sign-in: send to home page
-      if (Math.abs(created - updated) > 2000) {
-        toast("Welcome back!", {
-          description: "You are being signed in...",
-          duration: 3500,
-        });
-        setIsRedirecting(true);
-        router.replace("/");
-        return;
-      }
-      // 2. Network error handling for onboarding logic (no localStorage)
-      try {
-        setNetworkError(false);
-        setIsRedirecting(true);
-        router.replace("/sign-up");
-      } catch (e) {
-        setNetworkError(true);
-        setIsRedirecting(false);
-        if (retryCount < maxRetries) {
-          toast("Network error", {
-            description: `Retrying... (${retryCount + 1}/${maxRetries})`,
-            duration: 3000,
-          });
-          retryTimeout.current = setTimeout(() => {
-            setRetryCount((c) => c + 1);
-          }, 1500);
-        } else {
-          toast("Network error", {
-            description: `Failed after ${maxRetries} attempts. Please check your connection and try again.`,
-            duration: 6000,
-          });
-        }
-      }
-    }
-    handleCallback();
-  }, [isSignUpLoaded, isUserLoaded, user, router, retryCount]);
+    if (!isSignUpLoaded || !isUserLoaded) return;
+    if (!user) return;
+    setIsRedirecting(true);
+    toast("Welcome!", {
+      description: "You are being signed in...",
+      duration: 3500,
+    });
+    router.replace("/"); // or "/dashboard" if you want
+  }, [isSignUpLoaded, isUserLoaded, user, router]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full bg-white dark:bg-black">
