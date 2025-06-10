@@ -22,6 +22,8 @@ function unwrapNextImageUrl(src: string): string {
   return src;
 }
 
+const FALLBACK_IMAGE = "/globe.svg"; // You can change this to any fallback image in your public folder
+
 export const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -60,18 +62,22 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
     <>
       <div className={styles.mobileSliderWrapper}>
         <div className={styles.mobileImageContainer}>
-          {images.map((img, index) => (
-            <img
-              key={img.src + index}
-              src={unwrapNextImageUrl(img.src)}
-              alt={img.alt || `Image ${index + 1}`}
-              className={cn(
-                styles.mobileImage,
-                index === currentIndex ? styles.visible : styles.hidden
-              )}
-              loading="lazy"
-            />
-          ))}
+          {images.map((img, index) => {
+            const [src, setSrc] = useState(unwrapNextImageUrl(img.src));
+            return (
+              <img
+                key={img.src + index}
+                src={src}
+                alt={img.alt || `Image ${index + 1}`}
+                className={cn(
+                  styles.mobileImage,
+                  index === currentIndex ? styles.visible : styles.hidden
+                )}
+                loading="lazy"
+                onError={() => setSrc(FALLBACK_IMAGE)}
+              />
+            );
+          })}
           {images.length > 1 && (
             <div className={styles.dotsContainer}>
               {images.map((_, index) => (
@@ -92,20 +98,24 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
       </div>
       
       <div className={styles.imageRow}>
-        {visibleImages.map((img, i) => (
-          <button
-            key={img.src + i}
-            className={styles.imageContainer}
-            type="button"
-          >
-            <img
-              src={unwrapNextImageUrl(img.src)}
-              alt={img.alt || `Image ${i + 1}`}
-              className={styles.image}
-              loading="lazy"
-            />
-          </button>
-        ))}
+        {visibleImages.map((img, i) => {
+          const [src, setSrc] = useState(unwrapNextImageUrl(img.src));
+          return (
+            <button
+              key={img.src + i}
+              className={styles.imageContainer}
+              type="button"
+            >
+              <img
+                src={src}
+                alt={img.alt || `Image ${i + 1}`}
+                className={styles.image}
+                loading="lazy"
+                onError={() => setSrc(FALLBACK_IMAGE)}
+              />
+            </button>
+          );
+        })}
       </div>
     </>
   );
