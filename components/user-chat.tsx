@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
 
-// --- Helper Components & Hooks (No changes needed) ---
+// GreetingBanner component for personalized greeting
 function GreetingBanner() {
   const { user, isLoaded } = useUser();
   let displayName = "King";
@@ -25,8 +25,9 @@ function GreetingBanner() {
   if (hour < 12) greeting = "Good morning";
   else if (hour < 18) greeting = "Good afternoon";
   else greeting = "Good evening";
+
   return (
-    <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-[50rem]" style={{ marginTop: '-60px' }}>
+    <div className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-[50rem]">
       <div className="text-3xl sm:text-4xl font-semibold text-zinc-800 dark:text-zinc-200 text-center select-none">
         {greeting}, {displayName}
       </div>
@@ -34,6 +35,7 @@ function GreetingBanner() {
   );
 }
 
+// Robust title generation: only set title if backend says message is clear
 async function generateAndSetTitle(firstUserMessageContent: string) {
   try {
     const response = await fetch('/api/chat', {
@@ -51,6 +53,7 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
   }
 }
 
+// --- Network/Clerk reconnect logic ---
 function useReconnectToClerk() {
   const [offlineState, setOfflineState] = useState<'online' | 'reconnecting' | 'offline'>('online');
   const [hasShownReconnect, setHasShownReconnect] = useState(false);
@@ -159,11 +162,15 @@ export default function UserChat() {
         }}
       >
         {!hasSentMessage ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-[50rem]">
+          // THIS IS THE FIX:
+          // Removed `items-center` to stop vertical centering.
+          // Added `pt-[15vh]` to push the content down from the top by 15% of the viewport height.
+          // This gives a nice "above center" alignment that looks intentional.
+          <div className="flex h-full justify-center pt-[15vh]">
+            <div className="w-full px-4 flex flex-col items-center gap-8 max-w-xl lg:max-w-[50rem]">
               <GreetingBanner />
               {isDesktop && (
-                <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto mt-6">
+                <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto">
                   <CustomTextareaWrapper
                     selectedModel={selectedModel}
                     setSelectedModel={setSelectedModel}
@@ -220,16 +227,6 @@ export default function UserChat() {
             )}
           </div>
         </div>
-      )}
-      
-      {hasSentMessage && (
-         <button
-            onClick={() => window.location.reload()}
-            className="fixed bottom-5 right-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-zinc-200 shadow-lg transition-opacity hover:bg-zinc-700"
-            title="New Issue"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-        </button>
       )}
     </div>
   );
