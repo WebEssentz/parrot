@@ -261,14 +261,20 @@ const PurePreviewMessage = ({
   const sources = extractSourcesFromText(allText);
   const [showSources, setShowSources] = useState(false);
   const isAssistant = message.role === "assistant";
-  // --- ImageSlider integration: find images from tool result (fetchUrlTool)
+  // --- ImageSlider & Video integration: find images/videos from tool result (fetchUrlTool)
   let images: { src: string; alt?: string }[] = [];
+  let videos: { src: string; type?: string; poster?: string }[] = [];
   for (const part of message.parts || []) {
     if (part.type === "tool-invocation" && (part.toolInvocation as any)?.result) {
       const result = (part.toolInvocation as any).result;
-      if (result && Array.isArray(result.images) && result.images.length > 0) {
-        images = result.images;
-        break;
+      if (result) {
+        if (Array.isArray(result.images) && result.images.length > 0) {
+          images = result.images;
+        }
+        if (Array.isArray(result.videos) && result.videos.length > 0) {
+          videos = result.videos;
+        }
+        if (images.length > 0 || videos.length > 0) break;
       }
     }
   }
@@ -503,11 +509,28 @@ const PurePreviewMessage = ({
                       const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
                       const isFirstTextPart = i === firstTextPartIndex;
                       const shouldRenderSlider = isAssistant && images.length > 0 && isFirstTextPart;
+                      const shouldRenderVideos = isAssistant && videos.length > 0 && isFirstTextPart;
 
                       return (
                         <React.Fragment key={`message-${message.id}-part-${i}`}>
                           {shouldRenderSlider && (
                             <ImageSlider images={images} />
+                          )}
+                          {shouldRenderVideos && (
+                            <div className="flex flex-col gap-4 my-2">
+                              {videos.map((video, idx) => (
+                                <video
+                                  key={video.src + idx}
+                                  src={video.src}
+                                  controls
+                                  style={{ maxWidth: '100%', borderRadius: 12, background: '#000' }}
+                                  poster={video.poster}
+                                >
+                                  {video.type ? <source src={video.src} type={video.type} /> : null}
+                                  Your browser does not support the video tag.
+                                </video>
+                              ))}
+                            </div>
                           )}
                           <motion.div
                             initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }}
