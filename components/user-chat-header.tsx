@@ -49,7 +49,7 @@ export const UserChatHeader = () => {
             </span>
           </span>
         </div>
-        <div className="flex items-center gap-2 pr-2" style={{ marginTop: '-2px' }}>
+        <div className="flex items-center gap-2 pr-0" style={{ marginTop: '-2px' }}>
           <UserButton
             appearance={{
               // This styles the UserButton dropdown menu

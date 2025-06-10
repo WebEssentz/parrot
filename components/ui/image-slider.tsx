@@ -11,6 +11,17 @@ export interface ImageSliderProps {
 
 const SLIDE_DURATION = 5000; // 5 seconds per slide
 
+// Helper: unwrap Next.js image proxy URLs
+function unwrapNextImageUrl(src: string): string {
+  try {
+    const url = new URL(src, window.location.origin);
+    if (url.pathname === '/_next/image' && url.searchParams.has('url')) {
+      return decodeURIComponent(url.searchParams.get('url')!);
+    }
+  } catch {}
+  return src;
+}
+
 export const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -52,7 +63,7 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
           {images.map((img, index) => (
             <img
               key={img.src + index}
-              src={img.src}
+              src={unwrapNextImageUrl(img.src)}
               alt={img.alt || `Image ${index + 1}`}
               className={cn(
                 styles.mobileImage,
@@ -88,7 +99,7 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
             type="button"
           >
             <img
-              src={img.src}
+              src={unwrapNextImageUrl(img.src)}
               alt={img.alt || `Image ${i + 1}`}
               className={styles.image}
               loading="lazy"

@@ -26,8 +26,22 @@ function GreetingBanner() {
   else if (hour < 18) greeting = "Good afternoon";
   else greeting = "Good evening";
 
+  // Responsive: Move up more on mobile (center vertically)
+  const [isMobile, setIsMobile] = React.useState(false);
+  React.useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // On mobile, use a much larger negative margin to center vertically
+  // On desktop, keep previous spacing
   return (
-    <div className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-[50rem]">
+    <div
+      className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-[50rem]"
+      style={{ marginTop: isMobile ? '-15vh' : '-20px' }}
+    >
       <div className="text-3xl sm:text-4xl font-semibold text-zinc-800 dark:text-zinc-200 text-center select-none">
         {greeting}, {displayName}
       </div>
@@ -163,10 +177,9 @@ export default function UserChat() {
       >
         {!hasSentMessage ? (
           // THIS IS THE FIX:
-          // Removed `items-center` to stop vertical centering.
-          // Added `pt-[15vh]` to push the content down from the top by 15% of the viewport height.
-          // This gives a nice "above center" alignment that looks intentional.
-          <div className="flex h-full justify-center pt-[15vh]">
+          // Mobile (default): `items-center` vertically centers the content.
+          // Desktop (`sm:`): `sm:items-start` overrides this, and `sm:pt-[20vh]` pushes it down for the "above-center" look.
+          <div className="flex h-full items-center justify-center sm:items-start sm:pt-[20vh]">
             <div className="w-full px-4 flex flex-col items-center gap-8 max-w-xl lg:max-w-[50rem]">
               <GreetingBanner />
               {isDesktop && (
@@ -199,7 +212,32 @@ export default function UserChat() {
         <ChatScrollAnchor containerRef={containerRef} />
       </main>
 
-      {(!isDesktop || hasSentMessage) && (
+      {/* The mobile input form is only rendered here, outside the main content flow */}
+      {!isDesktop && !hasSentMessage && (
+        <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
+          <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 pointer-events-auto">
+            <form onSubmit={handleSubmit} className="w-full relative z-10">
+              <CustomTextareaWrapper
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+                handleInputChange={handleInputChange}
+                setInput={setInput}
+                input={input}
+                isLoading={uiIsLoading}
+                status={status}
+                stop={stop}
+                hasSentMessage={hasSentMessage}
+                isDesktop={false}
+                disabled={offlineState !== 'online'}
+                offlineState={offlineState}
+              />
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* This input form is for when a message has been sent (on all screen sizes) */}
+      {hasSentMessage && (
         <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
           <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 pointer-events-auto">
             <form onSubmit={handleSubmit} className="w-full relative z-10">
@@ -218,13 +256,11 @@ export default function UserChat() {
                 offlineState={offlineState}
               />
             </form>
-            {hasSentMessage && (
-              <div className="text-center mt-1">
-                <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
-                  Avurna uses AI. Double check response.
-                </span>
-              </div>
-            )}
+            <div className="text-center mt-1">
+              <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
+                Avurna uses AI. Double check response.
+              </span>
+            </div>
           </div>
         </div>
       )}
