@@ -109,6 +109,26 @@ export default function UserChat() {
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
 
+  // --- Clerk user info for debugging ---
+  const { user, isLoaded } = useUser();
+  useEffect(() => {
+    if (isLoaded) {
+      // Log user info for debugging
+      // eslint-disable-next-line no-console
+      console.log('[UserChat] Clerk user:', user);
+    }
+  }, [user, isLoaded]);
+
+  // --- Compose user info for backend ---
+  const userInfo = isLoaded && user ? {
+    firstName: user.firstName || user.username || '',
+    email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || '',
+  } : undefined;
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[UserChat] userInfo sent to backend:', userInfo);
+  }, [userInfo]);
+
   const {
     messages,
     input,
@@ -120,7 +140,7 @@ export default function UserChat() {
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
-    body: { selectedModel },
+    body: { selectedModel, user: userInfo },
     initialMessages: [],
     onFinish: () => {
       setSelectedModel(defaultModel);

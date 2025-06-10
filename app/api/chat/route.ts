@@ -71,6 +71,7 @@ export async function POST(req: Request) {
     messages,
     selectedModel,
     action, // Expect 'action' in the request body
+    user // { firstName, email }
   } = requestBody;
 
   // --- FILTER OUT EMPTY MESSAGES (prevents Gemini API error) ---
@@ -339,7 +340,17 @@ export async function POST(req: Request) {
   systemPromptTxt = systemPromptTxt.replace(/# The current year is:.*\n?/i, `# The current year is: ${currentYear}\n`);
   // Inject the current date and time dynamically
   systemPromptTxt = systemPromptTxt.replace(/# The current date and time is: \{currentDate\} \(UTC\)/i, `# The current date and time is: ${currentDate} (UTC)`);
-  systemPrompt += "\n\n" + systemPromptTxt;
+
+  // --- Personalization Injection ---
+  const userFirstName = user?.firstName || "there";
+  const userEmail = user?.email || "";
+  // Replace placeholders in systemPromptTxt
+  systemPromptTxt = systemPromptTxt.replace(/\{userFirstName\}/g, userFirstName);
+  systemPromptTxt = systemPromptTxt.replace(/\{userEmail\}/g, userEmail);
+
+  const personalizationPrompt = `\n# Personalization Rules:\n    - The user's name is: ${userFirstName}\n    - The user's email is: ${userEmail}\n    - Always use the user's name frequently in your responses to make the conversation feel personal and engaging.\n    - Never mention the user's email unless the user explicitly asks for it.\n`;
+
+  systemPrompt += "\n\n" + personalizationPrompt + "\n" + systemPromptTxt;
   // Add Agent X prompt if user intent is web/automation (URL present or web task keywords)
   // const agentXNeeded = !!urlToAnalyze || /website|site|web|browser|agent|automation|scrape|extract|analyze|navigate|product|video|post|news|shopping|social|table|data|csv|spreadsheet/i.test(userIntent);
   // if (agentXNeeded) {
