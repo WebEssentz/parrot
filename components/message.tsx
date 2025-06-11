@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from "react";
@@ -12,8 +11,6 @@ import { toast } from "sonner";
 import {
   Drawer,
   DrawerContent,
-  // DrawerDescription,
-  // DrawerFooter,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
@@ -22,16 +19,15 @@ import equal from "fast-deep-equal";
 import { Markdown } from "./markdown";
 import { cn } from "@/lib/utils";
 import {
-  // CheckCircle,
   ChevronDownIcon,
   ChevronUpIcon,
 } from "lucide-react";
 import { StreamingTextRenderer } from "./streaming-text-renderer";
 
 import { ImageSlider } from "@/components/ui/image-slider";
-import styles from "@/components/ui/image-slider.module.css"; // Import the css module for the clearfix class
+import { VideoCarousel } from "@/components/ui/video-carousel";
+import styles from "@/components/ui/image-slider.module.css";
 
-// TODO, WIP: EXPORT ALL THIS HARDCODED ICONS DEFINED HERE TO THE ICONS.TSX FILE AND IMPORT BACK.
 // Copy icon SVG as a React component
 const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-[2] size-4" {...props}>
@@ -46,21 +42,10 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-// SpinnerIcon: simple loader for tool invocation UI
-function SpinnerIcon() {
-  return (
-    <svg className="h-4 w-4 text-zinc-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-    </svg>
-  );
-}
-
 // Utility: Get favicon URL for a given site
 export function getFaviconUrl(siteUrl: string): string {
   try {
     const url = new URL(siteUrl);
-    // return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=64`; // More robust option
     return `${url.origin}/favicon.ico`;
   } catch {
     return "/globe.svg"; // Fallback to a generic globe icon
@@ -68,13 +53,12 @@ export function getFaviconUrl(siteUrl: string): string {
 }
 
 // Show AI action icons on hover of any part of the AI message (desktop only).
-// The data-ai-action elements (which include the copy icon) are only rendered for AI messages on desktop.
 if (typeof window !== 'undefined') {
   const styleId = 'ai-message-hover-style';
   if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
-    style.innerHTML = `.group\\/ai-message-hoverable:hover [data-ai-action] { /* Ensure opacity for elements with data-ai-action on hover of parent group */ opacity: 1 !important; };`;
+    style.innerHTML = `.group\\/ai-message-hoverable:hover [data-ai-action] { opacity: 1 !important; };`;
     document.head.appendChild(style);
   }
 }
@@ -120,14 +104,13 @@ interface ReasoningMessagePartProps {
   isReasoning: boolean;
 }
 
-// Utility: Extract sources from markdown string (between <!-- AVURNA_SOURCES_START --> and <!-- AVURNA_SOURCES_END -->)
+// Utility: Extract sources from markdown string
 export function extractSourcesFromText(text: string): { title: string; url: string }[] {
   const sources: { title: string; url: string }[] = [];
   const start = text.indexOf("<!-- AVURNA_SOURCES_START -->");
   const end = text.indexOf("<!-- AVURNA_SOURCES_END -->");
   if (start === -1 || end === -1 || end < start) return sources;
   const block = text.slice(start, end);
-  // Match - [Title](URL)
   const regex = /- \[(.*?)\]\((.*?)\)/g;
   let match;
   while ((match = regex.exec(block))) {
@@ -143,18 +126,8 @@ export function ReasoningMessagePart({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const variants = {
-    collapsed: {
-      height: 0,
-      opacity: 0,
-      marginTop: 0,
-      marginBottom: 0,
-    },
-    expanded: {
-      height: "auto",
-      opacity: 1,
-      marginTop: "1rem",
-      marginBottom: 0,
-    },
+    collapsed: { height: 0, opacity: 0, marginTop: 0, marginBottom: 0 },
+    expanded: { height: "auto", opacity: 1, marginTop: "1rem", marginBottom: 0 },
   };
 
   const memoizedSetIsExpanded = useCallback((value: boolean) => {
@@ -204,19 +177,11 @@ export function ReasoningMessagePart({
           <button
             className={cn(
               "cursor-pointer rounded-full dark:hover:bg-zinc-800 hover:bg-zinc-200",
-              {
-                "dark:bg-zinc-800 bg-zinc-200": isExpanded,
-              },
+              { "dark:bg-zinc-800 bg-zinc-200": isExpanded },
             )}
-            onClick={() => {
-              setIsExpanded(!isExpanded);
-            }}
+            onClick={() => setIsExpanded(!isExpanded)}
           >
-            {isExpanded ? (
-              <ChevronDownIcon className="h-4 w-4" />
-            ) : (
-              <ChevronUpIcon className="h-4 w-4" />
-            )}
+            {isExpanded ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronUpIcon className="h-4 w-4" />}
           </button>
         </div>
       )}
@@ -261,54 +226,48 @@ const PurePreviewMessage = ({
   const sources = extractSourcesFromText(allText);
   const [showSources, setShowSources] = useState(false);
   const isAssistant = message.role === "assistant";
-  // --- ImageSlider & Video integration: find images/videos from tool result (fetchUrlTool)
-  let images: { src: string; alt?: string }[] = [];
-  let videos: { src: string; type?: string; poster?: string }[] = [];
-  for (const part of message.parts || []) {
-    if (part.type === "tool-invocation" && (part.toolInvocation as any)?.result) {
-      const result = (part.toolInvocation as any).result;
-      if (result) {
-        if (Array.isArray(result.images) && result.images.length > 0) {
-          images = result.images;
+  
+  // These will hold all extracted media from the entire message
+  const [images, setImages] = useState<{ src: string; alt?: string }[]>([]);
+  const [videos, setVideos] = useState<{ src: string; poster?: string; title?: string }[]>([]);
+
+  useEffect(() => {
+    const extractedImages: { src: string; alt?: string }[] = [];
+    const extractedVideos: { src: string; poster?: string; title?: string }[] = [];
+    
+    if (isAssistant) {
+      for (const part of message.parts || []) {
+        if (part.type === "tool-invocation" && (part.toolInvocation as any)?.result) {
+          const result = (part.toolInvocation as any).result;
+          if (result) {
+            if (Array.isArray(result.images)) {
+              extractedImages.push(...result.images);
+            }
+            if (Array.isArray(result.videos)) {
+              extractedVideos.push(...result.videos);
+            }
+          }
         }
-        if (Array.isArray(result.videos) && result.videos.length > 0) {
-          videos = result.videos;
-        }
-        if (images.length > 0 || videos.length > 0) break;
       }
     }
-  }
+    setImages(extractedImages);
+    setVideos(extractedVideos);
+  }, [message.parts, isAssistant]);
 
-  // Find the index of the FIRST text part. This is crucial for placing the slider correctly.
-  const firstTextPartIndex = message.parts?.findIndex(p => p.type === 'text') ?? -1;
   const isMobileOrTablet = useIsMobileOrTablet();
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Favicon Animation State: Track searched sites for each tool-invocation part by index
   const [searchedSitesByPart, setSearchedSitesByPart] = useState<Record<number, string[]>>({});
 
-  // EFFECT TO UPDATE SEARCHED SITES BASED ON TOOL INVOCATION STATE AND RESULTS
   useEffect(() => {
-    if (!message.parts) {
-      return;
-    }
-
-    // Create a temporary map to store updates for this render cycle
+    if (!message.parts) return;
     const currentUpdates: Record<number, string[]> = {};
-
     message.parts.forEach((part, i) => {
-      if (part.type !== "tool-invocation") {
-        return;
-      }
-
+      if (part.type !== "tool-invocation") return;
       const { toolName, state, args } = part.toolInvocation;
-      const result = (part.toolInvocation as any)?.result; // Access result
-      // Get existing sites for this part, or an empty array if none
+      const result = (part.toolInvocation as any)?.result;
       let sitesForThisPart = searchedSitesByPart[i] || [];
-
-      // Logic for "call" state: When the tool is invoked
-      // For fetchUrl, the URL is known immediately.
       if (state === "call" && isLatestMessage && status !== "ready") {
         if (toolName === "fetchUrl" && args && typeof args === "object" && args.url) {
           const url = args.url;
@@ -316,28 +275,18 @@ const PurePreviewMessage = ({
             sitesForThisPart = [...sitesForThisPart, url];
           }
         }
-      }
-
-      // WIP: Add a save state to store urls when done. (EXPLAIN LATER)
-
-      // Logic for "result" state: When the tool execution completes and returns data
-      else if (state === "result") {
+      } else if (state === "result") {
         if (toolName === "googleSearch" && result && result.sources && Array.isArray(result.sources)) {
-          const sourceUrls = result.sources.map((s: any) => {
-            // Prioritize sourceUrl if available, otherwise use the regular url
-            return s.sourceUrl || s.url;
-          }).filter(Boolean); // Filter out any null/undefined URLs
+          const sourceUrls = result.sources.map((s: any) => s.sourceUrl || s.url).filter(Boolean);
           sourceUrls.forEach((url: string) => {
             if (url && !sitesForThisPart.includes(url)) {
               sitesForThisPart = [...sitesForThisPart, url];
             }
           });
         } else if (toolName === "fetchUrl" && result && result.url) {
-          // Add the main URL of the fetched page
           if (!sitesForThisPart.includes(result.url)) {
             sitesForThisPart = [...sitesForThisPart, result.url];
           }
-          // If recursive, add child results
           if (result.childResults && Array.isArray(result.childResults)) {
             result.childResults.forEach((childRes: any) => {
               if (childRes.url && !sitesForThisPart.includes(childRes.url)) {
@@ -347,21 +296,17 @@ const PurePreviewMessage = ({
           }
         }
       }
-
-      // If sitesForThisPart has new entries compared to the previous state, mark for update
       if (sitesForThisPart.length > (searchedSitesByPart[i]?.length || 0)) {
         currentUpdates[i] = sitesForThisPart;
       }
     });
 
-    // Apply updates to the state only if there are actual changes
     if (Object.keys(currentUpdates).length > 0) {
       setSearchedSitesByPart(prev => {
         let changed = false;
         const newState = { ...prev };
         for (const partIdxStr in currentUpdates) {
           const partIdx = parseInt(partIdxStr, 10);
-          // Use fast-deep-equal to compare arrays for deep equality, preventing unnecessary re-renders
           if (!equal(newState[partIdx], currentUpdates[partIdx])) {
             newState[partIdx] = currentUpdates[partIdx];
             changed = true;
@@ -370,23 +315,17 @@ const PurePreviewMessage = ({
         return changed ? newState : prev;
       });
     }
-  }, [message.parts, isLatestMessage, status, searchedSitesByPart]); // searchedSitesByPart is a dependency because we read its current value inside the effect
+  }, [message.parts, isLatestMessage, status, searchedSitesByPart]);
 
-  // Get the full AI message text (all text parts, sources block stripped)
   function stripSourcesBlock(text: string): string {
     return text.replace(/<!-- AVURNA_SOURCES_START -->[\s\S]*?<!-- AVURNA_SOURCES_END -->/g, "").trim();
   }
-
-  const aiMessageText = stripSourcesBlock(
-    message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || ""
-  );
+  const aiMessageText = stripSourcesBlock(allText);
 
   const handleCopy = () => {
     copyToClipboard(aiMessageText);
     setCopied(true);
-    if (isMobileOrTablet) {
-      toast("Copied to Clipboard");
-    }
+    if (isMobileOrTablet) toast("Copied to Clipboard");
     if (copyTimeout.current) clearTimeout(copyTimeout.current);
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
@@ -394,24 +333,12 @@ const PurePreviewMessage = ({
   const handleUserMessageCopy = (textToCopy: string) => {
     copyToClipboard(textToCopy);
     setCopied(true);
-    if (isMobileOrTablet) {
-      toast("Copied to Clipboard");
-    }
+    if (isMobileOrTablet) toast("Copied to Clipboard");
     if (copyTimeout.current) clearTimeout(copyTimeout.current);
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
 
   useEffect(() => () => { if (copyTimeout.current) clearTimeout(copyTimeout.current); }, []);
-
-  const userMessageParts = message.role === "user" ? message.parts?.filter((p: any) => p.type === "text") : [];
-  const [userShowIcons, setUserShowIcons] = useState(() =>
-    userMessageParts ? userMessageParts.map((_, i) => isLatestMessage && i === userMessageParts.length - 1) : []
-  );
-
-  useEffect(() => {
-    if (!userMessageParts) return;
-    setUserShowIcons(userMessageParts.map((_, i) => isMobileOrTablet && isLatestMessage && i === userMessageParts.length - 1));
-  }, [isMobileOrTablet, isLatestMessage, userMessageParts?.length]);
 
   return (
     <AnimatePresence key={message.id}>
@@ -422,7 +349,15 @@ const PurePreviewMessage = ({
         key={`message-${message.id}`}
         data-role={message.role}
       >
-
+        {/* === START OF RENDER FIX === */}
+        {/* This block renders ALL media for the message, but only once and before other content. */}
+        {isAssistant && (images.length > 0 || videos.length > 0) && (
+          <div className="mb-4 flex flex-col gap-4">
+            {images.length > 0 && <ImageSlider images={images} />}
+            {videos.length > 0 && <VideoCarousel videos={videos} />}
+          </div>
+        )}
+        {/* === END OF RENDER FIX === */}
 
         {/* Sources Button */}
         {isAssistant && sources.length > 0 && (
@@ -456,13 +391,7 @@ const PurePreviewMessage = ({
                   else if (u.protocol === "window:") icon = <img src="/window.svg" alt="window" className="w-5 h-5 mr-2 inline-block align-middle" />;
                 } catch { }
                 return (
-                  <a
-                    key={src.url + i}
-                    href={src.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-2 py-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-1"
-                  >
+                  <a key={src.url + i} href={src.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-2 py-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-1">
                     {icon}
                     <span className="font-medium text-zinc-800 dark:text-zinc-100 truncate max-w-[180px]">{src.title}</span>
                     <span className="text-xs text-zinc-500 truncate max-w-[120px]">{src.url}</span>
@@ -474,78 +403,28 @@ const PurePreviewMessage = ({
           </div>
         </Modal>
 
-        <div
-          className={cn(
-            isAssistant
-              ? "flex w-full flex-col sm:flex-row items-start"
-              : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit",
-          )}
-        >
+        <div className={cn(isAssistant ? "flex w-full flex-col sm:flex-row items-start" : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit")}>
           {isAssistant ? (
-            <div
-              className={cn(
-                "group/ai-message-hoverable",
-                isMobileOrTablet ? "w-full pl-10" : "w-fit"
-              )}
-              style={{
-                marginLeft: 0,
-                paddingLeft: 0,
-                marginTop: isMobileOrTablet ? 32 : undefined
-              }}
-            >
-              <div 
-                className={cn(
-                  // On desktop, use flexbox as before
-                  !isMobileOrTablet && "flex flex-col space-y-4 w-fit",
-                  // On mobile, become a standard block container with clearfix to enable float wrapping
-                  isMobileOrTablet && styles.clearfix
-                )} 
-                style={{ alignItems: !isMobileOrTablet ? 'flex-start' : undefined }}
-              >
+            <div className={cn("group/ai-message-hoverable", isMobileOrTablet ? "w-full pl-10" : "w-fit")} style={{ marginLeft: 0, paddingLeft: 0, marginTop: isMobileOrTablet ? 32 : undefined }}>
+              <div className={cn(!isMobileOrTablet && "flex flex-col space-y-4 w-fit", isMobileOrTablet && styles.clearfix)} style={{ alignItems: !isMobileOrTablet ? 'flex-start' : undefined }}>
                 {message.parts?.map((part, i) => {
                   switch (part.type) {
                     case "text": {
                       const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
                       const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
-                      const isFirstTextPart = i === firstTextPartIndex;
-                      const shouldRenderSlider = isAssistant && images.length > 0 && isFirstTextPart;
-                      const shouldRenderVideos = isAssistant && videos.length > 0 && isFirstTextPart;
 
                       return (
-                        <React.Fragment key={`message-${message.id}-part-${i}`}>
-                          {shouldRenderSlider && (
-                            <ImageSlider images={images} />
-                          )}
-                          {shouldRenderVideos && (
-                            <div className="flex flex-col gap-4 my-2">
-                              {videos.map((video, idx) => (
-                                <video
-                                  key={video.src + idx}
-                                  src={video.src}
-                                  controls
-                                  style={{ maxWidth: '100%', borderRadius: 12, background: '#000' }}
-                                  poster={video.poster}
-                                >
-                                  {video.type ? <source src={video.src} type={video.type} /> : null}
-                                  Your browser does not support the video tag.
-                                </video>
-                              ))}
-                            </div>
-                          )}
-                          <motion.div
-                            initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }}
-                            animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex flex-row items-start w-full pb-4"
-                          >
-                            <div
-                              className="flex flex-col gap-4"
-                              style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
-                            >
-                              <Markdown>{part.text}</Markdown>
-                            </div>
-                          </motion.div>
-                        </React.Fragment>
+                        <motion.div
+                          key={`message-${message.id}-part-${i}`}
+                          initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }}
+                          animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex flex-row items-start w-full pb-4"
+                        >
+                          <div className="flex flex-col gap-4" style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}>
+                            <Markdown>{part.text}</Markdown>
+                          </div>
+                        </motion.div>
                       );
                     }
                     case "tool-invocation": {
@@ -562,27 +441,14 @@ const PurePreviewMessage = ({
                         );
                       }
                       const { toolName, state } = part.toolInvocation;
-                      const label = (toolName === "googleSearch" && state === "call") ? "Searching the Web" :
-                        (toolName === "fetchUrl" && state === "call") ? "Analyzing Url data" :
-                        (toolName === "getWeatherdata" || toolName === "weatherTool") ? "Getting weather data" :
-                        (state === "call") ? `Running ${toolName}` : "";
-
+                      const label = (toolName === "googleSearch" && state === "call") ? "Searching the Web" : (toolName === "fetchUrl" && state === "call") ? "Analyzing Url data" : (toolName === "getWeatherdata" || toolName === "weatherTool") ? "Getting weather data" : (state === "call") ? `Running ${toolName}` : "";
                       const searchedSites = searchedSitesByPart[i] || [];
-
                       return (
                         <div className="flex flex-col" key={`message-${message.id}-part-${i}`}>
-                          <div
-                            className="flex flex-row items-center gap-1"
-                            style={
-                              !isMobileOrTablet
-                                ? { marginLeft: '-16px', marginRight: '12px' }
-                                : { marginLeft: '-16px', marginRight: '12px' }
-                            }
-                          >
-                            {/* Animated favicon row */}
+                          <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
                             <div className="flex flex-row items-center gap-1">
                               <AnimatePresence initial={false}>
-                                {searchedSites.map((url, idx) => (
+                                {searchedSites.map((url) => (
                                   <motion.img
                                     key={url}
                                     src={getFaviconUrl(url)}
@@ -597,36 +463,13 @@ const PurePreviewMessage = ({
                                 ))}
                               </AnimatePresence>
                             </div>
-                            {/* Shimmer text (not applied to icons) */}
                             <span className="font-medium pl-4 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
                               {state === "call" && label ? (
                                 <span style={{ position: 'relative', display: 'inline-block' }}>
-                                  <span style={{
-                                    color: theme === 'dark' ? '#a3a3a3' : '#6b7280',
-                                    background: theme === 'dark'
-                                      ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
-                                      : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)',
-                                    backgroundSize: '200% 100%',
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent',
-                                    backgroundClip: 'text',
-                                    animation: 'avurna-shimmer-text 1.3s linear infinite',
-                                    animationTimingFunction: 'linear',
-                                    willChange: 'background-position',
-                                    display: 'inline-block',
-                                  }}
-                                    key={theme}
-                                  >
+                                  <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}>
                                     {label}
                                   </span>
-                                  <style>
-                                    {`
-                                    @keyframes avurna-shimmer-text {
-                                      0% { background-position: -100% 0; }
-                                      100% { background-position: 100% 0; }
-                                    }
-                                    `}
-                                  </style>
+                                  <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
                                 </span>
                               ) : null}
                             </span>
@@ -639,12 +482,7 @@ const PurePreviewMessage = ({
                         <ReasoningMessagePart
                           key={`message-${message.id}-${i}`}
                           part={part}
-                          isReasoning={
-                            (message.parts &&
-                              status === "streaming" &&
-                              i === message.parts.length - 1) ??
-                            false
-                          }
+                          isReasoning={(message.parts && status === "streaming" && i === message.parts.length - 1) ?? false}
                         />
                       );
                     default:
@@ -664,49 +502,27 @@ const PurePreviewMessage = ({
                     }
                   }
                 }, [isMobileOrTablet, isAssistant, status, isLatestMessage]);
+                /** 
+                 * WIP: WE WANT TO CHECK IF THE AI STATUS RESPONSE FAILED.
+                 * IF IT DID, ON ALL DEVICES, WE WANT TO REDUCE THE NEGATIVE MARGIN TOP
+                 * SO WE CAN RENDER THE ICONS ROW WELL.
+                 */
                 if (!isMobileOrTablet && isAssistant && status === "ready") {
-                  const { theme } = useTheme();
                   return (
                     <div className="flex flex-row" style={{ marginTop: '-28px' }}>
                       <motion.div
-                        className={cn(
-                          "flex items-center gap-1 p-1 select-none pointer-events-auto",
-                          !isLatestMessage ? "group/ai-icon-row" : ""
-                        )}
+                        className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto", !isLatestMessage ? "group/ai-icon-row" : "")}
                         data-ai-action
                         style={{ marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' }}
                         initial={isLatestMessage ? { opacity: 0 } : { opacity: 0 }}
-                        animate={
-                          isLatestMessage
-                            ? (showIconRow ? { opacity: 1 } : { opacity: 0 })
-                            : { opacity: 0 }
-                        }
-                        whileHover={
-                          !isLatestMessage
-                            ? { opacity: 1, transition: { duration: 0.2 } }
-                            : undefined
-                        }
-                        transition={{
-                          opacity: { duration: 0.2, delay: isLatestMessage && showIconRow ? 0.15 : 0 }
-                        }}
+                        animate={isLatestMessage ? (showIconRow ? { opacity: 1 } : { opacity: 0 }) : { opacity: 0 }}
+                        whileHover={!isLatestMessage ? { opacity: 1, transition: { duration: 0.2 } } : undefined}
+                        transition={{ opacity: { duration: 0.2, delay: isLatestMessage && showIconRow ? 0.15 : 0 } }}
                       >
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label="Copy message"
-                              className="rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                              style={{
-                                color: theme === 'dark' ? '#fff' : '#828282',
-                                background: 'transparent',
-                              }}
-                              onClick={handleCopy}
-                            >
-                              {copied ? (
-                                <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                              ) : (
-                                <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                              )}
+                            <button type="button" aria-label="Copy message" className="rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: theme === 'dark' ? '#fff' : '#828282', background: 'transparent' }} onClick={handleCopy}>
+                              {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
@@ -720,17 +536,8 @@ const PurePreviewMessage = ({
               {isMobileOrTablet && isAssistant && status === "ready" && (
                 <div className="relative w-full">
                   <div className="flex absolute left-0 right-0 justify-start z-10">
-                    <div
-                      className="flex items-center gap-1 py-1 sm:mr-6 select-none pointer-events-auto"
-                      style={{ marginTop: '-28px', marginLeft: '-8px', marginRight: '10px' }}
-                    >
-                      <button
-                        type="button"
-                        aria-label="Copy message"
-                        className="text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center"
-                        style={{ color: '#828282', background: 'transparent' }}
-                        onClick={handleCopy}
-                      >
+                    <div className="flex items-center gap-1 py-1 sm:mr-6 select-none pointer-events-auto" style={{ marginTop: '-28px', marginLeft: '-8px', marginRight: '10px' }}>
+                      <button type="button" aria-label="Copy message" className="text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center" style={{ color: '#828282', background: 'transparent' }} onClick={handleCopy}>
                         {copied ? <CheckIcon style={{ color: 'white', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: 'white', transition: 'all 0.2s' }} />}
                       </button>
                     </div>
@@ -745,17 +552,11 @@ const PurePreviewMessage = ({
                 switch (part.type) {
                   case "text":
                     const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-                    const isLatestActivelyStreamingTextPart =
-                      isAssistant &&
-                      status === "streaming" &&
-                      isLatestMessage &&
-                      isEffectivelyLastPart;
-
+                    const isLatestActivelyStreamingTextPart = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
                     const LONG_MESSAGE_CHAR_LIMIT = 400;
                     const isUserMessage = message.role === "user";
                     const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT;
                     const [expanded, setExpanded] = useState(false);
-                    const shouldCollapse = false;
                     const isCollapsed = false;
                     const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -765,113 +566,32 @@ const PurePreviewMessage = ({
                         animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
                         transition={{ duration: 0.2 }}
                         key={`message-${message.id}-part-${i}`}
-                        className={
-                          typeof window !== 'undefined' && window.innerWidth < 640
-                            ? "flex flex-row items-start w-full pb-4 mt-6 px-0 sm:px-0"
-                            : isMobileOrTablet && isLastPart
-                              ? "flex flex-row items-start w-full pb-4 mt-6"
-                              : "flex flex-row items-start w-full pb-4"
-                        }
+                        className={typeof window !== 'undefined' && window.innerWidth < 640 ? "flex flex-row items-start w-full pb-4 mt-6 px-0 sm:px-0" : isMobileOrTablet && isLastPart ? "flex flex-row items-start w-full pb-4 mt-6" : "flex flex-row items-start w-full pb-4"}
                       >
-                        <div
-                          className="flex flex-col w-full"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            boxShadow: 'none',
-                            position: 'relative',
-                          }}
-                        >
+                        <div className="flex flex-col w-full" style={{ background: 'none', border: 'none', boxShadow: 'none', position: 'relative' }}>
                           {isLatestActivelyStreamingTextPart ? (
-                            <StreamingTextRenderer
-                              animationStyle="typewriter"
-                              fullText={part.text}
-                              wordSpeed={20}
-                            />
+                            <StreamingTextRenderer animationStyle="typewriter" fullText={part.text} wordSpeed={20} />
                           ) : (
                             <div className="group/user-message flex flex-col items-end w-full gap-1 relative justify-center max-w-3xl md:px-4 pb-2">
                               <motion.div
-                                className={cn(
-                                  "prose-p:opacity-95",
-                                  "prose-strong:opacity-100",
-                                  "border",
-                                  "border-border-l1",
-                                  "max-w-[100%]",
-                                  "sm:max-w-[90%]",
-                                  "rounded-br-lg",
-                                  "message-bubble",
-                                  "prose",
-                                  "min-h-7",
-                                  "text-primary",
-                                  "dark:prose-invert",
-                                  "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
-                                  "px-5 py-2.5",
-                                  "rounded-3xl",
-                                  "relative",
-                                  isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md",
-                                  "text-left",
-                                  "break-words",
-                                  isLongUserMessage ? "relative" : "",
-                                  isCollapsed ? "cursor-pointer" : ""
-                                )}
-                                style={{
-                                  lineHeight: '1.5',
-                                  overflow: isLongUserMessage ? 'hidden' : undefined,
-                                  cursor: isCollapsed ? 'pointer' : undefined,
-                                  WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                  maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                  paddingTop: !isLongUserMessage ? '12px' : undefined,
-                                }}
+                                className={cn("prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 max-w-[100%] sm:max-w-[90%] rounded-br-lg message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-3xl relative text-left break-words", isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md", isLongUserMessage ? "relative" : "", isCollapsed ? "cursor-pointer" : "")}
+                                style={{ lineHeight: '1.5', overflow: isLongUserMessage ? 'hidden' : undefined, cursor: isCollapsed ? 'pointer' : undefined, WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined, maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined, paddingTop: !isLongUserMessage ? '12px' : undefined }}
                                 initial={false}
-                                animate={{
-                                  maxHeight: isLongUserMessage
-                                    ? expanded
-                                      ? 1000
-                                      : 120
-                                    : 'none',
-                                }}
+                                animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}
                                 transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
                                 onClick={isCollapsed ? () => setExpanded(true) : undefined}
                               >
                                 <div style={{ paddingRight: isLongUserMessage ? 36 : undefined, position: 'relative' }}>
-                                  <Markdown>
-                                    {isLongUserMessage && !expanded
-                                      ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...'
-                                      : part.text}
-                                  </Markdown>
-                                  {!shouldCollapse && isLongUserMessage && (
-                                    <div
-                                      style={{
-                                        position: 'absolute',
-                                        top: 32,
-                                        right: 8,
-                                        zIndex: 10,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                      }}
-                                    >
+                                  <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                                  {isLongUserMessage && (
+                                    <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <button
-                                            type="button"
-                                            aria-label={expanded ? "Collapse message" : "Expand message"}
-                                            className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-                                            onClick={e => {
-                                              e.stopPropagation();
-                                              setExpanded(v => !v);
-                                            }}
-                                            tabIndex={0}
-                                          >
-                                            {expanded ? (
-                                              <ChevronUpIcon className="h-4 w-4" />
-                                            ) : (
-                                              <ChevronDownIcon className="h-4 w-4" />
-                                            )}
+                                          <button type="button" aria-label={expanded ? "Collapse message" : "Expand message"} className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" onClick={e => { e.stopPropagation(); setExpanded(v => !v); }} tabIndex={0}>
+                                            {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
                                           </button>
                                         </TooltipTrigger>
-                                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">
-                                          {expanded ? "Collapse message" : "Expand message"}
-                                        </TooltipContent>
+                                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">{expanded ? "Collapse message" : "Expand message"}</TooltipContent>
                                       </Tooltip>
                                     </div>
                                   )}
@@ -880,35 +600,13 @@ const PurePreviewMessage = ({
                               {isMobileOrTablet && (
                                 <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
                                   <DrawerTrigger asChild>
-                                    <div
-                                      className="absolute inset-0 z-10 cursor-pointer"
-                                      style={{ borderRadius: 24 }}
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        setDrawerOpen(true);
-                                      }}
-                                    />
+                                    <div className="absolute inset-0 z-10 cursor-pointer" style={{ borderRadius: 24 }} onClick={e => { e.stopPropagation(); setDrawerOpen(true); }} />
                                   </DrawerTrigger>
                                   <DrawerContent>
-                                    <DrawerHeader>
-                                      <DrawerTitle className="w-full text-center">Actions</DrawerTitle>
-                                    </DrawerHeader>
+                                    <DrawerHeader><DrawerTitle className="w-full text-center">Actions</DrawerTitle></DrawerHeader>
                                     <div className="flex flex-col gap-2 px-4 py-2">
-                                      <button
-                                        type="button"
-                                        aria-label="Copy message"
-                                        className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                                        onClick={async () => {
-                                          handleUserMessageCopy(part.text);
-                                          await new Promise(res => setTimeout(res, 1000));
-                                          setDrawerOpen(false);
-                                        }}
-                                      >
-                                        {copied ? (
-                                          <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />
-                                        ) : (
-                                          <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />
-                                        )}
+                                      <button type="button" aria-label="Copy message" className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer" onClick={async () => { handleUserMessageCopy(part.text); await new Promise(res => setTimeout(res, 1000)); setDrawerOpen(false); }}>
+                                        {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />)}
                                         <span className="text-base font-medium">{copied ? 'Copied!' : 'Copy'}</span>
                                       </button>
                                     </div>
@@ -916,27 +614,11 @@ const PurePreviewMessage = ({
                                 </Drawer>
                               )}
                               {!isMobileOrTablet && (
-                                <div
-                                  className={cn(
-                                    "mt-1 mr-1 flex transition-opacity duration-200",
-                                    !isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100"
-                                  )}
-                                >
+                                <div className={cn("mt-1 mr-1 flex transition-opacity duration-200", !isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100")}>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <button
-                                        type="button"
-                                        aria-label="Copy message"
-                                        className={cn(
-                                          "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                        )}
-                                        onClick={() => handleUserMessageCopy(part.text)}
-                                      >
-                                        {copied ? (
-                                          <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                        ) : (
-                                          <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                        )}
+                                      <button type="button" aria-label="Copy message" className={cn("rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700")} onClick={() => handleUserMessageCopy(part.text)}>
+                                        {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
                                       </button>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>

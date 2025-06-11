@@ -16,8 +16,8 @@ export default function SignUpPage() {
     if (!isLoaded) return;
     return signUp.authenticateWithRedirect({
       strategy,
-      redirectUrl: "/callback",
-      redirectUrlComplete: "/callback", // Changed from "/" to "/dashboard"
+      redirectUrl: "/",
+      redirectUrlComplete: "/",
     });
   };
 

@@ -68,7 +68,7 @@ export function SearchButton({
           onClick={handleClick}
           disabled={disabled}
           className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1e1e1e] font-medium px-2.5", // Adjusted dark bg
+            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-transparent font-medium px-2.5", // Adjusted dark bg
             isSearching && !disabled
               ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
               : "hover:bg-zinc-100 dark:hover:bg-zinc-700/70", // Adjusted dark hover bg
@@ -120,7 +120,7 @@ export function AttachButton({
           onClick={onClick}
           disabled={disabled}
           className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1e1e1e] font-medium px-2.5", // Adjusted dark bg and -ml
+            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-transparent font-medium px-2.5", // Adjusted dark bg and -ml
             "hover:bg-zinc-100 dark:hover:bg-zinc-700/70", // Adjusted dark hover bg
             disabled ? "opacity-50 cursor-not-allowed" : ""
           )}
@@ -178,7 +178,7 @@ export function ReasonButton({
           onClick={handleClick}
           disabled={disabled}
           className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1e1e1e] font-medium px-2", // Adjusted dark bg
+            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-transparent font-medium px-2", // Adjusted dark bg
             isReasoning && !disabled
               ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
               : "hover:bg-zinc-100 dark:hover:bg-zinc-700/70", // Adjusted dark hover bg

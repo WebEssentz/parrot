@@ -18,7 +18,7 @@ function GreetingBanner() {
   const { user, isLoaded } = useUser();
   let displayName = "King";
   if (isLoaded && user) {
-    displayName = user.firstName || user.username || "dear";
+    displayName = user.firstName || user.lastName || user.username || "dear";
   }
   const hour = new Date().getHours();
   let greeting = "Hello";

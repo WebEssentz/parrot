@@ -110,6 +110,22 @@ const components: Partial<Components> = {
       {children}
     </span>
   ),
+
+  /**
+   * WIP: We want to tell avurna to use Strong for rendering. 
+   * What strong is used for tell her.
+   * Also, differentiate between span and strong and when to use them.
+   */
+
+  /**
+   * WIP 2: We want to check if we have properly told Avurna about the markdown formatting,
+   * What to use and when to use it. Like when to use this especially at key areas.
+   */
+   
+  /**
+   * WIP 3: 
+   */
+
   em: ({ node, children, ...props }) => (
     <span className="italic" {...props}>
       {children}

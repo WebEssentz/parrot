@@ -208,12 +208,12 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({ images }) => {
             {images.map((_, index) => (
               <button
                 key={`dot-${index}`}
-                className={cn(styles.dot, { [styles.active]: index === currentIndex })}
+                className={cn(styles.dot, {[styles.active]: index === currentIndex })}
                 onClick={(e) => { e.stopPropagation(); handleDotClick(index); }}
                 aria-label={`Go to image ${index + 1}`}
               >
                 {index === currentIndex && (
-                   <div className={styles.progressBar} style={{ width: `${progress}%` }} />
+                  <div className={styles.progressBar} style={{ width: `${progress}%` }} />
                 )}
               </button>
             ))}

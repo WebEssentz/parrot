@@ -6,6 +6,7 @@ import { z } from "zod";
 import { google } from '@ai-sdk/google';      // For Gemini vision model
 import { generateText } from 'ai';         // For calling the Gemini model
 // import { agentXWebAgent } from './agent-x/agentXWebAgent';
+import { experimental_generateImage } from 'ai';
 
 // --- Simple Markdown Bar Chart Generator ---
 // ... (generateMarkdownBarChart function as provided)
@@ -386,6 +387,7 @@ export const fetchUrlTool = tool({
         else if (extractedTables.length > 0) siteType = 'data/table';
         steps.push('Step 5: Analyzing content and intent.');
         let suggestedLinks: { href: string; text: string }[] = [];
+        // WIP: Make this more robust than just basic checking of the word "analyze" in the user's intent
         if (userIntent && !userIntent.toLowerCase().includes('analyze')) {
           const lowerIntent = userIntent.toLowerCase();
           suggestedLinks = navLinks
