@@ -182,17 +182,21 @@ export const Textarea = ({
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
   // Custom placeholder logic per requirements
+  // If not signed in, placeholder is the suggested prompts (animated), else fallback to previous logic
   let shadcnTextareaNativePlaceholder = "Ask Avurna...";
-  if (!hasSentMessage && isSignedIn) {
+  if (!isSignedIn) {
+    // If not signed in, placeholder is empty so our custom overlay shows
+    shadcnTextareaNativePlaceholder = "";
+  } else if (!hasSentMessage && isSignedIn) {
     shadcnTextareaNativePlaceholder = "What can I help with?";
   } else if (hasSentMessage) {
     shadcnTextareaNativePlaceholder = "Reply Avurna";
   }
-  
+
   const activePromptText = (showAnimatedSuggestions && suggestedPrompts.length > 0)
     ? suggestedPrompts[currentPromptIndex]
     : null;
-  
+
   const showTabBadge = showAnimatedSuggestions && isTabToAcceptEnabled && promptVisible;
 
   // Memoize textareaStyle to prevent unnecessary re-renders of the child if this component updates.
@@ -204,7 +208,7 @@ export const Textarea = ({
   return (
     <div className="relative flex w-full items-end px-3 py-3">
       <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
-        {shouldShowCustomPlaceholderElements && (
+        {shouldShowCustomPlaceholderElements && !isSignedIn && (
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
               style={{ height: '40px' }} // Matches minHeight of textarea
