@@ -181,29 +181,13 @@ export const Textarea = ({
   };
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
-  // Custom placeholder logic per requirements
-  // If not signed in and has not sent a message, show no native placeholder (overlay handles it)
-  let shadcnTextareaNativePlaceholder = "Ask Avurna...";
-  if (!isSignedIn && !hasSentMessage) {
-    shadcnTextareaNativePlaceholder = "";
-  } else if (!isSignedIn && hasSentMessage) {
-    shadcnTextareaNativePlaceholder = "Reply Avurna";
-  } else if (!hasSentMessage && isSignedIn) {
-    shadcnTextareaNativePlaceholder = "What can I help with?";
-  } else if (hasSentMessage && isSignedIn) {
-    shadcnTextareaNativePlaceholder = "Reply Avurna";
-  }
-
-  // Always show animated suggestions if not signed in and there are prompts
-  const activePromptText = (!isSignedIn && suggestedPrompts.length > 0)
+  const shadcnTextareaNativePlaceholder = shouldShowCustomPlaceholderElements ? "" : "Ask Avurna...";
+  
+  const activePromptText = (showAnimatedSuggestions && suggestedPrompts.length > 0)
     ? suggestedPrompts[currentPromptIndex]
-    : (showAnimatedSuggestions && suggestedPrompts.length > 0)
-      ? suggestedPrompts[currentPromptIndex]
-      : null;
-
-  // Show TAB badge if not signed in and suggestions are visible, or as before
-  const showTabBadge = (!isSignedIn && isTabToAcceptEnabled && promptVisible && suggestedPrompts.length > 0)
-    || (showAnimatedSuggestions && isTabToAcceptEnabled && promptVisible);
+    : null;
+  
+  const showTabBadge = showAnimatedSuggestions && isTabToAcceptEnabled && promptVisible;
 
   // Memoize textareaStyle to prevent unnecessary re-renders of the child if this component updates.
   const textareaStyle = React.useMemo(() => ({ 
@@ -214,33 +198,19 @@ export const Textarea = ({
   return (
     <div className="relative flex w-full items-end px-3 py-3">
       <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
-        {/* Show animated suggestions as placeholder if not signed in, or as before */}
-        {((!isSignedIn && suggestedPrompts.length > 0) || shouldShowCustomPlaceholderElements) && (
+        {shouldShowCustomPlaceholderElements && (
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
               style={{ height: '40px' }} // Matches minHeight of textarea
           >
-              {/* Show static placeholder only if signed in, or if not signed in and has sent a message */}
-              {(isSignedIn || (!isSignedIn && hasSentMessage)) && (
-                <div
+              <div
                   className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
                     staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
                   }`}
-                >
-                  {shadcnTextareaNativePlaceholder}
-                </div>
-              )}
-              {/* If not signed in and has not sent a message, show animated static placeholder ("Ask Avurna...") that animates out */}
-              {(!isSignedIn && !hasSentMessage) && (
-                <div
-                  className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
-                    staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
-                  }`}
-                >
+              >
                   Ask Avurna...
-                </div>
-              )}
-              {activePromptText && (
+              </div>
+              {showAnimatedSuggestions && activePromptText && (
                    <div 
                       key={currentPromptIndex} // Key helps React correctly animate transitions
                       className={`text-zinc-500 dark:text-zinc-400 text-md absolute inset-x-0 w-full flex items-center justify-between transition-all duration-300 ease-in-out ${
