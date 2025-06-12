@@ -182,10 +182,11 @@ export const Textarea = ({
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
   // Custom placeholder logic per requirements
-  // If not signed in, show "Ask Avurna..." as the initial placeholder, which animates out to show suggested prompts
+  // If not signed in and has not sent a message, show no native placeholder (overlay handles it)
   let shadcnTextareaNativePlaceholder = "Ask Avurna...";
-  if (!isSignedIn && hasSentMessage) {
-    // If not signed in and has sent a message, fallback to reply
+  if (!isSignedIn && !hasSentMessage) {
+    shadcnTextareaNativePlaceholder = "";
+  } else if (!isSignedIn && hasSentMessage) {
     shadcnTextareaNativePlaceholder = "Reply Avurna";
   } else if (!hasSentMessage && isSignedIn) {
     shadcnTextareaNativePlaceholder = "What can I help with?";
@@ -219,8 +220,18 @@ export const Textarea = ({
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
               style={{ height: '40px' }} // Matches minHeight of textarea
           >
-              {/* Always show static placeholder for not signed in, and animate it out */}
-              {(!isSignedIn || isSignedIn) && (
+              {/* Show static placeholder only if signed in, or if not signed in and has sent a message */}
+              {(isSignedIn || (!isSignedIn && hasSentMessage)) && (
+                <div
+                  className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
+                    staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
+                  }`}
+                >
+                  {shadcnTextareaNativePlaceholder}
+                </div>
+              )}
+              {/* If not signed in and has not sent a message, show animated static placeholder ("Ask Avurna...") that animates out */}
+              {(!isSignedIn && !hasSentMessage) && (
                 <div
                   className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
                     staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
