@@ -182,22 +182,27 @@ export const Textarea = ({
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
   // Custom placeholder logic per requirements
-  // If not signed in, placeholder is the suggested prompts (animated), else fallback to previous logic
+  // If not signed in, show "Ask Avurna..." as the initial placeholder, which animates out to show suggested prompts
   let shadcnTextareaNativePlaceholder = "Ask Avurna...";
-  if (!isSignedIn) {
-    // If not signed in, placeholder is empty so our custom overlay shows
-    shadcnTextareaNativePlaceholder = "";
+  if (!isSignedIn && hasSentMessage) {
+    // If not signed in and has sent a message, fallback to reply
+    shadcnTextareaNativePlaceholder = "Reply Avurna";
   } else if (!hasSentMessage && isSignedIn) {
     shadcnTextareaNativePlaceholder = "What can I help with?";
-  } else if (hasSentMessage) {
+  } else if (hasSentMessage && isSignedIn) {
     shadcnTextareaNativePlaceholder = "Reply Avurna";
   }
 
-  const activePromptText = (showAnimatedSuggestions && suggestedPrompts.length > 0)
+  // Always show animated suggestions if not signed in and there are prompts
+  const activePromptText = (!isSignedIn && suggestedPrompts.length > 0)
     ? suggestedPrompts[currentPromptIndex]
-    : null;
+    : (showAnimatedSuggestions && suggestedPrompts.length > 0)
+      ? suggestedPrompts[currentPromptIndex]
+      : null;
 
-  const showTabBadge = showAnimatedSuggestions && isTabToAcceptEnabled && promptVisible;
+  // Show TAB badge if not signed in and suggestions are visible, or as before
+  const showTabBadge = (!isSignedIn && isTabToAcceptEnabled && promptVisible && suggestedPrompts.length > 0)
+    || (showAnimatedSuggestions && isTabToAcceptEnabled && promptVisible);
 
   // Memoize textareaStyle to prevent unnecessary re-renders of the child if this component updates.
   const textareaStyle = React.useMemo(() => ({ 
@@ -208,19 +213,23 @@ export const Textarea = ({
   return (
     <div className="relative flex w-full items-end px-3 py-3">
       <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
-        {shouldShowCustomPlaceholderElements && !isSignedIn && (
+        {/* Show animated suggestions as placeholder if not signed in, or as before */}
+        {((!isSignedIn && suggestedPrompts.length > 0) || shouldShowCustomPlaceholderElements) && (
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
               style={{ height: '40px' }} // Matches minHeight of textarea
           >
-              <div
+              {/* Always show static placeholder for not signed in, and animate it out */}
+              {(!isSignedIn || isSignedIn) && (
+                <div
                   className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
                     staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
                   }`}
-              >
+                >
                   Ask Avurna...
-              </div>
-              {showAnimatedSuggestions && activePromptText && (
+                </div>
+              )}
+              {activePromptText && (
                    <div 
                       key={currentPromptIndex} // Key helps React correctly animate transitions
                       className={`text-zinc-500 dark:text-zinc-400 text-md absolute inset-x-0 w-full flex items-center justify-between transition-all duration-300 ease-in-out ${
