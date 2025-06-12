@@ -1,15 +1,10 @@
-// tools.ts (Agent X integration scaffold)
-// import { agentXWebAgent, AgentXInstruction } from "./agent-x/agentXWebAgent";
 import { franc } from 'franc'; // For automatic language detection
 import { tool } from "ai";
 import { z } from "zod";
-import { google } from '@ai-sdk/google';      // For Gemini vision model
-import { generateText } from 'ai';         // For calling the Gemini model
-// import { agentXWebAgent } from './agent-x/agentXWebAgent';
-import { experimental_generateImage } from 'ai';
+import { google } from '@ai-sdk/google';      // For Google AI models
+import { generateText } from 'ai';         // For generating text with AI models
 
-// --- Simple Markdown Bar Chart Generator ---
-// ... (generateMarkdownBarChart function as provided)
+// --- Simple Markdown Bar Chart Generator (No changes) ---
 function generateMarkdownBarChart(
   table: { headers: string[]; rows: Record<string, string>[] },
   column: string,
@@ -37,55 +32,11 @@ function generateMarkdownBarChart(
   return chart;
 }
 
-
-// Utility: Use LLM to parse user intent into AgentXInstruction (placeholder)
-// async function parseInstructionWithLLM(userMessage: string): Promise<AgentXInstruction> {
-//   // If Agent X is enabled, use Gemini LLM to parse the user intent dynamically
-//   // This function is only called when agentX is true
-//   try {
-//     const geminiModel = google('gemini-2.5-flash-preview-04-17');
-//     const prompt = `You are an expert web automation agent. Given the following user instruction, extract the user's goal (e.g., \"search video\", \"search product\", \"browse\", \"compare prices\", etc.), the main website to use (e.g., \"youtube.com\", \"amazon.com\", \"twitter.com\", etc.), and the query or keywords (if any) to use for the action.\n\nReturn a JSON object with keys: goal, site, query.\n\nUser instruction: \"${userMessage}\"`;
-//     const { text } = await generateText({
-//       model: geminiModel,
-//       prompt,
-//     });
-//     // Try to parse the LLM output as JSON
-//     let parsed: any = {};
-//     try {
-//       parsed = JSON.parse(text);
-//     } catch {
-//       // Fallback: try to extract with regex if not valid JSON
-//       const goal = text.match(/goal\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || "browse";
-//       const site = text.match(/site\s*[:=]\s*["']?([\w.-]+)["']?/i)?.[1] || "";
-//       const query = text.match(/query\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || userMessage;
-//       parsed = { goal, site, query };
-//     }
-//     // Ensure all fields are present
-//     return {
-//       goal: parsed.goal || "browse",
-//       site: parsed.site || "",
-//       query: parsed.query || userMessage,
-//     };
-//   } catch (e) {
-//     // On error, fallback to simple rules
-//     if (/youtube/i.test(userMessage)) {
-//       return { goal: "search video", site: "youtube.com", query: userMessage.replace(/.*youtube/i, '').trim() || "" };
-//     }
-//     if (/amazon/i.test(userMessage)) {
-//       return { goal: "search product", site: "amazon.com", query: userMessage.replace(/.*amazon/i, '').trim() || "" };
-//     }
-//     // Add more site rules as needed
-//     return { goal: "browse", site: "", query: userMessage };
-//   }
-// }
-
-// Utility: Format a value as inline code (ChatGPT style)
-// ... (formatInlineCode function as provided)
+// --- Utility: Format a value as inline code (No changes) ---
 export function formatInlineCode(value: string): string {
   return `\`${value.replace(/`/g, '\u0060')}\``;
 }
-// --- Helper Function for Basic Table Parsing (Simplified Regex Approach) ---
-// ... (parseHtmlTables function as provided)
+// --- Helper Function for Basic Table Parsing (No changes) ---
 function parseHtmlTables(html: string): { headers: string[], rows: Record<string, string>[] }[] {
     const tables = [];
     const tableRegex = /<table[\s\S]*?>(.*?)<\/table>/gi;
@@ -135,8 +86,6 @@ function parseHtmlTables(html: string): { headers: string[], rows: Record<string
              if (cells.length > 0 && (headers.length === 0 || cells.length === headers.length)) {
                 rows.push(cells);
                 rowsProcessed++;
-            } else if (cells.length > 0 && headers.length > 0 && cells.length !== headers.length) {
-                // console.log(`Skipping row with ${cells.length} cells, expected ${headers.length}`);
             }
         }
 
@@ -148,18 +97,21 @@ function parseHtmlTables(html: string): { headers: string[], rows: Record<string
                 });
                 return rowObj;
              });
-            tables.push({ headers, data: tableData });
-        } else if (rows.length > 0) {
-             tables.push({ headers: [], data: rows });
+            tables.push({ headers, rows: tableData });
+        } else if (headers.length === 0 && rows.length > 0) {
+             const tableData = rows.map(row => {
+                const rowObj: Record<string, string> = {};
+                row.forEach((cell, index) => {
+                    rowObj[`Column ${index + 1}`] = cell ?? '';
+                });
+                return rowObj;
+             });
+            tables.push({ headers: rows[0] ? Object.keys(tableData[0]) : [], rows: tableData });
         }
     }
-    return tables.map(t => ({
-        headers: t.headers,
-        rows: Array.isArray(t.data[0])
-            ? (t.data as string[][]).map(row => Object.fromEntries(row.map((cell, i) => [`Column ${i + 1}`, cell])))
-            : t.data as Record<string, string>[]
-    }));
+    return tables;
 }
+
 
 export const weatherTool = tool({
   description: "Get the weather in a location",
@@ -172,410 +124,508 @@ export const weatherTool = tool({
   }),
 });
 
-// ### 2. Content Summarization with Abstractive Summarization 📝
+// --- UPDATED Intent Extraction Utility ---
+async function extractUserIntent(userMessage: string): Promise<{ object: string; modality: string; qualifiers: string[]; expanded: string[] }> {
+  console.log(`[extractUserIntent] Starting for: "${userMessage}"`);
+  try {
+    const intentModel = google('gemma-3n-e4b-it');
+    const prompt = `
+      Analyze the following user request and extract the specified components.
+      Return the output strictly as a JSON object with the keys: "object", "modality", "qualifiers", "expanded".
+      - "object": The main subject or entity of interest (e.g., 'cat', 'Eiffel Tower', 'recipe for pasta'). BE SPECIFIC.
+      - "modality": The type of media or information requested (e.g., 'image', 'video', 'article', 'summary', 'data'). If not specified, try to infer or leave empty. For "summarize this article", the modality is "summary".
+      - "qualifiers": Descriptive adjectives or attributes modifying the object or modality (e.g., 'funny', 'high resolution', 'blue', 'quick', 'easy'). List them as an array of strings. If none, provide an empty array [].
+      - "expanded": Provide up to 3 synonyms or closely related terms for the "object" to aid in searching. List them as an array of strings. If none, provide an empty array [].
 
-// Instead of just grabbing snippets of text from a web page (like the `summary` field currently does), abstractive summarization aims to generate a *new*, concise, and coherent summary that captures the main points of the content.
+      User Request: "${userMessage}"
 
-// *   **The Idea:** Use a machine learning model to understand the meaning of the text and then re-write it in a shorter form, using different words and sentence structures.
-// *   **Why it's SUPER:**
-//     *   **More Readable Summaries:** Abstractive summaries are typically more fluent and easier to understand than extractive summaries (which just pull out existing sentences).
-//     *   **Better at Capturing the Essence:** The model can identify the most important information and discard irrelevant details.
-//     *   **Handles Complex Text:** Can summarize text that is difficult to summarize using simple techniques.
-// *   **The Code (Conceptual):**
+      JSON Output:
+    `;
 
-//     ```typescript
-//     import { pipeline } from '@xenova/transformers';
+    const { text } = await generateText({ model: intentModel, prompt, temperature: 0.1 });
+    console.log(`[extractUserIntent] Raw LLM output: ${text}`);
 
-//     let summarizer = null;
+    let parsed: any;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch && jsonMatch[0]) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        parsed = JSON.parse(text);
+      }
+    } catch (e) {
+      console.error("[extractUserIntent] Failed to parse LLM intent JSON:", e, "Raw text was:", text);
+      return { object: userMessage, modality: '', qualifiers: [], expanded: [] };
+    }
+    const finalIntent = {
+      object: parsed.object || '',
+      modality: parsed.modality || '',
+      qualifiers: Array.isArray(parsed.qualifiers) ? parsed.qualifiers.map((q: any) => String(q).trim()).filter(Boolean) : [],
+      expanded: Array.isArray(parsed.expanded) ? parsed.expanded.map((e: any) => String(e).trim()).filter(Boolean) : [],
+    };
+    console.log("[extractUserIntent] Successfully parsed intent:", finalIntent);
+    return finalIntent;
 
-//     async function initializeSummarizer() {
-//         summarizer = await pipeline('summarization', 'Xenova/distilbart-cnn-12-6');
-//     }
+  } catch (error) {
+    console.error("[extractUserIntent] Outer error:", error);
+    return { object: userMessage, modality: '', qualifiers: [], expanded: [userMessage] };
+  }
+}
 
-//     async function generateAbstractiveSummary(text: string) {
-//         if (!summarizer) {
-//             await initializeSummarizer();
-//         }
-//         const output = await summarizer(text, {
-//             max_length: 130,
-//             min_length: 30,
-//             do_sample: false
-//         });
-//         return output[0].summary_text;
-//     }
-
-//     async function fetchUrlToolExecute({ url }: { url: string }) {
-//         // ...
-//         const html = await res.text();
-//         const mainText = extractMainText(html); // Function to extract the main content
-//         const abstractiveSummary = await generateAbstractiveSummary(mainText);
-
-//         return {
-//             // ...
-//             summary: abstractiveSummary // Replace the old summary with the new one
-//         };
-//     }
-//     ```
-
-//     *   **Note:** This example uses the `transformers` library (specifically, the `@xenova/transformers` version for browser/serverless environments) and a pre-trained summarization model. You'll need to install the library (`npm install @xenova/transformers`).
-// *   **Example:**
-
-//     > Original Text: "The quick brown rabbit jumps over the lazy frogs with no effort. The frogs are tired and sleepy. The rabbit is very fast."
-//     >
-//     > Abstractive Summary: "A fast rabbit effortlessly jumps over tired, sleepy frogs."
-
+// --- FULLY UPDATED AND RE-ARCHITECTED FETCHURLTOOL ---
 export const fetchUrlTool = tool({
   description:
-    "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries. Now supports Agent X for dynamic site interaction (Amazon, YouTube, more). Now supports recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking). Now supports extracting and rendering images and videos embedded in HTML pages.",
+    "Fetches content from a URL, and can recursively navigate to find specific information like images, videos, or text for summarization. It uses AI to understand the page content and make smart decisions.",
   parameters: z.object({
-    url: z.string().describe("The URL to fetch and analyze"),
-    referer: z.string().optional().describe("The referring page, for multi-step navigation"),
-    userIntent: z.string().optional().describe("The user's question or intent, for focused extraction, including data analysis requests like 'analyze the table'."),
-    agentX: z.boolean().optional().describe("If true, use Agent X for dynamic web interaction (Amazon, YouTube, etc.)"),
-    recursionDepth: z.number().optional().describe("How many levels of links to follow recursively (0 = just this page, 1 = follow links on this page, etc.)"),
-    maxPages: z.number().optional().describe("Maximum total number of pages to fetch (default 10)"),
-    timeoutMs: z.number().optional().describe("Timeout in milliseconds for the entire operation (default 20000 ms)"),
+    url: z.string().describe("The starting URL to fetch and analyze."),
+    userIntent: z.string().describe("The user's goal or question (e.g., 'image of an iPhone', 'summarize this article about macOS')."),
+    recursionDepth: z.number().optional().describe("How many levels of links to follow (0 = current page only, default 1)."),
   }),
   execute: async (params) => {
-    // --- Recursive Link Following Implementation ---
     const {
       url,
-      referer,
       userIntent,
-      agentX,
-      recursionDepth = 0,
-      maxPages = 10,
-      timeoutMs = 20000,
+      recursionDepth = 1,
     } = params;
+    
+    // Sensible defaults to prevent runaways
+    const maxPages = 5;
+    const timeoutMs = 45000; // Increased to 45 seconds
+
+    console.log(`[fetchUrlTool] Starting. URL: ${url}, Intent: "${userIntent}", Depth: ${recursionDepth}, Timeout: ${timeoutMs}ms`);
+
     const visited = new Set<string>();
-    const origin = (() => { try { return new URL(url).origin; } catch { return null; } })();
-    let pagesFetched = 0;
-    let timedOut = false;
-    const startTime = Date.now();
+    const overallStartTime = Date.now();
+    let pagesFetchedCount = 0;
+    let operationTimedOut = false;
+    const baseOrigin = (() => { try { return new URL(url).origin; } catch { return null; } })();
 
-    async function fetchAndAnalyze({ url, referer, userIntent, agentX, depth }: { url: string, referer?: string, userIntent?: string, agentX?: boolean, depth: number }): Promise<any> {
-      if (timedOut) return { error: 'Timeout reached', url };
-      if (pagesFetched >= maxPages) return { error: 'Max pages limit reached', url };
-      if (visited.has(url)) return { error: 'Already visited', url };
-      if (origin && !(url.startsWith(origin))) return { error: 'Out of domain', url };
-      if (Date.now() - startTime > timeoutMs) { timedOut = true; return { error: 'Timeout reached', url }; }
-      visited.add(url);
-      pagesFetched++;
-      // Call the original fetch/analyze logic (non-recursive)
-      // Use the original tool logic, but skip recursion params
-      const result = await (async () => {
-        // --- BEGIN: Original fetch/analyze logic ---
-        // if (agentX) {
-        //   const instruction = userIntent
-        //     ? await parseInstructionWithLLM(userIntent)
-        //     : { goal: "browse", site: url, query: "" };
-        //   const siteUrl = instruction.site || url;
-        //   const result = await agentXWebAgent({ instruction, url: siteUrl });
-        //   return result;
-        // }
-        const steps: string[] = [];
-        steps.push(`Step 1: Fetching ${url}`);
-        const headers: Record<string, string> = {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        };
-        if (referer) headers['Referer'] = referer;
-        const res = await fetch(url, { method: 'GET', headers });
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.startsWith('image/')) {
-          steps.push('Step 2: Detected image file. Previewing and initiating AI analysis.');
-          const imageType = contentType.split('/')[1] || 'image';
-          let imageName = 'image';
-          try { imageName = new URL(url).pathname.split('/').pop() || 'image'; } catch {}
-          const markdownPreview = `![Preview of ${imageName}](${url})`;
-          let analysis = "Image analysis could not be performed at this time.";
-          let analysisError = null;
-          try {
-            steps.push('Step 2a: Sending image to Gemini for analysis.');
-            const geminiModel = google('gemini-2.0-flash');
-            const analysisResult = await generateText({
-              model: geminiModel,
-              messages: [
-                { role: 'user', content: [
-                  { type: 'text', text: 'Describe this image in detail. What is depicted (objects, beings, scene)? What are the key visual elements (colors, composition, style)? If there are actions or a story, briefly describe it. Provide a comprehensive and objective description.' },
-                  { type: 'image', image: new URL(url) },
-                ] },
-              ],
-            });
-            analysis = analysisResult.text;
-            steps.push('Step 2b: Image analysis received from Gemini.');
-          } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : String(e);
-            steps.push(`Step 2b: Error during Gemini image analysis: ${msg}`);
-            analysisError = `AI analysis failed: ${msg}`;
-            analysis = `AI-powered analysis of the image failed. Details: ${msg}`;
-          }
-          return {
-            type: 'image_analyzed', url, markdown: markdownPreview, analysis, description: `The URL points to an image (${imageType.toUpperCase()}). Markdown Preview: ${markdownPreview}. AI-generated analysis: ${analysis}`,
-            ...(analysisError && { analysisErrorDetail: analysisError }), steps, elapsed: Date.now() - startTime,
-          };
-        } else if (contentType.includes('application/pdf')) {
-          steps.push('Step 2: Detected PDF document.');
-          return { type: 'document', url, description: 'PDF document. Content analysis and table extraction are not supported by this tool for PDFs.', steps, elapsed: Date.now() - startTime };
-        } else if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('application/xml')) {
-          steps.push('Step 2: Detected non-HTML, non-image, non-PDF file. Attempting to extract plain text preview.');
-          let textPreview = "Content is not plain text or could not be previewed.";
-          if (contentType.startsWith('text/')) {
-            try { const text = await res.text(); textPreview = text.slice(0, 500) + (text.length > 500 ? '...' : ''); } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); steps.push(`Step 2c: Error reading text content: ${msg}`); textPreview = "Error reading text content."; }
-          }
-          return { type: 'file', url, preview: textPreview, contentType, description: `File (${contentType}). Preview: ${textPreview}`, steps, elapsed: Date.now() - startTime };
-        }
-        // --- Process HTML ---
-        steps.push('Step 2: Processing HTML content.');
-        const html = await res.text();
-        // Extract images and videos from HTML
-        const images = extractImagesFromHtml(html, url);
-        const videos = extractVideosFromHtml(html, url);
-        // Render all images as Markdown previews (batch)
-        const imagesMarkdown = renderImagesAsMarkdown(images);
-        const metaDescription = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-        const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-        const ogDescription = (html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-        const headings = Array.from(html.matchAll(/<(h[1-3])[^>]*>(.*?)<\/\1>/gi)).map(m => ({ tag: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() })).slice(0, 10);
-        const navLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi))
-          .map(m => { try { return { href: new URL(m[1], url).toString(), text: m[2].replace(/<[^>]+>/g, '').trim() }; } catch { return null; } })
-          .filter(l => l && l.text && l.href && l.href.length < 256 && l.href.startsWith('https'))
-          .slice(0, 20);
-        const productCards = Array.from(html.matchAll(/<div[^>]*class=["'][^"']*(product|card|item|listing)[^"']*["'][^>]*>([\s\S]*?)(<\/div>)/gi))
-          .map(m => { const block = m[2]; const name = (block.match(/<h[1-4][^>]*>(.*?)<\/h[1-4]>/i) || [])[1]?.replace(/<[^>]+>/g, '').trim() || ''; const price = (block.match(/\$[0-9,.]+/) || [])[0] || ''; const features = Array.from(block.matchAll(/<li[^>]*>(.*?)<\/li>/gi)).map(x => x[1].replace(/<[^>]+>/g, '').trim()); const img = (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || ''; return { name, price, features, img }; }).filter(card => card.name || card.price || card.features.length > 0).slice(0, 10);
-        const faqs = Array.from(html.matchAll(/<details[\s\S]*?<\/details>/gi)).map(f => f[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
-        const newsSections = Array.from(html.matchAll(/<(section|div)[^>]+(news|blog|update)[^>]*>[\s\S]*?<\/(section|div)>/gi)).map(s => s[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 400));
-        steps.push('Step 3: Extracting table data.');
-        const extractedTables = parseHtmlTables(html);
-        let chartMarkdown = null;
-        if (userIntent && /chart|visualize|plot|bar chart|graph/i.test(userIntent) && extractedTables.length > 0) {
-          let col;
-          const match = userIntent.match(/(?:of|for)\s+([\w\s]+)/i);
-          if (match && match[1]) {
-            const guess = match[1].trim().toLowerCase();
-            col = extractedTables[0].headers.find(h => h.toLowerCase().includes(guess));
-          }
-          if (!col && extractedTables[0].headers.length > 0) {
-            for (const h of extractedTables[0].headers) {
-              const vals = extractedTables[0].rows.map(r => r[h].replace(/[$,%]/g, '').replace(/,/g, ''));
-              if (vals.some(v => !isNaN(parseFloat(v)))) { col = h; break; }
-            }
-          }
-          if (col) { chartMarkdown = generateMarkdownBarChart(extractedTables[0], col); }
-        }
-        steps.push(`Step 4: Found ${extractedTables.length} potential table(s).`);
-        const mainText = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<head[\s\S]*?<\/head>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
+    if (!baseOrigin) {
+        return { error: "Invalid base URL provided.", url, images: [], videos: [], steps: ["Invalid base URL"], narration: "I couldn't process that request because the URL seems to be invalid." };
+    }
 
-        // --- Automatic Language Detection ---
-        let language = 'und';
+    const initialIntent = await extractUserIntent(userIntent);
+    if (!initialIntent.object) {
+        return { error: "Could not understand the main object of your request.", intent: initialIntent, narration: "I'm sorry, I had trouble understanding exactly what you're looking for. Could you try rephrasing?" };
+    }
+
+    // --- Core Helper Functions with Semantic Intelligence ---
+
+    async function getLinkSubject(linkText: string, linkHref: string, userGoal: string): Promise<string> {
         try {
-          if (mainText && mainText.length > 20) {
-            language = franc(mainText, { minLength: 3 }) || 'und';
-          }
+            const linkModel = google('gemma-3n-e4b-it'); // Use the fast model
+            const prompt = `A user's goal is to "${userGoal}". On a webpage, there is a link with the text "${linkText}" that points to "${linkHref}". What is the primary subject of THIS LINK? Respond with a single noun or short phrase.`;
+            const { text } = await generateText({ model: linkModel, prompt, temperature: 0.1, maxTokens: 20 });
+            return text.trim().toLowerCase();
         } catch (e) {
-          language = 'und';
+            console.warn(`[getLinkSubject] LLM call failed for link: ${linkText}`);
+            return "unknown";
         }
-        let siteType = 'general';
-        if (productCards.length > 2) siteType = 'e-commerce';
-        else if (newsSections.length > 0 || /news|blog|article/i.test(html)) siteType = 'news/blog';
-        else if (faqs.length > 0) siteType = 'docs/faq';
-        else if (extractedTables.length > 0) siteType = 'data/table';
-        steps.push('Step 5: Analyzing content and intent.');
-        let suggestedLinks: { href: string; text: string }[] = [];
-        // WIP: Make this more robust than just basic checking of the word "analyze" in the user's intent
-        if (userIntent && !userIntent.toLowerCase().includes('analyze')) {
-          const lowerIntent = userIntent.toLowerCase();
-          suggestedLinks = navLinks
-            .filter((l) => !!l)
-            .filter((l): l is { href: string; text: string } => !!l)
-            .filter(l => {
-              const linkTextLower = l.text.toLowerCase();
-              return lowerIntent.split(' ').some((word: string) => word.length > 3 && linkTextLower.includes(word)) || linkTextLower.includes(lowerIntent);
-            });
-          if (suggestedLinks.length > 0) {
-            steps.push(`Step 6: Based on intent '${userIntent}', suggesting navigation to: ${suggestedLinks.map(l => `[${l.text}](${l.href})`).join(', ')}`);
-          } else {
-            steps.push(`Step 6: No direct navigation links found matching intent '${userIntent}'.`);
-          }
-        } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length === 0) {
-          steps.push(`Step 6: User asked to analyze data, but no tables were extracted.`);
-        } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length > 0) {
-          steps.push(`Step 6: User asked to analyze data. Found ${extractedTables.length} table(s). Passing data to AI.`);
-        }
-        const articleLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi))
-          .map(m => { try { const href = new URL(m[1], url).toString(); const text = m[2].replace(/<[^>]+>/g, '').trim(); const isArticle = /(\/article|\/news|\/blog|\/post|\/story|[\d-]+\.html?$)/i.test(href); return (isArticle && text && href.startsWith('http')) ? { href, text } : null; } catch { return null; } })
-          .filter(Boolean).slice(0, 50);
-        const summary = [
-          ogTitle || headings[0]?.text,
-          metaDescription || ogDescription,
-          ...headings.slice(1, 3).map(h => h.text),
-          extractedTables.length > 0 ? `Contains ${extractedTables.length} data table(s).` : '',
-          ...productCards.slice(0, 2).map(c => `${c.name} ${c.price}`),
-          ...faqs.slice(0, 1),
-          ...newsSections.slice(0, 1),
-          mainText.slice(0, 500)
-        ].filter(Boolean).join(' | ').replace(/\s+/g, ' ').slice(0, 1500);
-        steps.push('Step 7: Compiling results.');
-        return {
-          type: 'website',
-          url,
-          siteType,
-          title: ogTitle || (headings[0]?.text ?? url),
-          metaDescription,
-          ogTitle,
-          ogDescription,
-          headings,
-          navLinks,
-          productCards,
-          faqs,
-          newsSections,
-          extractedTables,
-          chartMarkdown,
-          summary,
-          preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''),
-          suggestedLinks,
-          articleLinks,
-          language, // Add detected language code (e.g., 'eng', 'spa', 'und')
-          images, // Embedded images extracted from HTML
-          imagesMarkdown, // Markdown batch preview of all images
-          videos, // Embedded videos extracted from HTML
-          steps,
-          elapsed: Date.now() - startTime
-        };
-        // --- END: Original fetch/analyze logic ---
-      })();
-      // --- RECURSION: If depth > 0, follow links ---
-      if (depth > 0 && result && 'navLinks' in result && Array.isArray((result as any).navLinks)) {
-        // Gather eligible links for concurrent fetching
-        const allLinks = ((result as any).navLinks as { href: string; text: string }[])
-          .filter(link => link && link.href && !visited.has(link.href) && (!origin || link.href.startsWith(origin)));
-        // Limit to remaining maxPages
-        const availableSlots = Math.max(0, maxPages - pagesFetched);
-        const linksToFetch = allLinks.slice(0, availableSlots);
-        // Mark as visited before fetching to avoid race conditions
-        linksToFetch.forEach(link => visited.add(link.href));
-        // Fetch all links concurrently
-        const childResults = await Promise.all(
-          linksToFetch.map(async link => {
-            if (timedOut || pagesFetched >= maxPages) return { error: 'Timeout or maxPages reached', url: link.href };
+    }
+
+    async function extractAndScoreLinks(htmlContent: string, currentUrl: string, currentIntent: any): Promise<{ href: string, text: string, score: number }[]> {
+        const aTagRegex = /<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi;
+        const potentialLinks: { href: string; text: string }[] = [];
+        let match;
+
+        while ((match = aTagRegex.exec(htmlContent)) !== null) {
+            const href = match[1];
+            const textContent = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+            if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || textContent.length < 3 || href.length > 300) continue;
             try {
-              // Each fetch increments pagesFetched
-              pagesFetched++;
-              return await fetchAndAnalyze({ url: link.href, referer: url, userIntent, agentX, depth: depth - 1 });
-            } catch (e) {
-              return { error: String(e), url: link.href };
+                const absoluteHref = new URL(href, currentUrl).toString();
+                if (new URL(absoluteHref).origin === baseOrigin && !visited.has(absoluteHref)) {
+                    potentialLinks.push({ href: absoluteHref, text: textContent });
+                }
+            } catch { /* ignore invalid URLs */ }
+        }
+
+        const scoredLinks: { href: string; text: string; score: number }[] = [];
+        const linkAnalysisPromises = potentialLinks.slice(0, 10).map(async link => {
+            if (Date.now() - overallStartTime > timeoutMs - 5000) return; // Don't start new LLM calls if we're about to time out
+
+            const subject = await getLinkSubject(link.text, link.href, currentIntent.object);
+            let score = 0;
+            const intentKeywords = [currentIntent.object, ...currentIntent.expanded].filter(Boolean).map(k => k.toLowerCase());
+            
+            if (intentKeywords.some(kw => subject.includes(kw))) {
+                score += 10; // Massive bonus if the link's SEMANTIC subject matches the intent
+            } else if (intentKeywords.some(kw => link.text.toLowerCase().includes(kw) || link.href.toLowerCase().includes(kw))) {
+                score += 2; // Keyword match is a fallback bonus
             }
-          })
-        );
-        return { ...result, childResults };
-      } else {
-        return result;
+            if (['about', 'contact', 'support', 'privacy', 'terms'].some(kw => link.text.toLowerCase().includes(kw))) {
+                score -= 5;
+            }
+            if (score > 3) {
+                scoredLinks.push({ ...link, score });
+            }
+        });
+        
+        await Promise.all(linkAnalysisPromises);
+        
+        scoredLinks.sort((a, b) => b.score - a.score);
+        console.log(`[extractAndScoreLinks] For ${currentUrl}, top links:`, scoredLinks.slice(0, 5));
+        return scoredLinks.slice(0, 5);
+    }
+    
+    function extractMainContent(html: string): string {
+        return html
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    async function describeImageWithVision(
+      src: string,
+      currentIntent: { object: string; modality: string; qualifiers: string[]; expanded: string[] }
+    ): Promise<{ description: string; confidence: number; isRelevant: boolean; detailedAnalysis?: Record<string, any> }> {
+      console.log(`[describeImageWithVision] Analyzing image: ${src} for object: ${currentIntent.object}`);
+      try {
+        const visionModel = google('gemma-3-27b-it');
+        const visionPrompt = `
+          Analyze the image at the URL: ${src}
+          Based on the user's intent:
+          - Object of interest: "${currentIntent.object || 'any relevant content'}"
+          - Qualifiers: ${currentIntent.qualifiers?.length > 0 ? currentIntent.qualifiers.join(', ') : 'none'}
+
+          Return VALID JSON: { "description": "Concise image description (max 15 words).", "relevanceToObject": "Score (0.0-1.0) of image to 'object of interest'.", "relevanceToQualifiers": "Score (0.0-1.0) of image to 'qualifiers'.", "overallConfidence": "Overall confidence (0.0-1.0) image matches FULL intent.", "subjectiveAssessment": { "isFunny": "boolean", "otherObservations": "Brief notes on subjective qualifiers." } }
+        `;
+        const { text } = await generateText({ model: visionModel, prompt: visionPrompt, temperature: 0.2 });
+        let parsed: any;
+        try {
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+        } catch (e) {
+          console.error(`[describeImageWithVision] Failed to parse vision JSON for ${src}:`, e, `Raw: "${text}"`);
+          return { description: "AI analysis parse error.", confidence: 0.1, isRelevant: false, detailedAnalysis: { error: 'parsing failed', raw: text } };
+        }
+
+        const overallConfidence = Number(parsed.overallConfidence) || 0;
+        const isFunnyQualifierPresent = currentIntent.qualifiers?.includes('funny');
+        const meetsFunnyCriteria = isFunnyQualifierPresent && parsed.subjectiveAssessment?.isFunny === true;
+
+        let isRelevant = overallConfidence > (isFunnyQualifierPresent ? 0.50 : 0.60);
+        if (isFunnyQualifierPresent && !meetsFunnyCriteria && overallConfidence > 0.45) {
+          isRelevant = overallConfidence > 0.80;
+        } else if (isFunnyQualifierPresent && meetsFunnyCriteria) {
+          isRelevant = overallConfidence > 0.45;
+        }
+
+        return { description: parsed.description || "No description.", confidence: overallConfidence, isRelevant, detailedAnalysis: parsed };
+      } catch (error) {
+        console.error(`[describeImageWithVision] Error for ${src}:`, error);
+        return { description: "Vision analysis error.", confidence: 0.0, isRelevant: false, detailedAnalysis: { error: String(error) } };
       }
     }
-    // --- Start recursion ---
-    return await fetchAndAnalyze({ url, referer, userIntent, agentX, depth: recursionDepth });
+
+    async function describeVideoWithVision(
+      src: string,
+      currentIntent: { object: string; modality: string; qualifiers: string[]; expanded: string[] }
+    ): Promise<{ description: string; confidence: number; isRelevant: boolean; poster?: string; detailedAnalysis?: Record<string, any> }> {
+        // This function would be very similar to describeImageWithVision, using the same gemma-3-27b-it model
+        // For brevity, the logic is kept close to the image version.
+      console.log(`[describeVideoWithVision] Analyzing video: ${src} for object: ${currentIntent.object}`);
+      try {
+        const visionModel = google('gemma-3-27b-it');
+        const visionPrompt = `
+          Analyze the video at the URL: ${src}
+          Based on the user's intent:
+          - Object of interest: "${currentIntent.object || 'any relevant content'}"
+          - Qualifiers: ${currentIntent.qualifiers?.length > 0 ? currentIntent.qualifiers.join(', ') : 'none'}
+
+          Return VALID JSON: { "description": "Concise video summary (max 20 words).", "relevanceToObject": "Score (0.0-1.0) of video to 'object of interest'.", "relevanceToQualifiers": "Score (0.0-1.0) of video to 'qualifiers'.", "overallConfidence": "Overall confidence (0.0-1.0) video matches FULL intent.", "subjectiveAssessment": { "isFunny": "boolean", "otherObservations": "Brief notes." }, "extractedPoster": "URL of poster image, if any, else null." }
+        `;
+        const { text } = await generateText({ model: visionModel, prompt: visionPrompt, temperature: 0.2 });
+        let parsed: any;
+        try {
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+        } catch (e) {
+          return { description: "AI analysis parse error.", confidence: 0.1, isRelevant: false, detailedAnalysis: { error: 'parsing failed', raw: text } };
+        }
+        const overallConfidence = Number(parsed.overallConfidence) || 0;
+        const isFunnyQualifierPresent = currentIntent.qualifiers?.includes('funny');
+        const meetsFunnyCriteria = isFunnyQualifierPresent && parsed.subjectiveAssessment?.isFunny === true;
+        let isRelevant = overallConfidence > (isFunnyQualifierPresent ? 0.50 : 0.60);
+        if (isFunnyQualifierPresent && !meetsFunnyCriteria && overallConfidence > 0.45) isRelevant = overallConfidence > 0.80;
+        else if (isFunnyQualifierPresent && meetsFunnyCriteria) isRelevant = overallConfidence > 0.45;
+        return { description: parsed.description || "No summary.", confidence: overallConfidence, isRelevant, poster: parsed.extractedPoster || undefined, detailedAnalysis: parsed };
+      } catch (error) {
+        return { description: "Vision analysis error.", confidence: 0.0, isRelevant: false, detailedAnalysis: { error: String(error) } };
+      }
+    }
+
+    async function filterImagesWithVision(
+        imagesFromHtml: { src: string, alt: string, width?: number, height?: number }[],
+        currentIntent: any
+    ) {
+      const results = [];
+      const imagesToProcess = imagesFromHtml.slice(0, 10);
+      for (const img of imagesToProcess) {
+        if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+        const visionAnalysis = await describeImageWithVision(img.src, currentIntent);
+        if (visionAnalysis.isRelevant) {
+          results.push({ ...img, ...visionAnalysis });
+        }
+      }
+      results.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+      return results;
+    }
+
+    async function filterVideosWithVision(
+        videosFromHtml: { src: string, poster?: string, alt?: string }[],
+        currentIntent: any
+    ) {
+      const results = [];
+      const videosToProcess = videosFromHtml.slice(0, 5);
+      for (const vid of videosToProcess) {
+        if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+        const visionAnalysis = await describeVideoWithVision(vid.src, currentIntent);
+        if (visionAnalysis.isRelevant) {
+          results.push({ ...vid, ...visionAnalysis });
+        }
+      }
+      results.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+      return results;
+    }
+
+    function narrateResults(allImgs: any[], allVids: any[], currentInt: any, startUrl: string, wasRecursive: boolean) {
+        const objectStr = currentInt.object || "the requested content";
+        const qualifierStr = currentInt.qualifiers?.length > 0 ? ` (${currentInt.qualifiers.join(', ')})` : '';
+        const searchLocation = wasRecursive ? `across related pages starting from ${startUrl}` : `on ${startUrl}`;
+        if (allImgs.length === 0 && allVids.length === 0) {
+            return `I couldn't find any relevant images or videos for "${objectStr}${qualifierStr}" ${searchLocation}.`;
+        }
+        let msg = `Searching ${searchLocation}, I found ${allImgs.length} relevant image(s) and ${allVids.length} relevant video(s) for "${objectStr}${qualifierStr}".\n`;
+        if (allImgs.length > 0) {
+            const topImage = allImgs[0];
+            msg += `The best image match: "${topImage.description || 'Image of ' + objectStr}" (Confidence: ${Math.round((topImage.confidence || 0) * 100)}%).`;
+        }
+        if (allVids.length > 0) {
+            msg += `\nThe best video match: "${allVids[0].description || 'Video of ' + objectStr}" (Confidence: ${Math.round((allVids[0].confidence || 0) * 100)}%).`;
+        }
+        return msg.trim();
+    }
+
+
+    async function fetchAndAnalyze({ currentUrl, pageReferer, currentDepth, CIntent }: { currentUrl: string, pageReferer?: string, currentDepth: number, CIntent: any }): Promise<any> {
+        console.log(`[fetchAndAnalyze] Depth ${recursionDepth - currentDepth}, URL: ${currentUrl}, Object: ${CIntent.object}`);
+        if (operationTimedOut || Date.now() - overallStartTime > timeoutMs) {
+            operationTimedOut = true;
+            return { error: 'Operation timeout reached before processing this page.', url: currentUrl, steps: ["Timeout prior"] };
+        }
+        if (pagesFetchedCount >= maxPages) return { error: 'Max pages limit reached.', url: currentUrl, steps: ["Max pages hit prior"] };
+        if (visited.has(currentUrl)) return { error: 'Already visited.', url: currentUrl, steps: ["Already visited"] };
+
+        visited.add(currentUrl);
+        pagesFetchedCount++;
+        const localSteps: string[] = [];
+        localSteps.push(`Fetching L${recursionDepth - currentDepth}: ${currentUrl}`);
+
+        let htmlContent = "";
+        try {
+            const headers: Record<string, string> = { 'User-Agent': 'Mozilla/5.0 (compatible; AvurnaBot/1.0)' };
+            if (pageReferer) headers['Referer'] = pageReferer;
+            const res = await fetch(currentUrl, { method: 'GET', headers, signal: AbortSignal.timeout(15000) });
+            if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+            const contentType = res.headers.get('content-type') || '';
+            if (!contentType.includes('text/html')) throw new Error(`Unsupported content type: ${contentType}`);
+            htmlContent = await res.text();
+            localSteps.push('Processing HTML content.');
+        } catch (fetchError: any) {
+            localSteps.push(`Error fetching ${currentUrl}: ${fetchError.message}`);
+            console.error(`[fetchAndAnalyze] Fetch error for ${currentUrl}:`, fetchError);
+            return { error: `Fetch error: ${fetchError.message}`, url: currentUrl, steps: localSteps };
+        }
+
+        let pageResults: { images: any[], videos: any[], textContent?: string } = { images: [], videos: [] };
+        let isGoodEnoughFound = false;
+        const inferredModality = CIntent.modality || (userIntent.toLowerCase().includes('video') ? 'video' : (userIntent.toLowerCase().includes('image') ? 'image' : 'summary'));
+        let foundItemsOnPage = 0;
+
+        if (inferredModality === 'image' || inferredModality === 'video') {
+            const imagesOnPage = extractImagesFromHtml(htmlContent, currentUrl);
+            const videosOnPage = extractVideosFromHtml(htmlContent, currentUrl);
+            pageResults.images = await filterImagesWithVision(imagesOnPage, CIntent);
+            pageResults.videos = await filterVideosWithVision(videosOnPage, CIntent);
+            foundItemsOnPage = pageResults.images.length + pageResults.videos.length;
+            if ((inferredModality === 'image' && pageResults.images.length > 0 && pageResults.images[0].confidence >= 0.75) ||
+                (inferredModality === 'video' && pageResults.videos.length > 0 && pageResults.videos[0].confidence >= 0.75)) {
+                isGoodEnoughFound = true;
+            }
+        } else if (inferredModality === 'summary') {
+            const textContent = extractMainContent(htmlContent);
+            if (textContent.length > 500) {
+                pageResults.textContent = textContent;
+                isGoodEnoughFound = true;
+                foundItemsOnPage = 1;
+                localSteps.push(`Extracted ${textContent.length} characters of text for summarization.`);
+            } else {
+                localSteps.push(`Found insufficient text on page for a good summary.`);
+            }
+        }
+        
+        if (Date.now() - overallStartTime > timeoutMs) operationTimedOut = true;
+
+        let pageRecursiveResults: any[] = [];
+        if (currentDepth > 0 && !isGoodEnoughFound && !operationTimedOut) {
+            const pageNavLinks = await extractAndScoreLinks(htmlContent, currentUrl, CIntent);
+            if (pageNavLinks.length > 0) {
+                localSteps.push(`No high-confidence result found. Semantically exploring ${pageNavLinks.length} link(s)...`);
+                const linksToFollowCount = Math.min(pageNavLinks.length, currentDepth > 1 ? 1 : 2);
+                for (let i = 0; i < linksToFollowCount; i++) {
+                    if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+                    const link = pageNavLinks[i];
+                    const subResult = await fetchAndAnalyze({ currentUrl: link.href, pageReferer: currentUrl, currentDepth: currentDepth - 1, CIntent: initialIntent });
+                    if (subResult && !subResult.error) {
+                        pageRecursiveResults.push(subResult);
+                        const subImages = subResult.images || [];
+                        const subVideos = subResult.videos || [];
+                        const subText = subResult.textContent || "";
+                        if ((subImages.length > 0 && subImages[0].confidence > 0.85) || 
+                            (subVideos.length > 0 && subVideos[0].confidence > 0.85) || 
+                            (subText.length > 1000)) {
+                            localSteps.push(`Excellent result found via ${link.href}. Halting further exploration from this page.`);
+                            break;
+                        }
+                    } else if (subResult?.error) {
+                        localSteps.push(`Sub-fetch for ${link.href} resulted in error: ${subResult.error}`);
+                    }
+                }
+            }
+        }
+
+        const allImages = [...pageResults.images, ...pageRecursiveResults.flatMap(r => r.images || [])];
+        const allVideos = [...pageResults.videos, ...pageRecursiveResults.flatMap(r => r.videos || [])];
+        const allText = pageResults.textContent || pageRecursiveResults.map(r => r.textContent).find(t => t) || "";
+
+        allImages.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+        allVideos.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+
+        return { url: currentUrl, images: allImages, videos: allVideos, textContent: allText, steps: localSteps, recursiveResults: pageRecursiveResults };
+    }
+    
+    // --- Start the process ---
+    const finalResult = await fetchAndAnalyze({ currentUrl: url, pageReferer: undefined, currentDepth: recursionDepth, CIntent: initialIntent });
+
+    // --- Final Summarization Step (if needed) ---
+    if (initialIntent.modality === 'summary' && finalResult.textContent && !operationTimedOut) {
+        try {
+            console.log(`[Summarization] Summarizing ${finalResult.textContent.length} characters.`);
+            const summaryModel = google('gemma-3-27b-it'); // Use powerful model for summarization
+            const summaryPrompt = `Based on the following article text, provide a concise summary highlighting the key points. Article Text: "${finalResult.textContent.substring(0, 25000)}"`; // Limit context
+            const { text } = await generateText({ model: summaryModel, prompt: summaryPrompt });
+            finalResult.narration = text;
+        } catch (e) {
+            finalResult.narration = "I found the article text, but there was an error while trying to summarize it.";
+            console.error("[Summarization] Error:", e);
+        }
+    } else if (operationTimedOut && initialIntent.modality === 'summary') {
+        finalResult.narration = "My apologies, King. The operation timed out while I was gathering the full article text, so I can't provide a complete summary right now."
+    } else {
+        finalResult.narration = narrateResults(finalResult.images || [], finalResult.videos || [], initialIntent, url, pagesFetchedCount > 1);
+    }
+    
+    return {
+        ...finalResult,
+        overallStats: { pagesFetched: pagesFetchedCount, totalTimeMs: Date.now() - overallStartTime, timedOut: operationTimedOut }
+    };
   },
 });
 
-// --- Google Search Tool (as provided by user) ---
+// --- Google Search Tool ---
 export const googleSearchTool = tool({
   description: "Search the web using Google Search Grounding for up-to-date information, current events, or general knowledge questions.",
   parameters: z.object({
     query: z.string().describe("The search query to look up on the web"),
   }),
   execute: async ({ query }) => {
-    console.log(`googleSearchTool: Executing search for query: "${query}"`);
     try {
-      const modelInstance = google('gemini-2.5-flash-preview-05-20', { // User-provided model
+      const modelInstance = google('gemini-2.5-flash-preview-05-20', {
         useSearchGrounding: true,
-        dynamicRetrievalConfig: {
-          mode: 'MODE_DYNAMIC',
-          dynamicThreshold: 0.8,
-        },
+        dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0.8 },
       });
-
-      const { text, sources, providerMetadata } = await generateText({ // generateText for google search
-          model: modelInstance,
-          prompt: query,
-      });
-
+      const { text, sources, providerMetadata } = await generateText({ model: modelInstance, prompt: query });
       const metadata = providerMetadata?.google as any | undefined;
       const webSearchQueries = metadata?.groundingMetadata?.webSearchQueries ?? [];
-      
-      console.log(`googleSearchTool: Search successful for query: "${query}". Found ${sources?.length ?? 0} sources.`);
-
-      return {
-          query,
-          groundedResponse: text,
-          sources: sources ?? [],
-          webSearchQueries,
-      };
+      return { query, groundedResponse: text, sources: sources ?? [], webSearchQueries };
     } catch (error: any) {
-        console.error(`googleSearchTool Error searching for "${query}":`, error);
-        return {
-          query,
-          error: `Failed to execute Google search: ${error.message || error}`,
-          groundedResponse: null,
-          sources: [],
-          webSearchQueries: [],
-        };
+        return { query, error: `Failed to execute Google search: ${error.message || String(error)}`, groundedResponse: null, sources: [], webSearchQueries: [] };
     }
   },
 });
 
-// --- New Utilities: Extract Images and Videos from HTML ---
-function extractImagesFromHtml(html: string, baseUrl: string): { src: string, alt: string }[] {
-  const imgTagRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*?(?:alt=["']([^"']*)["'])?[^>]*>/gi;
-  const images: { src: string, alt: string }[] = [];
+// --- HTML Media Extraction Utilities ---
+function extractImagesFromHtml(html: string, baseUrl: string): { src: string, alt: string, width?: number, height?: number }[] {
+  const imgTagRegex = /<img\s+([^>]*?)>/gi;
+  const srcRegex = /src=["']([^"']+)["']/;
+  const altRegex = /alt=["']([^"']*)["']/;
+  const widthRegex = /width=["']?(\d+)/;
+  const heightRegex = /height=["']?(\d+)/;
+
+  const images: { src: string, alt: string, width?: number, height?: number }[] = [];
+  const commonUiPatterns = /\/(logo|icon|sprite|spinner|loader|avatar|profile|badge|button|arrow|thumb|pixel|spacer)-?.*\.(\w{3,4})$/i;
+  const commonUiKeywordsInAlt = ['logo', 'icon', 'button', 'arrow', 'avatar', 'profile', 'badge', 'banner ad', 'advertisement'];
+
   let match;
   while ((match = imgTagRegex.exec(html)) !== null) {
-    let src = match[1] || '';
-    let alt = match[2] || '';
+    const imgTagContent = match[1];
+    const srcMatch = srcRegex.exec(imgTagContent);
+    if (!srcMatch || !srcMatch[1]) continue;
+    let src = srcMatch[1];
+    const altMatch = altRegex.exec(imgTagContent);
+    let alt = altMatch ? altMatch[1] : '';
     try {
       src = new URL(src, baseUrl).toString();
-      images.push({ src, alt });
-    } catch {}
+      const widthMatch = widthRegex.exec(imgTagContent);
+      const heightMatch = heightRegex.exec(imgTagContent);
+      const width = widthMatch ? parseInt(widthMatch[1], 10) : undefined;
+      const height = heightMatch ? parseInt(heightMatch[1], 10) : undefined;
+      if (commonUiPatterns.test(src) || commonUiKeywordsInAlt.some(kw => alt.toLowerCase().includes(kw))) continue;
+      if ((width !== undefined && width < 50) && (height !== undefined && height < 50)) continue;
+      images.push({ src, alt, width, height });
+    } catch { /* Invalid URL */ }
   }
   return images;
 }
 
-// Utility: Render images as Markdown previews (batch)
-function renderImagesAsMarkdown(images: { src: string, alt: string }[]): string {
-  if (!images.length) return '';
-  return images.map((img, i) => {
-    const alt = img.alt?.trim() || `Image ${i + 1}`;
-    return `![${alt}](${img.src})`;
-  }).join('\n\n');
-}
-
 function extractVideosFromHtml(html: string, baseUrl: string): { src: string, poster?: string, alt?: string }[] {
-  const videoTagRegex = /<video[^>]*?(?:poster=["']([^"']*)["'])?[^>]*>([\s\S]*?)<\/video>/gi;
-  const sourceTagRegex = /<source[^>]*src=["']([^"']+)["'][^>]*>/gi;
   const videos: { src: string, poster?: string, alt?: string }[] = [];
+  const videoTagRegex = /<video[^>]*?(?:poster=["']([^"']*)["'])?[^>]*>([\s\S]*?)<\/video>/gi;
+  const sourceTagRegex = /<source[^>]+src=["']([^"']+)["'][^>]*?(?:type=["']video\/([^"']+)["'])?/gi;
+  const iframeRegex = /<iframe[^>]+src=["']([^"']+)["'][^>]*><\/iframe>/gi;
   let match;
   while ((match = videoTagRegex.exec(html)) !== null) {
     const poster = match[1];
-    const videoInner = match[2];
-    // Search for <source> tags inside <video>
-    let src = '';
+    const videoInnerHtml = match[2];
     let sourceMatch;
-    if ((sourceMatch = sourceTagRegex.exec(videoInner)) !== null) {
-      src = sourceMatch[1];
-    } else {
-      // Fallback: try <video src="...">
-      const videoSrcMatch = /src=["']([^"']+)["']/.exec(match[0]);
-      if (videoSrcMatch) src = videoSrcMatch[1];
+    let videoSrc: string | null = null;
+    while((sourceMatch = sourceTagRegex.exec(videoInnerHtml)) !== null) {
+        if (sourceMatch[1] && (!videoSrc || (sourceMatch[2] && sourceMatch[2].includes('mp4')))) {
+            videoSrc = sourceMatch[1];
+            if (sourceMatch[2] && sourceMatch[2].includes('mp4')) break;
+        }
     }
-    if (src) {
+    if (!videoSrc) {
+        const videoSrcAttrMatch = /src=["']([^"']+)["']/.exec(match[0]);
+        if (videoSrcAttrMatch) videoSrc = videoSrcAttrMatch[1];
+    }
+    if (videoSrc) {
       try {
-        src = new URL(src, baseUrl).toString();
-        videos.push({ src, poster, alt: poster });
-      } catch {}
+        const absoluteSrc = new URL(videoSrc, baseUrl).toString();
+        videos.push({ src: absoluteSrc, poster, alt: poster || "video content" });
+      } catch { /* Invalid URL */ }
+    }
+  }
+  while ((match = iframeRegex.exec(html)) !== null) {
+    const iframeSrc = match[1];
+    if (iframeSrc.includes('youtube.com/embed/') || iframeSrc.includes('player.vimeo.com/video/')) {
+      try {
+        const absoluteSrc = new URL(iframeSrc, baseUrl).toString();
+        videos.push({ src: absoluteSrc, alt: "embedded video player" });
+      } catch { /* Invalid URL */ }
     }
   }
   return videos;

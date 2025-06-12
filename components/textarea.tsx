@@ -181,7 +181,13 @@ export const Textarea = ({
   };
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
-  const shadcnTextareaNativePlaceholder = shouldShowCustomPlaceholderElements ? "" : "Ask Avurna...";
+  // Custom placeholder logic per requirements
+  let shadcnTextareaNativePlaceholder = "Ask Avurna...";
+  if (!hasSentMessage && isSignedIn) {
+    shadcnTextareaNativePlaceholder = "What can I help with?";
+  } else if (hasSentMessage) {
+    shadcnTextareaNativePlaceholder = "Reply Avurna";
+  }
   
   const activePromptText = (showAnimatedSuggestions && suggestedPrompts.length > 0)
     ? suggestedPrompts[currentPromptIndex]

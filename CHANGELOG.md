@@ -1,3 +1,24 @@
+# Changelog
+
+## 2025-06-12 (Current)
+
+### 🚀 Major Architectural Upgrade: The Semantic Web Agent
+
+This release marks a fundamental shift from a chatbot to a true AI agent.
+
+-   **Semantic Link Analysis:** Implemented a new "link brain" using a fast LLM (`gemma-3n-e4b-it`) to analyze the semantic meaning of navigation links before following them. This dramatically improves navigation accuracy and prevents the agent from following irrelevant links based on simple keyword matches.
+-   **Robust Timeout & Performance Management:**
+    -   Increased the global operation timeout to 45 seconds to allow for complex, multi-page tasks.
+    -   Added a 15-second timeout for individual `fetch` requests to prevent getting stuck on a single slow page.
+    -   The agent is now self-aware of the master timeout and will gracefully stop initiating new expensive operations if time is running low.
+-   **Enhanced Modality Handling:** The agent now correctly infers the user's goal (e.g., `summary`, `image`, `video`) and adapts its process. For summarization tasks, it now focuses on text extraction and bypasses unnecessary media analysis, preventing timeouts on text-heavy pages.
+-   **Strategic Model Upgrade:**
+    -   Replaced `gemini-1.5-flash` with **`gemma-3n-e4b-it`** for fast, low-latency tasks like intent extraction and link analysis.
+    -   Replaced `gemini-1.5-pro-vision` with **`gemma-3-27b-it`** for powerful, high-reasoning tasks like vision analysis and article summarization.
+-   **Resilient Tool Pivoting:** The agent's controlling logic is now better at recognizing when one tool (like `fetchUrlTool`) fails to produce a result and can pivot to an alternative (like `googleSearchTool`) to achieve the user's goal.
+
+---
+
 # 2025-05-26
 
 ### Features & Improvements

@@ -36,7 +36,17 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache chat history API responses for offline access
+
+// --- Media Caching ---
+const MEDIA_CACHE = 'avurna-media-v1';
+const MEDIA_EXTENSIONS = [
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.mp4', '.webm', '.mov', '.m4v', '.ogg', '.mp3', '.wav', '.aac', '.flac', '.mkv', '.avi', '.heic', '.heif', '.avif'
+];
+
+function isMediaRequest(url) {
+  return MEDIA_EXTENSIONS.some(ext => url.pathname.toLowerCase().endsWith(ext));
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -66,10 +76,45 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Media files: try cache first, then network, then cache
+  if (isMediaRequest(url)) {
+    event.respondWith(
+      caches.open(MEDIA_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            cache.put(request, response.clone());
+          }
+          return response;
+        } catch (err) {
+          // fallback: try any cache
+          return caches.match(request);
+        }
+      })
+    );
+    return;
+  }
+
   // Default: try network, fallback to cache
   event.respondWith(
     fetch(request).catch(() => caches.match(request))
   );
+});
+
+// --- Media Cache Cleanup (optional, enterprise-grade) ---
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEANUP_MEDIA_CACHE') {
+    caches.open(MEDIA_CACHE).then(async (cache) => {
+      const requests = await cache.keys();
+      const maxEntries = 200; // configurable
+      if (requests.length > maxEntries) {
+        const toDelete = requests.slice(0, requests.length - maxEntries);
+        await Promise.all(toDelete.map(req => cache.delete(req)));
+      }
+    });
+  }
 });
 
 // Optionally: Cache chat history API responses for offline access
