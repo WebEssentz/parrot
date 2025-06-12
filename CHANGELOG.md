@@ -31,8 +31,6 @@ This release marks a fundamental shift from a chatbot to a true AI agent.
   - **Domain Restriction & Safety:** Only follows links within the same domain, with hard limits on recursion and total pages.
   - **Agent X Vision:** Uses Gemini Vision for screenshot and DOM analysis, enabling advanced extraction and reasoning on visual web content.
 
-# Changelog
-
 ## 2025-05-20
 
 ### Features & Improvements
