@@ -16,7 +16,7 @@ export default function SignInPage() {
     if (!isLoaded) return;
     return signIn.authenticateWithRedirect({
       strategy,
-      redirectUrl: "/",
+      redirectUrl: "/callback",
       redirectUrlComplete: "/",
     });
   };

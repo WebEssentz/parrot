@@ -294,7 +294,9 @@ export default function Chat() {
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
   // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
-  const bufferForInputArea = isMobileOrTabletHook ? 200 : 12;
+  // Push chat view down on all devices (more)
+  // Instead of buffer, use a real padding-bottom on the message container
+  const inputAreaPadding = inputAreaHeight + 120;
   const currentYear = new Date().getFullYear();
 
   return (
@@ -310,14 +312,11 @@ export default function Chat() {
         style={{
           paddingTop:
             typeof isDesktop !== 'undefined' && !isDesktop
-              ? '18px'
+              ? '96px'
               : typeof isDesktop !== 'undefined' && isDesktop
-                ? '18px' // Add extra top padding for desktop
-                : undefined,
-          paddingBottom:
-            typeof isDesktop !== 'undefined' && isDesktop
-              ? `${inputAreaHeight + bufferForInputArea}px`
-              : `${bufferForInputArea}px`,
+                ? '96px' // Add extra top padding for desktop
+                : '96px',
+          paddingBottom: `${inputAreaPadding}px`,
         }}
       >
         {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (

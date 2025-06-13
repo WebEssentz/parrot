@@ -201,7 +201,7 @@ export const fetchUrlTool = tool({
     const baseOrigin = (() => { try { return new URL(url).origin; } catch { return null; } })();
 
     if (!baseOrigin) {
-        return { error: "Invalid base URL provided.", url, images: [], videos: [], steps: ["Invalid base URL"], narration: "I couldn't process that request because the URL seems to be invalid." };
+      return { error: "Invalid base URL provided.", url, images: [], videos: [], steps: ["Invalid base URL"], narration: "I couldn't process that request because the URL seems to be invalid." };
     }
 
     const initialIntent = await extractUserIntent(userIntent);

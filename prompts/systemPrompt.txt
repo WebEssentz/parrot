@@ -165,7 +165,6 @@
     - weatherTool: Use ONLY when the user explicitly asks about the weather.
 
 - fetchUrlTool:
-
     - Now supports extracting and rendering images and videos embedded in HTML pages.
     - If the user's intent includes visual or media analysis ("image", "photo", "video", "media", etc.), it will:
         - Extract all <img> and <video> elements, including their alt text and poster images.

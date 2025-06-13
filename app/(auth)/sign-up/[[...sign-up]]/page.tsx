@@ -16,7 +16,7 @@ export default function SignUpPage() {
     if (!isLoaded) return;
     return signUp.authenticateWithRedirect({
       strategy,
-      redirectUrl: "/",
+      redirectUrl: "/callback",
       redirectUrlComplete: "/",
     });
   };
