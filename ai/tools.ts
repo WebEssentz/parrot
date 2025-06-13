@@ -552,7 +552,7 @@ export const googleSearchTool = tool({
       const webSearchQueries = metadata?.groundingMetadata?.webSearchQueries ?? [];
       return { query, groundedResponse: text, sources: sources ?? [], webSearchQueries };
     } catch (error: any) {
-        return { query, error: `Failed to execute Google search: ${error.message || String(error)}`, groundedResponse: null, sources: [], webSearchQueries: [] };
+      return { query, error: `Failed to execute Google search: ${error.message || String(error)}`, groundedResponse: null, sources: [], webSearchQueries: [] };
     }
   },
 });

@@ -41,10 +41,133 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+// --- SourceFavicon Component ---
+// Skeleton shimmer for favicon loading, matching tool invocation UI
+function FaviconSkeleton() {
+  const { theme } = useTheme ? useTheme() : { theme: undefined };
+  return (
+    <span
+      className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 -ml-1 first:ml-0"
+      style={{
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        background: 'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 40%, #e5e7eb 60%, #e5e7eb 100%)',
+        backgroundSize: '200% 100%',
+        animation: 'avurna-shimmer-favicon 1.3s linear infinite',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
+        zIndex: 1,
+      }}
+      key={theme}
+    >
+      <style>{`@keyframes avurna-shimmer-favicon { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+    </span>
+  );
+}
+
+function SourceFavicon({ url, title }: { url: string; title: string }) {
+  const [favicon, setFavicon] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [errored, setErrored] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErrored(false);
+    (async () => {
+      let urlToUse = url;
+      if (url.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/")) {
+        urlToUse = await resolveRedirectUrl(url);
+      }
+      if (!cancelled) {
+        try {
+          const u = new URL(urlToUse);
+          if (u.protocol === "file:") {
+            setFavicon("/file.svg");
+            setLoading(false);
+            return;
+          } else if (u.protocol === "window:") {
+            setFavicon("/window.svg");
+            setLoading(false);
+            return;
+          } else {
+            setFavicon(getFaviconUrl(urlToUse));
+          }
+        } catch {
+          setFavicon("/globe.svg");
+          setLoading(false);
+          return;
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  // When favicon changes, try to load it
+  useEffect(() => {
+    if (!favicon) return;
+    setLoading(true);
+    setErrored(false);
+    const img = new window.Image();
+    img.src = favicon;
+    img.onload = () => { setLoading(false); setErrored(false); };
+    img.onerror = () => {
+      setErrored(true);
+      setLoading(false);
+    };
+  }, [favicon]);
+
+  if (loading) {
+    return <FaviconSkeleton />;
+  }
+  if (errored) {
+    return (
+      <img
+        src="/globe.svg"
+        alt={title}
+        className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
+        style={{ display: 'inline-block', verticalAlign: 'middle', zIndex: 1, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
+      />
+    );
+  }
+  return (
+    <img
+      src={favicon || "/globe.svg"}
+      alt={title}
+      className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
+      style={{ display: 'inline-block', verticalAlign: 'middle', zIndex: 1, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
+      onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/globe.svg'; }}
+    />
+  );
+}
+
+
+// Caches resolved URLs for the session
+const resolvedUrlCache: Record<string, Promise<string>> = {};
+
+/**
+ * Resolves a redirect URL (e.g., vertexaisearch.cloud.google.com/grounding-api-redirect/...) to its final destination.
+ * Returns the resolved URL, or the original if not a redirect or on error.
+ */
+export async function resolveRedirectUrl(siteUrl: string): Promise<string> {
+  if (!siteUrl.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/")) return siteUrl;
+  if (Object.prototype.hasOwnProperty.call(resolvedUrlCache, siteUrl)) return resolvedUrlCache[siteUrl];
+  const promise = fetch("/api/resolve-redirect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: siteUrl }),
+  })
+    .then(res => res.json())
+    .then(data => data.resolvedUrl || siteUrl)
+    .catch(() => siteUrl);
+  resolvedUrlCache[siteUrl] = promise;
+  return promise;
+}
+
 export function getFaviconUrl(siteUrl: string): string {
   try {
     const url = new URL(siteUrl);
-    return `${url.origin}/favicon.ico`;
+    // Use Google's favicon service for robustness
+    return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=32`;
   } catch {
     return "/globe.svg";
   }
@@ -87,7 +210,7 @@ function copyToClipboard(text: string) {
 interface ReasoningPartData {
   type: "reasoning";
   reasoning: string;
-  details: Array< { type: "text"; text: string; signature?: string } | { type: "redacted"; data: string } >;
+  details: Array<{ type: "text"; text: string; signature?: string } | { type: "redacted"; data: string }>;
 }
 
 interface ReasoningMessagePartProps {
@@ -160,7 +283,7 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: TMessage['parts'
   const { theme } = useTheme();
   const isMobileOrTablet = useIsMobileOrTablet();
 
-  if (part.type !== 'text') return null;
+  if (!part || part.type !== 'text') return null;
 
   const handleUserMessageCopy = (textToCopy: string) => {
     copyToClipboard(textToCopy);
@@ -395,21 +518,13 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
               </button>
             </div>
             <div className="overflow-y-auto max-h-[55vh] pr-1">
-              {sources.map((src, i) => {
-                let icon = <img src="/globe.svg" alt="site" className="cursor-pointer w-5 h-5 mr-2 inline-block align-middle" />;
-                try {
-                  const u = new URL(src.url);
-                  if (u.protocol === "file:") icon = <img src="/file.svg" alt="file" className="w-5 h-5 mr-2 inline-block align-middle" />;
-                  else if (u.protocol === "window:") icon = <img src="/window.svg" alt="window" className="w-5 h-5 mr-2 inline-block align-middle" />;
-                } catch { }
-                return (
-                  <a key={src.url + i} href={src.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-2 py-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-1">
-                    {icon}
-                    <span className="font-medium text-zinc-800 dark:text-zinc-100 truncate max-w-[180px]">{src.title}</span>
-                    <span className="text-xs text-zinc-500 truncate max-w-[120px]">{src.url}</span>
-                  </a>
-                );
-              })}
+              {sources.map((src, i) => (
+                <a key={src.url + i} href={src.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-2 py-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-1">
+                  <SourceFavicon url={src.url} title={src.title} />
+                  <span className="font-medium text-zinc-800 dark:text-zinc-100 truncate max-w-[180px]">{src.title}</span>
+                  <span className="text-xs text-zinc-500 truncate max-w-[120px]">{src.url}</span>
+                </a>
+              ))}
               {sources.length === 0 && <div className="text-zinc-500 text-sm">No sources found.</div>}
             </div>
           </div>
@@ -424,7 +539,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                     case "text": {
                       const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
                       const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
-                      return ( <motion.div key={`message-${message.id}-part-${i}`} initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }} animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-start w-full pb-4"> <div className="flex flex-col gap-4" style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}> <Markdown>{part.text}</Markdown> </div> </motion.div> );
+                      return (<motion.div key={`message-${message.id}-part-${i}`} initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }} animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-start w-full pb-4"> <div className="flex flex-col gap-4" style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}> <Markdown>{part.text}</Markdown> </div> </motion.div>);
                     }
                     case "tool-invocation": {
                       if (part.toolInvocation.state === "result") {
@@ -438,7 +553,19 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                           <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
                             <div className="flex flex-row items-center gap-1">
                               <AnimatePresence initial={false}>
-                                {searchedSites.map((url) => ( <motion.img key={url} src={getFaviconUrl(url)} alt="site favicon" className="w-5 h-5 rounded mr-1" initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 20, opacity: 0 }} transition={{ type: "spring", stiffness: 400, damping: 30 }} style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }} /> ))}
+                                {searchedSites.map((url, idx) => (
+                                  <motion.img
+                                    key={url}
+                                    src={getFaviconUrl(url)}
+                                    alt="site favicon"
+                                    className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
+                                    initial={{ x: -20, opacity: 0 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    exit={{ x: 20, opacity: 0 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                    style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}
+                                  />
+                                ))}
                               </AnimatePresence>
                             </div>
                             <span className="font-medium pl-4 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
@@ -454,7 +581,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                       );
                     }
                     case "reasoning":
-                      return ( <ReasoningMessagePart key={`message-${message.id}-${i}`} part={part as ReasoningPartData} isReasoning={(message.parts && status === "streaming" && i === message.parts.length - 1) ?? false} /> );
+                      return (<ReasoningMessagePart key={`message-${message.id}-${i}`} part={part as ReasoningPartData} isReasoning={(message.parts && status === "streaming" && i === message.parts.length - 1) ?? false} />);
                     default: return null;
                   }
                 })}
@@ -473,7 +600,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                 }, [isMobileOrTablet, isAssistant, status, isLatestMessage]);
                 if (!isMobileOrTablet && isAssistant && status === "ready") {
                   return (
-                    <div className="flex flex-row mb-8" style={{ marginTop: '-28px' }}>
+                    <div className="flex flex-row mb-8" style={{ marginTop: '-10px' }}>
                       <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto", !isLatestMessage ? "group/ai-icon-row" : "")} data-ai-action style={{ marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' }} initial={isLatestMessage ? { opacity: 0 } : { opacity: 0 }} animate={isLatestMessage ? (showIconRow ? { opacity: 1 } : { opacity: 0 }) : { opacity: 0 }} whileHover={!isLatestMessage ? { opacity: 1, transition: { duration: 0.2 } } : undefined} transition={{ opacity: { duration: 0.2, delay: isLatestMessage && showIconRow ? 0.15 : 0 } }}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -487,8 +614,17 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                         {sources.length > 0 && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <button className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm ml-1" onClick={() => setShowSources(true)} type="button">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.333A6.667 6.667 0 1 0 8 14.667 6.667 6.667 0 0 0 8 1.333Zm0 12A5.333 5.333 0 1 1 8 2.667a5.333 5.333 0 0 1 0 10.666Zm.667-8H7.333v3.334l2.834 1.7.666-1.1-2.166-1.3V5.333Z" fill="currentColor" /></svg>
+                              <button 
+                                onMouseOver={e => { e.currentTarget.style.background = '#232323'; }}
+                                onMouseOut={e => { e.currentTarget.style.background = ''; }}
+                                className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1" onClick={() => setShowSources(true)} type="button">
+                                {/* Render favicon(s) for the sources, prefer actual site favicon, fallback to /globe.svg */}
+                                {sources.slice(0, 3).map((src, idx) => (
+                                  <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}>
+                                    <SourceFavicon url={src.url} title={src.title} />
+                                  </span>
+                                ))}
+
                                 {sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})
                               </button>
                             </TooltipTrigger>
@@ -515,7 +651,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
             </div>
           ) : (
             <div className="flex flex-col w-full space-y-4">
-              {message.parts?.map((part, i) => (
+              {(message.parts ?? []).map((part, i) => (
                 <UserTextMessagePart key={`user-message-${message.id}-part-${i}`} part={part} isLatestMessage={isLatestMessage} />
               ))}
             </div>

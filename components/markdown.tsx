@@ -77,7 +77,8 @@ const components: Partial<Components> = {
   // --- Paragraph Styling ---
   p: ({ node, children, ...props }) => (
     // Increased bottom margin and added line-height
-    <p className="mb-4 leading-relaxed" {...props}>
+    // className="mb-4 leading-relaxed"
+    <p {...props}>
       {children}
     </p>
   ),
@@ -123,13 +124,16 @@ const components: Partial<Components> = {
    */
    
   /**
-   * WIP 3: 
+   * WIP 3: We need to update avurna system trainning/prompts to know markdown formatting.
+   * Avurna should be able to use markdowns like strong or em tags in the p tag.
+   * It should know that it can also use strong for headings instead of h1, h2... h6.
+   * It can even use combinations like em inside strong, or strong then a p tag. It should be very smart and sharp with markdown rendering.
    */
 
   em: ({ node, children, ...props }) => (
-    <span className="italic" {...props}>
+    <em className="italic" {...props}>
       {children}
-    </span>
+    </em>
   ),
 
   a: ({ node, children, ...props }) => (
