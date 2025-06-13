@@ -302,7 +302,6 @@ export default function Chat() {
   return (
     <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
       <Header />
-
       <div
         ref={containerRef}
         className={

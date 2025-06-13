@@ -14,16 +14,14 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  // If signed in, block access to sign-in, sign-up, or callback pages
+  // If signed in, block access to sign-in or sign-up pages (but NOT callback)
   if (
     userId &&
     (
       path.startsWith('/sign-in') ||
       path.startsWith('/sign-up') ||
-      path.startsWith('/callback') ||
       path.startsWith('/(auth)/sign-in') ||
-      path.startsWith('/(auth)/sign-up') ||
-      path.startsWith('/(auth)/callback')
+      path.startsWith('/(auth)/sign-up')
     )
   ) {
     return NextResponse.redirect(new URL('/', req.url));

@@ -14,6 +14,7 @@ interface MessagesProps {
   messages: ChatMessage[];
   isLoading: boolean;
   status: "error" | "submitted" | "streaming" | "ready";
+  endRef?: React.RefObject<HTMLDivElement>;
 }
 
 export const Messages = ({ messages, isLoading, status }: MessagesProps) => {
