@@ -385,14 +385,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
             />
           </div>
         )}
-        {isAssistant && sources.length > 0 && (
-          <div className="flex justify-end mb-1">
-            <button className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm" onClick={() => setShowSources(true)} type="button">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.333A6.667 6.667 0 1 0 8 14.667 6.667 6.667 0 0 0 8 1.333Zm0 12A5.333 5.333 0 1 1 8 2.667a5.333 5.333 0 0 1 0 10.666Zm.667-8H7.333v3.334l2.834 1.7.666-1.1-2.166-1.3V5.333Z" fill="currentColor" /></svg>
-              {sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})
-            </button>
-          </div>
-        )}
+        {/* Move sources button to the icon row, besides the copy icon */}
         <Modal open={showSources} onClose={() => setShowSources(false)}>
           <div className="p-4 max-h-[70vh] w-full min-w-[260px] flex flex-col">
             <div className="flex items-center justify-between mb-3">
@@ -490,6 +483,18 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
                         </Tooltip>
+                        {/* Sources button beside copy icon */}
+                        {sources.length > 0 && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm ml-1" onClick={() => setShowSources(true)} type="button">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.333A6.667 6.667 0 1 0 8 14.667 6.667 6.667 0 0 0 8 1.333Zm0 12A5.333 5.333 0 1 1 8 2.667a5.333 5.333 0 0 1 0 10.666Zm.667-8H7.333v3.334l2.834 1.7.666-1.1-2.166-1.3V5.333Z" fill="currentColor" /></svg>
+                                {sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="select-none">{sources.length === 1 ? 'Show source' : 'Show sources'}</TooltipContent>
+                          </Tooltip>
+                        )}
                       </motion.div>
                     </div>
                   );
