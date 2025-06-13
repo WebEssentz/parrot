@@ -190,20 +190,16 @@ export default function Chat() {
 
   // Robust title generation: only set title when backend says message is clear
   useEffect(() => {
-    if (messages.length === 1 && messages[0].role === 'user' && !titleGeneratedRef.current) {
+    // Only generate title if it hasn't been generated in this session
+    if (titleGeneratedRef.current) return;
+    if (messages.length === 1 && messages[0].role === 'user') {
       const firstUserMessageContent = messages[0].content;
       if (!isVagueOrUnsupportedMessage(firstUserMessageContent)) {
         generateAndSetTitle(firstUserMessageContent).then(() => {
           titleGeneratedRef.current = true;
         });
       }
-    }
-    if (messages.length === 0 && titleGeneratedRef.current) {
-      titleGeneratedRef.current = false;
-      document.title = "Avocado Avurna";
-    }
-    // If user sends a second message and title hasn't been set, try again
-    if (messages.length > 1 && !titleGeneratedRef.current) {
+    } else if (messages.length > 1) {
       // Find the most recent user message that is not vague/unsupported
       const lastUserMsg = [...messages].reverse().find(m => m.role === 'user' && !isVagueOrUnsupportedMessage(m.content));
       if (lastUserMsg) {
@@ -211,6 +207,9 @@ export default function Chat() {
           titleGeneratedRef.current = true;
         });
       }
+    } else if (messages.length === 0 && titleGeneratedRef.current) {
+      titleGeneratedRef.current = false;
+      document.title = "Avocado Avurna";
     }
   }, [messages]);
 
@@ -385,7 +384,7 @@ export default function Chat() {
               id="safearea"
               ref={inputAreaRef}
               className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative"
-              style={{ pointerEvents: 'auto' }}
+              style={{ pointerEvents: 'auto', marginBottom: '12px' }}
             >
               <FadeMobileInfo show={showMobileInfoMessage} />
               <form onSubmit={handleSubmit} className="w-full relative z-10">
@@ -403,8 +402,8 @@ export default function Chat() {
                 />
               </form>
               {(hasSentMessage) && (
-                <div className="text-center -mt-4">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
+                <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none bg-background/90 dark:bg-background/90 rounded-xl pointer-events-auto">
                     Avurna uses AI. Double check response.
                   </span>
                 </div>
@@ -417,7 +416,7 @@ export default function Chat() {
             className="fixed left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
             style={{ bottom: '-10px' }}
           >
-            <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative">
+            <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative" style={{ marginBottom: '12px' }}>
               <form onSubmit={handleSubmit} className="w-full relative z-10">
                 <CustomTextareaWrapper
                   selectedModel={selectedModel}
@@ -433,8 +432,8 @@ export default function Chat() {
                 />
               </form>
               {(hasSentMessage) && (
-                <div className="text-center" style={{ marginTop: '-4px' }}>
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
+                <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none bg-background/90 dark:bg-background/90 rounded-xl pointer-events-auto">
                     Avurna uses AI. Double check response.
                   </span>
                 </div>
