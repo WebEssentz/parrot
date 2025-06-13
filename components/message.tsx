@@ -473,7 +473,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                 }, [isMobileOrTablet, isAssistant, status, isLatestMessage]);
                 if (!isMobileOrTablet && isAssistant && status === "ready") {
                   return (
-                    <div className="flex flex-row" style={{ marginTop: '-28px' }}>
+                    <div className="flex flex-row mb-8" style={{ marginTop: '-28px' }}>
                       <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto", !isLatestMessage ? "group/ai-icon-row" : "")} data-ai-action style={{ marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' }} initial={isLatestMessage ? { opacity: 0 } : { opacity: 0 }} animate={isLatestMessage ? (showIconRow ? { opacity: 1 } : { opacity: 0 }) : { opacity: 0 }} whileHover={!isLatestMessage ? { opacity: 1, transition: { duration: 0.2 } } : undefined} transition={{ opacity: { duration: 0.2, delay: isLatestMessage && showIconRow ? 0.15 : 0 } }}>
                         <Tooltip>
                           <TooltipTrigger asChild>
