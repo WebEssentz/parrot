@@ -77,8 +77,7 @@ const components: Partial<Components> = {
   // --- Paragraph Styling ---
   p: ({ node, children, ...props }) => (
     // Increased bottom margin and added line-height
-    // className="mb-4 leading-relaxed"
-    <p {...props}>
+    <p className="mb-2 leading-relaxed"{...props}>
       {children}
     </p>
   ),

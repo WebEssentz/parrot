@@ -534,109 +534,102 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
           {isAssistant ? (
             <div className={cn("group/ai-message-hoverable", isMobileOrTablet ? "w-full pl-10" : "w-fit")} style={{ marginLeft: 0, paddingLeft: 0, marginTop: isMobileOrTablet ? 32 : undefined }}>
               <div className={cn(!isMobileOrTablet && "flex flex-col space-y-4 w-fit", isMobileOrTablet && styles.clearfix)} style={{ alignItems: !isMobileOrTablet ? 'flex-start' : undefined }}>
+                {/* Render all message parts safely, with hooks only at the top level */}
                 {message.parts?.map((part, i) => {
-                  switch (part.type) {
-                    case "text": {
-                      const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-                      const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
-                      return (<motion.div key={`message-${message.id}-part-${i}`} initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }} animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-start w-full pb-4"> <div className="flex flex-col gap-4" style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}> <Markdown>{part.text}</Markdown> </div> </motion.div>);
-                    }
-                    case "tool-invocation": {
-                      if (part.toolInvocation.state === "result") {
-                        return <motion.div key={`message-${message.id}-part-${i}`} initial={{ opacity: 1, height: 'auto' }} animate={{ opacity: 0, height: 0, margin: 0, padding: 0 }} transition={{ duration: 0.35, ease: 'easeInOut' }} style={{ overflow: 'hidden' }} />;
-                      }
-                      const { toolName, state } = part.toolInvocation;
-                      const label = (toolName === "googleSearch" && state === "call") ? "Searching the Web" : (toolName === "fetchUrl" && state === "call") ? "Analyzing Url data" : (toolName === "getWeatherdata" || toolName === "weatherTool") ? "Getting weather data" : (state === "call") ? `Running ${toolName}` : "";
-                      const searchedSites = searchedSitesByPart[i] || [];
-                      return (
-                        <div className="flex flex-col" key={`message-${message.id}-part-${i}`}>
-                          <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
-                            <div className="flex flex-row items-center gap-1">
-                              <AnimatePresence initial={false}>
-                                {searchedSites.map((url, idx) => (
-                                  <motion.img
-                                    key={url}
-                                    src={getFaviconUrl(url)}
-                                    alt="site favicon"
-                                    className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
-                                    initial={{ x: -20, opacity: 0 }}
-                                    animate={{ x: 0, opacity: 1 }}
-                                    exit={{ x: 20, opacity: 0 }}
-                                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                    style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}
-                                  />
-                                ))}
-                              </AnimatePresence>
-                            </div>
-                            <span className="font-medium pl-4 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
-                              {state === "call" && label ? (
-                                <span style={{ position: 'relative', display: 'inline-block' }}>
-                                  <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
-                                  <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
-                                </span>
-                              ) : null}
-                            </span>
-                          </div>
+                  if (part.type === "text") {
+                    const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
+                    const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
+                    return (
+                      <motion.div key={`message-${message.id}-part-${i}`} initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }} animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-start w-full pb-4">
+                        <div className="flex flex-col gap-4" style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}>
+                          <Markdown>{part.text}</Markdown>
                         </div>
-                      );
-                    }
-                    case "reasoning":
-                      return (<ReasoningMessagePart key={`message-${message.id}-${i}`} part={part as ReasoningPartData} isReasoning={(message.parts && status === "streaming" && i === message.parts.length - 1) ?? false} />);
-                    default: return null;
+                      </motion.div>
+                    );
                   }
+                  if (part.type === "tool-invocation") {
+                    if (part.toolInvocation.state === "result") {
+                      return <motion.div key={`message-${message.id}-part-${i}`} initial={{ opacity: 1, height: 'auto' }} animate={{ opacity: 0, height: 0, margin: 0, padding: 0 }} transition={{ duration: 0.35, ease: 'easeInOut' }} style={{ overflow: 'hidden' }} />;
+                    }
+                    const { toolName, state } = part.toolInvocation;
+                    const label = (toolName === "googleSearch" && state === "call") ? "Searching the Web" : (toolName === "fetchUrl" && state === "call") ? "Analyzing Url data" : (toolName === "getWeatherdata" || toolName === "weatherTool") ? "Getting weather data" : (state === "call") ? `Running ${toolName}` : "";
+                    const searchedSites = searchedSitesByPart[i] || [];
+                    return (
+                      <div className="flex flex-col" key={`message-${message.id}-part-${i}`}>
+                        <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
+                          <div className="flex flex-row items-center gap-1">
+                            <AnimatePresence initial={false}>
+                              {searchedSites.map((url, idx) => (
+                                <motion.img
+                                  key={url}
+                                  src={getFaviconUrl(url)}
+                                  alt="site favicon"
+                                  className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
+                                  initial={{ x: -20, opacity: 0 }}
+                                  animate={{ x: 0, opacity: 1 }}
+                                  exit={{ x: 20, opacity: 0 }}
+                                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}
+                                />
+                              ))}
+                            </AnimatePresence>
+                          </div>
+                          <span className="font-medium pl-4 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
+                            {state === "call" && label ? (
+                              <span style={{ position: 'relative', display: 'inline-block' }}>
+                                <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
+                                <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                              </span>
+                            ) : null}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (part.type === "reasoning") {
+                    return (
+                      <ReasoningMessagePart key={`message-${message.id}-${i}`} part={part as ReasoningPartData} isReasoning={(message.parts && status === "streaming" && i === message.parts.length - 1) ?? false} />
+                    );
+                  }
+                  return null;
                 })}
               </div>
-              {(() => {
-                const [showIconRow, setShowIconRow] = useState(isLatestMessage ? false : true);
-                useEffect(() => {
-                  if (!isMobileOrTablet && isAssistant && status === "ready") {
-                    if (isLatestMessage) {
-                      const timer = setTimeout(() => setShowIconRow(true), 450);
-                      return () => clearTimeout(timer);
-                    } else {
-                      setShowIconRow(true);
-                    }
-                  }
-                }, [isMobileOrTablet, isAssistant, status, isLatestMessage]);
-                if (!isMobileOrTablet && isAssistant && status === "ready") {
-                  return (
-                    <div className="flex flex-row mb-8" style={{ marginTop: '-10px' }}>
-                      <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto", !isLatestMessage ? "group/ai-icon-row" : "")} data-ai-action style={{ marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' }} initial={isLatestMessage ? { opacity: 0 } : { opacity: 0 }} animate={isLatestMessage ? (showIconRow ? { opacity: 1 } : { opacity: 0 }) : { opacity: 0 }} whileHover={!isLatestMessage ? { opacity: 1, transition: { duration: 0.2 } } : undefined} transition={{ opacity: { duration: 0.2, delay: isLatestMessage && showIconRow ? 0.15 : 0 } }}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button type="button" aria-label="Copy message" className="rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: theme === 'dark' ? '#fff' : '#828282', background: 'transparent' }} onClick={handleCopy}>
-                              {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                        </Tooltip>
-                        {/* Sources button beside copy icon */}
-                        {sources.length > 0 && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button 
-                                onMouseOver={e => { e.currentTarget.style.background = '#232323'; }}
-                                onMouseOut={e => { e.currentTarget.style.background = ''; }}
-                                className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1" onClick={() => setShowSources(true)} type="button">
-                                {/* Render favicon(s) for the sources, prefer actual site favicon, fallback to /globe.svg */}
-                                {sources.slice(0, 3).map((src, idx) => (
-                                  <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}>
-                                    <SourceFavicon url={src.url} title={src.title} />
-                                  </span>
-                                ))}
+              {/* Always show the icon row, regardless of latest message */}
+              {!isMobileOrTablet && isAssistant && status === "ready" && (
+                <div className="flex flex-row mb-8" style={{ marginTop: '-20px' }}>
+                  <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto group/ai-icon-row")} data-ai-action style={{ marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' }} initial={{ opacity: 1 }} animate={{ opacity: 1 }}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="Copy message" className="rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: theme === 'dark' ? '#fff' : '#828282', background: 'transparent' }} onClick={handleCopy}>
+                          {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                    </Tooltip>
+                    {/* Sources button beside copy icon */}
+                    {sources.length > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button 
+                            onMouseOver={e => { e.currentTarget.style.background = '#232323'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = ''; }}
+                            className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1" onClick={() => setShowSources(true)} type="button">
+                            {/* Render favicon(s) for the sources, prefer actual site favicon, fallback to /globe.svg */}
+                            {sources.slice(0, 3).map((src, idx) => (
+                              <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}>
+                                <SourceFavicon url={src.url} title={src.title} />
+                              </span>
+                            ))}
 
-                                {sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="select-none">{sources.length === 1 ? 'Show source' : 'Show sources'}</TooltipContent>
-                          </Tooltip>
-                        )}
-                      </motion.div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
+                            {sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="select-none">{sources.length === 1 ? 'Show source' : 'Show sources'}</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </motion.div>
+                </div>
+              )}
               {isMobileOrTablet && isAssistant && status === "ready" && (
                 <div className="relative w-full">
                   <div className="flex absolute left-0 right-0 justify-start z-10">
