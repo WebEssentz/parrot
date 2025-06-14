@@ -1,11 +1,8 @@
-
-
 import { smoothStream, streamText, UIMessage } from "ai";
 import { SEARCH_MODE } from "@/components/ui/textarea";
 import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
-
 
 export const maxDuration = 60;
 const REASON_MODEL_ID = "qwen-qwq-32b";

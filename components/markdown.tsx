@@ -111,24 +111,6 @@ const components: Partial<Components> = {
     </span>
   ),
 
-  /**
-   * WIP: We want to tell avurna to use Strong for rendering. 
-   * What strong is used for tell her.
-   * Also, differentiate between span and strong and when to use them.
-   */
-
-  /**
-   * WIP 2: We want to check if we have properly told Avurna about the markdown formatting,
-   * What to use and when to use it. Like when to use this especially at key areas.
-   */
-   
-  /**
-   * WIP 3: We need to update avurna system trainning/prompts to know markdown formatting.
-   * Avurna should be able to use markdowns like strong or em tags in the p tag.
-   * It should know that it can also use strong for headings instead of h1, h2... h6.
-   * It can even use combinations like em inside strong, or strong then a p tag. It should be very smart and sharp with markdown rendering.
-   */
-
   em: ({ node, children, ...props }) => (
     <em className="italic" {...props}>
       {children}
@@ -190,35 +172,52 @@ const components: Partial<Components> = {
       </h6>
     )
   },
-  table: ({ node, children, ...props }) => (
-    <table className="my-4 w-full text-sm border-collapse" {...props}>
-      {children}
-    </table>
-  ),
+  table: ({ node, children, ...props }) => {
+    // Defensive: ensure children are valid
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return (
+      <table className="my-4 w-full text-sm border-collapse" {...props}>
+        {safeChildren}
+      </table>
+    );
+  },
 
-  thead: ({ node, children, ...props }) => (
-    <thead {...props}>{children}</thead>
-  ),
+  thead: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return <thead {...props}>{safeChildren}</thead>;
+  },
   
-  tbody: ({ node, children, ...props }) => <tbody {...props}>{children}</tbody>,
+  tbody: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return <tbody {...props}>{safeChildren}</tbody>;
+  },
   
-  tr: ({ node, children, ...props }) => (
-    <tr className="border-b border-zinc-200 dark:border-zinc-700" {...props}>
-      {children}
-    </tr>
-  ),
+  tr: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return (
+      <tr className="border-b border-zinc-200 dark:border-zinc-700" {...props}>
+        {safeChildren}
+      </tr>
+    );
+  },
   
-  th: ({ node, children, ...props }) => (
-    <th className="py-2 pr-8 text-left font-normal" {...props}>
-      {children}
-    </th>
-  ),
+  th: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return (
+      <th className="py-2 pr-8 text-left font-normal" {...props}>
+        {safeChildren}
+      </th>
+    );
+  },
   
-  td: ({ node, children, ...props }) => (
-    <td className="py-2 pr-8 align-top" {...props}>
-      {children}
-    </td>
-  ),
+  td: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return (
+      <td className="py-2 pr-8 align-top" {...props}>
+        {safeChildren}
+      </td>
+    );
+  },
 }
 
 const remarkPlugins = [remarkGfm]

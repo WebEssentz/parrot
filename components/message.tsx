@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { saveMediaToIDB } from "@/lib/media-idb";
 import { Modal } from "./ui/modal";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
@@ -44,17 +45,16 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
 // --- SourceFavicon Component ---
 // Skeleton shimmer for favicon loading, matching tool invocation UI
 function FaviconSkeleton() {
-  const { theme } = useTheme ? useTheme() : { theme: undefined };
+  const { theme } = useTheme ? useTheme() : { theme: "light" };
   return (
     <span
-      className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 -ml-1 first:ml-0"
+      className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 -ml-1 first:ml-0 inline-block align-middle shadow-sm"
       style={{
-        display: 'inline-block',
-        verticalAlign: 'middle',
-        background: 'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 40%, #e5e7eb 60%, #e5e7eb 100%)',
+        background: theme === 'dark'
+          ? 'linear-gradient(90deg, #3f3f46 0%, #52525b 40%, #3f3f46 60%, #3f3f46 100%)'
+          : 'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 40%, #e5e7eb 60%, #e5e7eb 100%)',
         backgroundSize: '200% 100%',
         animation: 'avurna-shimmer-favicon 1.3s linear infinite',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
         zIndex: 1,
       }}
       key={theme}
@@ -78,43 +78,67 @@ function SourceFavicon({ url, title }: { url: string; title: string }) {
       if (url.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/")) {
         urlToUse = await resolveRedirectUrl(url);
       }
-      if (!cancelled) {
-        try {
-          const u = new URL(urlToUse);
-          if (u.protocol === "file:") {
-            setFavicon("/file.svg");
-            setLoading(false);
-            return;
-          } else if (u.protocol === "window:") {
-            setFavicon("/window.svg");
-            setLoading(false);
-            return;
-          } else {
-            setFavicon(getFaviconUrl(urlToUse));
-          }
-        } catch {
-          setFavicon("/globe.svg");
+      try {
+        const u = new URL(urlToUse);
+        if (u.protocol === "file:") {
+          setFavicon("/file.svg");
           setLoading(false);
           return;
+        } else if (u.protocol === "window:") {
+          setFavicon("/window.svg");
+          setLoading(false);
+          return;
+        } else {
+          setFavicon(getFaviconUrl(urlToUse));
         }
+      } catch {
+        setFavicon("/globe.svg");
+        setLoading(false);
+        return;
       }
     })();
     return () => { cancelled = true; };
   }, [url]);
 
-  // When favicon changes, try to load it
+  // When favicon changes, try to load it, then store in IndexedDB after successful load
   useEffect(() => {
     if (!favicon) return;
     setLoading(true);
     setErrored(false);
     const img = new window.Image();
     img.src = favicon;
-    img.onload = () => { setLoading(false); setErrored(false); };
+    img.onload = async () => {
+      setLoading(false);
+      setErrored(false);
+      // Only cache if not a local fallback
+      if (favicon.startsWith('http') || favicon.startsWith('https')) {
+        try {
+          const resp = await fetch(favicon);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            if (blob.size > 0) {
+              try {
+                const u = new URL(url);
+                const dbKey = `favicon:${u.hostname}`;
+                saveMediaToIDB(dbKey, blob, {
+                  key: dbKey,
+                  type: 'image',
+                  mimeType: blob.type,
+                  size: blob.size,
+                  title: title,
+                  sourceUrl: url,
+                });
+              } catch {}
+            }
+          }
+        } catch {}
+      }
+    };
     img.onerror = () => {
       setErrored(true);
       setLoading(false);
     };
-  }, [favicon]);
+  }, [favicon, url, title]);
 
   if (loading) {
     return <FaviconSkeleton />;
@@ -595,12 +619,16 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                 })}
               </div>
               {/* Always show the icon row, regardless of latest message */}
-              {!isMobileOrTablet && isAssistant && status === "ready" && (
-                <div className="flex flex-row mb-8" style={{ marginTop: '-20px' }}>
-                  <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto group/ai-icon-row")} data-ai-action style={{ marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' }} initial={{ opacity: 1 }} animate={{ opacity: 1 }}>
+              {isAssistant && status === "ready" && (
+                <div className={cn(!isMobileOrTablet ? "flex flex-row mb-8" : "relative w-full mt-8")} style={!isMobileOrTablet ? { marginTop: '-20px' } : { marginTop: '-16px' }}>
+                  <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto group/ai-icon-row")}
+                    data-ai-action
+                    style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' } : { position: 'absolute', left: 0, right: 0, marginLeft: '-16px', marginRight: '10px', zIndex: 10, justifyContent: 'start' }}
+                    initial={{ opacity: 1 }} animate={{ opacity: 1 }}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button type="button" aria-label="Copy message" className="rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800" style={{ color: theme === 'dark' ? '#fff' : '#828282', background: 'transparent' }} onClick={handleCopy}>
+                        <button type="button" aria-label="Copy message" className={cn(!isMobileOrTablet ? "rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800" : "text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center")}
+                          style={{ color: theme === 'dark' ? '#fff' : '#828282', background: 'transparent' }} onClick={handleCopy}>
                           {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
                         </button>
                       </TooltipTrigger>
@@ -616,29 +644,18 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                             className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1" onClick={() => setShowSources(true)} type="button">
                             {/* Render favicon(s) for the sources, prefer actual site favicon, fallback to /globe.svg */}
                             {sources.slice(0, 3).map((src, idx) => (
-                              <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}>
+                              <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
                                 <SourceFavicon url={src.url} title={src.title} />
                               </span>
                             ))}
 
-                            {sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})
+                            <span style={{ verticalAlign: 'middle', position: 'relative', marginTop: '-2px' }}>{sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})</span>
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="select-none">{sources.length === 1 ? 'Show source' : 'Show sources'}</TooltipContent>
                       </Tooltip>
                     )}
                   </motion.div>
-                </div>
-              )}
-              {isMobileOrTablet && isAssistant && status === "ready" && (
-                <div className="relative w-full">
-                  <div className="flex absolute left-0 right-0 justify-start z-10">
-                    <div className="flex items-center gap-1 py-1 sm:mr-6 select-none pointer-events-auto" style={{ marginTop: '-28px', marginLeft: '-8px', marginRight: '10px' }}>
-                      <button type="button" aria-label="Copy message" className="text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center" style={{ color: '#828282', background: 'transparent' }} onClick={handleCopy}>
-                        {copied ? <CheckIcon style={{ color: 'white', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: 'white', transition: 'all 0.2s' }} />}
-                      </button>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
