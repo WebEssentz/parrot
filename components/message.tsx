@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
+import { useEffect, useState } from "react";
 import { saveMediaToIDB } from "@/lib/media-idb";
 import { Modal } from "./ui/modal";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
-import { memo, useCallback, useEffect, useState, useRef } from "react";
+import { memo, useCallback, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
@@ -41,6 +43,40 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+// --- WebpageTitleDisplay expects a { title, url, snippet } object ---
+function WebpageTitleDisplay({ source }: { source?: { title?: string; url: string; snippet?: string } }) {
+  if (!source || !source.url) {
+    return null;
+  }
+  // Fallback logic for title
+  let displayTitle = source.title;
+  if (!displayTitle || displayTitle.trim() === "") {
+    try {
+      const u = new URL(source.url);
+      if (u.hostname === 'vertexaisearch.cloud.google.com' && u.pathname.startsWith('/grounding-api-redirect/')) {
+        displayTitle = 'Unknown Source';
+      } else {
+        displayTitle = u.hostname.replace(/^www\./, "");
+      }
+    } catch {
+      displayTitle = source.url;
+    }
+  }
+  if (displayTitle && displayTitle.trim().toUpperCase().startsWith("AUZI")) {
+    displayTitle = "Unknown source";
+  }
+  return (
+    <>
+      <div className="font-semibold text-sm mt-1 text-zinc-800 dark:text-zinc-100">{displayTitle}</div>
+      {source.snippet && (
+        <div className="text-xs mt-1 text-zinc-500 dark:text-zinc-400 italic max-w-xs line-clamp-2">
+          <Markdown>{source.snippet}</Markdown>
+        </div>
+      )}
+    </>
+  );
+}
 
 // --- SourceFavicon Component ---
 // Skeleton shimmer for favicon loading, matching tool invocation UI
@@ -386,6 +422,9 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: TMessage['parts'
 const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMessage; isLoading: boolean; status: "error" | "submitted" | "streaming" | "ready"; isLatestMessage: boolean; }) => {
   const { theme } = useTheme ? useTheme() : { theme: undefined };
   const isAssistant = message.role === "assistant";
+  // Sidebar open state for sources
+  const [sourcesSidebarOpen, setSourcesSidebarOpen] = useState(false);
+  const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
   const { images, videos, sources, allText } = React.useMemo(() => {
     const extractedImages: { src: string; alt?: string; source?: { url: string; title?: string; } }[] = [];
@@ -532,28 +571,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
             />
           </div>
         )}
-        {/* Move sources button to the icon row, besides the copy icon */}
-        <Modal open={showSources} onClose={() => setShowSources(false)}>
-          <div className="p-4 max-h-[70vh] w-full min-w-[260px] flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-semibold text-lg">Sources</div>
-              <button onClick={() => setShowSources(false)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white p-1 rounded transition-colors" aria-label="Close sources modal">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              </button>
-            </div>
-            <div className="overflow-y-auto max-h-[55vh] pr-1">
-              {sources.map((src, i) => (
-                <a key={src.url + i} href={src.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-2 py-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-1">
-                  <SourceFavicon url={src.url} title={src.title} />
-                  <span className="font-medium text-zinc-800 dark:text-zinc-100 truncate max-w-[180px]">{src.title}</span>
-                  <span className="text-xs text-zinc-500 truncate max-w-[120px]">{src.url}</span>
-                </a>
-              ))}
-              {sources.length === 0 && <div className="text-zinc-500 text-sm">No sources found.</div>}
-            </div>
-          </div>
-        </Modal>
-
         <div className={cn(isAssistant ? "flex w-full flex-col sm:flex-row items-start" : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit")}>
           {isAssistant ? (
             <div className={cn("group/ai-message-hoverable", isMobileOrTablet ? "w-full pl-10" : "w-fit")} style={{ marginLeft: 0, paddingLeft: 0, marginTop: isMobileOrTablet ? 32 : undefined }}>
@@ -638,19 +655,182 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                     {sources.length > 0 && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button 
-                            onMouseOver={e => { e.currentTarget.style.background = '#232323'; }}
-                            onMouseOut={e => { e.currentTarget.style.background = ''; }}
-                            className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1" onClick={() => setShowSources(true)} type="button">
-                            {/* Render favicon(s) for the sources, prefer actual site favicon, fallback to /globe.svg */}
-                            {sources.slice(0, 3).map((src, idx) => (
-                              <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
-                                <SourceFavicon url={src.url} title={src.title} />
-                              </span>
-                            ))}
-
-                            <span style={{ verticalAlign: 'middle', position: 'relative', marginTop: '-2px' }}>{sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})</span>
-                          </button>
+                          {isMobileOrTablet ? (
+                            <>
+                              <button
+                                className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1"
+                                type="button"
+                                onClick={() => setSourcesDrawerOpen(true)}
+                              >
+                                {sources.slice(0, 3).map((src, idx) => (
+                                  <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
+                                    <SourceFavicon url={src.url} title={src.title} />
+                                  </span>
+                                ))}
+                                <span style={{ verticalAlign: 'middle', position: 'relative', marginTop: '-2px' }}>{sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})</span>
+                              </button>
+                              <Drawer open={sourcesDrawerOpen} onOpenChange={setSourcesDrawerOpen}>
+                                <DrawerContent>
+                                  <DrawerHeader>
+                                    <DrawerTitle>Sources</DrawerTitle>
+                                  </DrawerHeader>
+                                  <div className="p-4 max-h-[70vh] w-full min-w-[260px] flex flex-col">
+                                    <div className="overflow-y-auto max-h-[55vh] pr-1">
+                                      {(() => {
+                                        // Find googleSearch tool result with searchResults
+                                        const googleSearchPart = (message.parts || []).find(
+                                          (part: any) =>
+                                            part.type === 'tool-invocation' &&
+                                            'toolInvocation' in part &&
+                                            part.toolInvocation?.toolName === 'googleSearch' &&
+                                            Array.isArray(part.toolInvocation?.result?.searchResults)
+                                        );
+                                        const searchResults =
+                                          googleSearchPart && 'toolInvocation' in googleSearchPart &&
+                                          (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                            ? (googleSearchPart.toolInvocation as any).result.searchResults
+                                            : [];
+                                        if (searchResults.length > 0) {
+                                          return searchResults.map((result: any, i: number) => (
+                                            <a
+                                              key={i}
+                                              href={result.url || result.sourceUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                            >
+                                              <SourceFavicon url={result.url || result.sourceUrl} title={result.title || result.siteName || ''} />
+                                              <div className="flex flex-col">
+                                                <WebpageTitleDisplay source={{
+                                                  title: result.title || result.siteName || '',
+                                                  url: result.url || result.sourceUrl,
+                                                  snippet: result.snippet || result.description || ''
+                                                }} />
+                                              </div>
+                                            </a>
+                                          ));
+                                        }
+                                        // Fallback: extract markdown sources
+                                        const markdownSources = extractSourcesFromText(allText);
+                                        if (markdownSources.length > 0) {
+                                        // Helper to check if a title is valid
+                                        const isValidTitle = (title: string) => {
+                                          if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
+                                            return false;
+                                          }
+                                          return true;
+                                        };
+                                        return markdownSources.map((src, i) => (
+                                          <a
+                                            key={i}
+                                            href={src.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                          >
+                                            <SourceFavicon url={src.url} title={src.title} />
+                                            <div className="flex flex-col">
+                                              <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                                                {isValidTitle(src.title) ? src.title : (() => { try { return new URL(src.url).hostname; } catch { return src.url; } })()}
+                                              </div>
+                                              <WebpageTitleDisplay url={src.url} />
+                                            </div>
+                                          </a>
+                                        ));
+                                        }
+                                        return <div className="text-sm text-zinc-500 dark:text-zinc-400">No sources found.</div>;
+                                      })()}
+                                    </div>
+                                  </div>
+                                </DrawerContent>
+                              </Drawer>
+                            </>
+                          ) : (
+                            <Sheet open={sourcesSidebarOpen} onOpenChange={setSourcesSidebarOpen}>
+                              <SheetTrigger asChild>
+                                <button
+                                  className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1"
+                                  type="button"
+                                  onClick={() => setSourcesSidebarOpen(true)}
+                                >
+                                  {sources.slice(0, 3).map((src, idx) => (
+                                    <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
+                                      <SourceFavicon url={src.url} title={src.title} />
+                                    </span>
+                                  ))}
+                                  <span style={{ verticalAlign: 'middle', position: 'relative', marginTop: '-2px' }}>{sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})</span>
+                                </button>
+                              </SheetTrigger>
+                              <SheetContent side="right" className="p-0 max-w-md w-full flex flex-col">
+                                <div className="flex flex-col h-full w-full">
+                                  <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+                                    <div className="font-semibold text-lg">Sources</div>
+                                    <button onClick={() => setSourcesSidebarOpen(false)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white p-1 rounded transition-colors cursor-pointer" aria-label="Close sources sidebar">
+                                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                    </button>
+                                  </div>
+                                  <div className="flex-1 overflow-y-auto px-6 py-4">
+                                    {(() => {
+                                      // Find googleSearch tool result with searchResults
+                                      const googleSearchPart = (message.parts || []).find(
+                                        (part: any) =>
+                                          part.type === 'tool-invocation' &&
+                                          'toolInvocation' in part &&
+                                          part.toolInvocation?.toolName === 'googleSearch' &&
+                                          Array.isArray(part.toolInvocation?.result?.searchResults)
+                                      );
+                                      const searchResults =
+                                        googleSearchPart && 'toolInvocation' in googleSearchPart &&
+                                        (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                          ? (googleSearchPart.toolInvocation as any).result.searchResults
+                                          : [];
+                                      if (searchResults.length > 0) {
+                                        return searchResults.map((result: any, i: number) => (
+                                          <a
+                                            key={i}
+                                            href={result.url || result.sourceUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                          >
+                                            <SourceFavicon url={result.url || result.sourceUrl} title={result.title || result.siteName || ''} />
+                                            <div className="flex flex-col">
+                                              <WebpageTitleDisplay source={{
+                                                title: result.title || result.siteName || '',
+                                                url: result.url || result.sourceUrl,
+                                                snippet: result.snippet || result.description || ''
+                                              }} />
+                                            </div>
+                                          </a>
+                                        ));
+                                      }
+                                      // Fallback: extract markdown sources
+                                      const markdownSources = extractSourcesFromText(allText);
+                                      if (markdownSources.length > 0) {
+                                        return markdownSources.map((src, i) => (
+                                          <a
+                                            key={i}
+                                            href={src.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-start gap-3 p-2  rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                          >
+                                            <SourceFavicon url={src.url} title={src.title} />
+                                            <div className="flex flex-col">
+                                              <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
+                                              style={{marginTop: '-3px'}}>{src.title}</div>
+                                              <WebpageTitleDisplay url={src.url} />
+                                            </div>
+                                          </a>
+                                        ));
+                                      }
+                                      return <div className="text-sm text-zinc-500 dark:text-zinc-400">No sources found.</div>;
+                                    })()}
+                                  </div>
+                                </div>
+                              </SheetContent>
+                            </Sheet>
+                          )}
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="select-none">{sources.length === 1 ? 'Show source' : 'Show sources'}</TooltipContent>
                       </Tooltip>

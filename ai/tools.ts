@@ -1,9 +1,10 @@
+import { franc } from 'franc'; // For automatic language detection
 import { tool } from "ai";
 import { z } from "zod";
-import { google } from '@ai-sdk/google';
-import { generateText } from 'ai';
+import { google } from '@ai-sdk/google';      // For Google AI models
+import { generateText } from 'ai';         // For generating text with AI models
 
-// --- Simple Markdown Bar Chart Generator ---
+// --- Simple Markdown Bar Chart Generator (No changes) ---
 function generateMarkdownBarChart(
   table: { headers: string[]; rows: Record<string, string>[] },
   column: string,
@@ -31,12 +32,11 @@ function generateMarkdownBarChart(
   return chart;
 }
 
-// --- Utility: Format a value as inline code ---
+// --- Utility: Format a value as inline code (No changes) ---
 export function formatInlineCode(value: string): string {
   return `\`${value.replace(/`/g, '\u0060')}\``;
 }
-
-// --- Helper Function for Basic Table Parsing ---
+// --- Helper Function for Basic Table Parsing (No changes) ---
 function parseHtmlTables(html: string): { headers: string[], rows: Record<string, string>[] }[] {
     const tables = [];
     const tableRegex = /<table[\s\S]*?>(.*?)<\/table>/gi;
@@ -74,7 +74,7 @@ function parseHtmlTables(html: string): { headers: string[], rows: Record<string
         let rowsProcessed = 0;
 
         if (headers.length > 0 && !tableHtml.match(/<thead/i)){
-             rowRegex.exec(tableHtml); // Prime the regex
+             rowRegex.exec(tableHtml);
         }
 
         while ((rowMatch = rowRegex.exec(tableHtml)) !== null && rowsProcessed < 50) {
@@ -112,6 +112,7 @@ function parseHtmlTables(html: string): { headers: string[], rows: Record<string
     return tables;
 }
 
+
 export const weatherTool = tool({
   description: "Get the weather in a location",
   parameters: z.object({
@@ -125,47 +126,164 @@ export const weatherTool = tool({
 
 // --- UPDATED Intent Extraction Utility ---
 async function extractUserIntent(userMessage: string): Promise<{ object: string; modality: string; qualifiers: string[]; expanded: string[] }> {
-    console.log(`[extractUserIntent] Starting for: "${userMessage}"`);
+  console.log(`[extractUserIntent] Starting for: "${userMessage}"`);
+  try {
+    const intentModel = google('gemma-3n-e4b-it');
+    const prompt = `
+      Analyze the following user request and extract the specified components.
+      Return the output strictly as a JSON object with the keys: "object", "modality", "qualifiers", "expanded".
+      - "object": The main subject or entity of interest (e.g., 'cat', 'Eiffel Tower', 'recipe for pasta'). BE SPECIFIC.
+      - "modality": The type of media or information requested (e.g., 'image', 'video', 'article', 'summary', 'data'). If not specified, try to infer or leave empty. For "summarize this article", the modality is "summary".
+      - "qualifiers": Descriptive adjectives or attributes modifying the object or modality (e.g., 'funny', 'high resolution', 'blue', 'quick', 'easy'). List them as an array of strings. If none, provide an empty array [].
+      - "expanded": Provide up to 3 synonyms or closely related terms for the "object" to aid in searching. List them as an array of strings. If none, provide an empty array [].
+
+      User Request: "${userMessage}"
+
+      JSON Output:
+    `;
+
+    const { text } = await generateText({ model: intentModel, prompt, temperature: 0.1 });
+    console.log(`[extractUserIntent] Raw LLM output: ${text}`);
+
+    let parsed: any;
     try {
-        const intentModel = google('gemma-3n-e4b-it');
-        const prompt = `
-          Analyze the user request and extract components into a JSON object: { "object", "modality", "qualifiers", "expanded" }.
-          - "modality": Infer if the goal is 'image', 'video', 'summary', 'analysis', 'render', 'specs', 'information', etc. If user asks for "specs", modality is "specs".
-          - "qualifiers": Adjectives like 'funny', 'high-resolution'.
-          User Request: "${userMessage}"
-          JSON Output:
-        `;
-        const { text } = await generateText({ model: intentModel, prompt, temperature: 0.1 });
-        console.log(`[extractUserIntent] Raw LLM output for "${userMessage}": ${text}`);
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
-        const finalIntent = {
-            object: parsed.object || '',
-            modality: parsed.modality || '',
-            qualifiers: Array.isArray(parsed.qualifiers) ? parsed.qualifiers.map((q: any) => String(q).trim()).filter(Boolean) : [],
-            expanded: Array.isArray(parsed.expanded) ? parsed.expanded.map((e: any) => String(e).trim()).filter(Boolean) : [],
-        };
-        console.log("[extractUserIntent] Successfully parsed intent:", finalIntent);
-        return finalIntent;
-    } catch (error) {
-        console.error(`[extractUserIntent] Error for "${userMessage}":`, error);
-        return { object: userMessage, modality: '', qualifiers: [], expanded: [] };
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch && jsonMatch[0]) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        parsed = JSON.parse(text);
+      }
+    } catch (e) {
+      console.error("[extractUserIntent] Failed to parse LLM intent JSON:", e, "Raw text was:", text);
+      return { object: userMessage, modality: '', qualifiers: [], expanded: [] };
     }
+    const finalIntent = {
+      object: parsed.object || '',
+      modality: parsed.modality || '',
+      qualifiers: Array.isArray(parsed.qualifiers) ? parsed.qualifiers.map((q: any) => String(q).trim()).filter(Boolean) : [],
+      expanded: Array.isArray(parsed.expanded) ? parsed.expanded.map((e: any) => String(e).trim()).filter(Boolean) : [],
+    };
+    console.log("[extractUserIntent] Successfully parsed intent:", finalIntent);
+    return finalIntent;
+
+  } catch (error) {
+    console.error("[extractUserIntent] Outer error:", error);
+    return { object: userMessage, modality: '', qualifiers: [], expanded: [userMessage] };
+  }
 }
 
-// --- Vision Model Helper Functions ---
-async function describeImageWithVision(
-    src: string,
-    currentIntent: { object: string; modality: string; qualifiers: string[]; expanded: string[] },
-    operationStartTime: number,
-    operationTimeoutMs: number
-): Promise<{ description: string; confidence: number; isRelevant: boolean; detailedAnalysis?: Record<string, any> }> {
-    if (Date.now() - operationStartTime > operationTimeoutMs) {
-        return { description: "Timeout before vision analysis.", confidence: 0, isRelevant: false, detailedAnalysis: { error: "Timeout" } };
+// --- FULLY UPDATED AND RE-ARCHITECTED FETCHURLTOOL ---
+export const fetchUrlTool = tool({
+  description:
+    "Fetches content from a URL, and can recursively navigate to find specific information like images, videos, or text for summarization. It uses AI to understand the page content and make smart decisions.",
+  parameters: z.object({
+    url: z.string().describe("The starting URL to fetch and analyze."),
+    userIntent: z.string().describe("The user's goal or question (e.g., 'image of an iPhone', 'summarize this article about macOS')."),
+    recursionDepth: z.number().optional().describe("How many levels of links to follow (0 = current page only, default 1)."),
+  }),
+  execute: async (params) => {
+    const {
+      url,
+      userIntent,
+      recursionDepth = 1,
+    } = params;
+    
+    // Sensible defaults to prevent runaways
+    const maxPages = 5;
+    const timeoutMs = 45000; // Increased to 45 seconds
+
+    console.log(`[fetchUrlTool] Starting. URL: ${url}, Intent: "${userIntent}", Depth: ${recursionDepth}, Timeout: ${timeoutMs}ms`);
+
+    const visited = new Set<string>();
+    const overallStartTime = Date.now();
+    let pagesFetchedCount = 0;
+    let operationTimedOut = false;
+    const baseOrigin = (() => { try { return new URL(url).origin; } catch { return null; } })();
+
+    if (!baseOrigin) {
+      return { error: "Invalid base URL provided.", url, images: [], videos: [], steps: ["Invalid base URL"], narration: "I couldn't process that request because the URL seems to be invalid." };
     }
-    console.log(`[describeImageWithVision] Analyzing image: ${src} for object: ${currentIntent.object}`);
-    try {
-        const visionModel = google('gemma-3-27b-it'); // Powerful model for vision
+
+    const initialIntent = await extractUserIntent(userIntent);
+    if (!initialIntent.object) {
+        return { error: "Could not understand the main object of your request.", intent: initialIntent, narration: "I'm sorry, I had trouble understanding exactly what you're looking for. Could you try rephrasing?" };
+    }
+
+    // --- Core Helper Functions with Semantic Intelligence ---
+
+    async function getLinkSubject(linkText: string, linkHref: string, userGoal: string): Promise<string> {
+        try {
+            const linkModel = google('gemma-3n-e4b-it'); // Use the fast model
+            const prompt = `A user's goal is to "${userGoal}". On a webpage, there is a link with the text "${linkText}" that points to "${linkHref}". What is the primary subject of THIS LINK? Respond with a single noun or short phrase.`;
+            const { text } = await generateText({ model: linkModel, prompt, temperature: 0.1, maxTokens: 20 });
+            return text.trim().toLowerCase();
+        } catch (e) {
+            console.warn(`[getLinkSubject] LLM call failed for link: ${linkText}`);
+            return "unknown";
+        }
+    }
+
+    async function extractAndScoreLinks(htmlContent: string, currentUrl: string, currentIntent: any): Promise<{ href: string, text: string, score: number }[]> {
+        const aTagRegex = /<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi;
+        const potentialLinks: { href: string; text: string }[] = [];
+        let match;
+
+        while ((match = aTagRegex.exec(htmlContent)) !== null) {
+            const href = match[1];
+            const textContent = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+            if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || textContent.length < 3 || href.length > 300) continue;
+            try {
+                const absoluteHref = new URL(href, currentUrl).toString();
+                if (new URL(absoluteHref).origin === baseOrigin && !visited.has(absoluteHref)) {
+                    potentialLinks.push({ href: absoluteHref, text: textContent });
+                }
+            } catch { /* ignore invalid URLs */ }
+        }
+
+        const scoredLinks: { href: string; text: string; score: number }[] = [];
+        const linkAnalysisPromises = potentialLinks.slice(0, 10).map(async link => {
+            if (Date.now() - overallStartTime > timeoutMs - 5000) return; // Don't start new LLM calls if we're about to time out
+
+            const subject = await getLinkSubject(link.text, link.href, currentIntent.object);
+            let score = 0;
+            const intentKeywords = [currentIntent.object, ...currentIntent.expanded].filter(Boolean).map(k => k.toLowerCase());
+            
+            if (intentKeywords.some(kw => subject.includes(kw))) {
+                score += 10; // Massive bonus if the link's SEMANTIC subject matches the intent
+            } else if (intentKeywords.some(kw => link.text.toLowerCase().includes(kw) || link.href.toLowerCase().includes(kw))) {
+                score += 2; // Keyword match is a fallback bonus
+            }
+            if (['about', 'contact', 'support', 'privacy', 'terms'].some(kw => link.text.toLowerCase().includes(kw))) {
+                score -= 5;
+            }
+            if (score > 3) {
+                scoredLinks.push({ ...link, score });
+            }
+        });
+        
+        await Promise.all(linkAnalysisPromises);
+        
+        scoredLinks.sort((a, b) => b.score - a.score);
+        console.log(`[extractAndScoreLinks] For ${currentUrl}, top links:`, scoredLinks.slice(0, 5));
+        return scoredLinks.slice(0, 5);
+    }
+    
+    function extractMainContent(html: string): string {
+        return html
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    async function describeImageWithVision(
+      src: string,
+      currentIntent: { object: string; modality: string; qualifiers: string[]; expanded: string[] }
+    ): Promise<{ description: string; confidence: number; isRelevant: boolean; detailedAnalysis?: Record<string, any> }> {
+      console.log(`[describeImageWithVision] Analyzing image: ${src} for object: ${currentIntent.object}`);
+      try {
+        const visionModel = google('gemma-3-27b-it');
         const visionPrompt = `
           Analyze the image at the URL: ${src}
           Based on the user's intent:
@@ -177,11 +295,11 @@ async function describeImageWithVision(
         const { text } = await generateText({ model: visionModel, prompt: visionPrompt, temperature: 0.2 });
         let parsed: any;
         try {
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
         } catch (e) {
-            console.error(`[describeImageWithVision] Failed to parse vision JSON for ${src}:`, e, `Raw: "${text}"`);
-            return { description: "AI analysis parse error.", confidence: 0.1, isRelevant: false, detailedAnalysis: { error: 'parsing failed', raw: text } };
+          console.error(`[describeImageWithVision] Failed to parse vision JSON for ${src}:`, e, `Raw: "${text}"`);
+          return { description: "AI analysis parse error.", confidence: 0.1, isRelevant: false, detailedAnalysis: { error: 'parsing failed', raw: text } };
         }
 
         const overallConfidence = Number(parsed.overallConfidence) || 0;
@@ -190,29 +308,26 @@ async function describeImageWithVision(
 
         let isRelevant = overallConfidence > (isFunnyQualifierPresent ? 0.50 : 0.60);
         if (isFunnyQualifierPresent && !meetsFunnyCriteria && overallConfidence > 0.45) {
-            isRelevant = overallConfidence > 0.80;
+          isRelevant = overallConfidence > 0.80;
         } else if (isFunnyQualifierPresent && meetsFunnyCriteria) {
-            isRelevant = overallConfidence > 0.45;
+          isRelevant = overallConfidence > 0.45;
         }
 
         return { description: parsed.description || "No description.", confidence: overallConfidence, isRelevant, detailedAnalysis: parsed };
-    } catch (error) {
+      } catch (error) {
         console.error(`[describeImageWithVision] Error for ${src}:`, error);
         return { description: "Vision analysis error.", confidence: 0.0, isRelevant: false, detailedAnalysis: { error: String(error) } };
+      }
     }
-}
 
-async function describeVideoWithVision(
-    src: string,
-    currentIntent: { object: string; modality: string; qualifiers: string[]; expanded: string[] },
-    operationStartTime: number,
-    operationTimeoutMs: number
-): Promise<{ description: string; confidence: number; isRelevant: boolean; poster?: string; detailedAnalysis?: Record<string, any> }> {
-    if (Date.now() - operationStartTime > operationTimeoutMs) {
-        return { description: "Timeout before vision analysis.", confidence: 0, isRelevant: false, detailedAnalysis: { error: "Timeout" } };
-    }
-    console.log(`[describeVideoWithVision] Analyzing video: ${src} for object: ${currentIntent.object}`);
-    try {
+    async function describeVideoWithVision(
+      src: string,
+      currentIntent: { object: string; modality: string; qualifiers: string[]; expanded: string[] }
+    ): Promise<{ description: string; confidence: number; isRelevant: boolean; poster?: string; detailedAnalysis?: Record<string, any> }> {
+        // This function would be very similar to describeImageWithVision, using the same gemma-3-27b-it model
+        // For brevity, the logic is kept close to the image version.
+      console.log(`[describeVideoWithVision] Analyzing video: ${src} for object: ${currentIntent.object}`);
+      try {
         const visionModel = google('gemma-3-27b-it');
         const visionPrompt = `
           Analyze the video at the URL: ${src}
@@ -225,10 +340,10 @@ async function describeVideoWithVision(
         const { text } = await generateText({ model: visionModel, prompt: visionPrompt, temperature: 0.2 });
         let parsed: any;
         try {
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
         } catch (e) {
-            return { description: "AI analysis parse error.", confidence: 0.1, isRelevant: false, detailedAnalysis: { error: 'parsing failed', raw: text } };
+          return { description: "AI analysis parse error.", confidence: 0.1, isRelevant: false, detailedAnalysis: { error: 'parsing failed', raw: text } };
         }
         const overallConfidence = Number(parsed.overallConfidence) || 0;
         const isFunnyQualifierPresent = currentIntent.qualifiers?.includes('funny');
@@ -237,348 +352,185 @@ async function describeVideoWithVision(
         if (isFunnyQualifierPresent && !meetsFunnyCriteria && overallConfidence > 0.45) isRelevant = overallConfidence > 0.80;
         else if (isFunnyQualifierPresent && meetsFunnyCriteria) isRelevant = overallConfidence > 0.45;
         return { description: parsed.description || "No summary.", confidence: overallConfidence, isRelevant, poster: parsed.extractedPoster || undefined, detailedAnalysis: parsed };
-    } catch (error) {
+      } catch (error) {
         return { description: "Vision analysis error.", confidence: 0.0, isRelevant: false, detailedAnalysis: { error: String(error) } };
-    }
-}
-
-async function filterImagesWithVision(
-    imagesFromHtml: { src: string, alt: string, width?: number, height?: number }[],
-    currentIntent: any,
-    operationStartTime: number,
-    operationTimeoutMs: number
-) {
-    const results = [];
-    const imagesToProcess = imagesFromHtml.slice(0, 10); // Max 10 images to vision model per page
-    for (const img of imagesToProcess) {
-        if (Date.now() - operationStartTime > operationTimeoutMs) break;
-        const visionAnalysis = await describeImageWithVision(img.src, currentIntent, operationStartTime, operationTimeoutMs);
-        if (visionAnalysis.isRelevant) {
-            results.push({ ...img, ...visionAnalysis });
-        }
-    }
-    results.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-    return results;
-}
-
-async function filterVideosWithVision(
-    videosFromHtml: { src: string, poster?: string, alt?: string }[],
-    currentIntent: any,
-    operationStartTime: number,
-    operationTimeoutMs: number
-) {
-    const results = [];
-    const videosToProcess = videosFromHtml.slice(0, 5); // Max 5 videos to vision model per page
-    for (const vid of videosToProcess) {
-        if (Date.now() - operationStartTime > operationTimeoutMs) break;
-        const visionAnalysis = await describeVideoWithVision(vid.src, currentIntent, operationStartTime, operationTimeoutMs);
-        if (visionAnalysis.isRelevant) {
-            results.push({ ...vid, ...visionAnalysis });
-        }
-    }
-    results.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
-    return results;
-}
-
-async function getLinkSubject(linkText: string, linkHref: string, userGoal: string): Promise<string> {
-    try {
-        const linkModel = google('gemma-3n-e4b-it');
-        const prompt = `User's goal: "${userGoal}". Link text: "${linkText}" (href: "${linkHref}"). Primary subject of THIS LINK? (Single noun/short phrase).`;
-        const { text } = await generateText({ model: linkModel, prompt, temperature: 0.1, maxTokens: 15 });
-        return text.trim().toLowerCase();
-    } catch (e) {
-        console.warn(`[getLinkSubject] LLM call failed for link: ${linkText}`);
-        return "unknown";
-    }
-}
-
-async function extractAndScoreLinks(
-    htmlContent: string, 
-    currentUrl: string, 
-    currentIntent: any, 
-    visitedSet: Set<string>,
-    operationStartTime: number,
-    operationTimeoutMs: number
-): Promise<{ href: string, text: string, score: number }[]> {
-    const aTagRegex = /<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi;
-    const potentialLinks: { href: string; text: string }[] = [];
-    let match;
-    const currentOrigin = new URL(currentUrl).origin;
-
-    while ((match = aTagRegex.exec(htmlContent)) !== null) {
-        const href = match[1];
-        const textContent = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-        if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || textContent.length < 3 || href.length > 300) continue;
-        try {
-            const absoluteHref = new URL(href, currentUrl).toString();
-            if (new URL(absoluteHref).origin === currentOrigin && !visitedSet.has(absoluteHref)) {
-                potentialLinks.push({ href: absoluteHref, text: textContent });
-            }
-        } catch { /* ignore invalid URLs */ }
-    }
-
-    const scoredLinks: { href: string; text: string; score: number }[] = [];
-    // Limit semantic analysis to top N keyword-potential links to save time/cost
-    const linksForSemanticAnalysis = potentialLinks
-        .map(link => { // Initial keyword score
-            let score = 0;
-            const intentKeywords = [currentIntent.object, ...currentIntent.expanded].filter(Boolean).map(k => k.toLowerCase());
-            if (intentKeywords.some(kw => link.text.toLowerCase().includes(kw) || link.href.toLowerCase().includes(kw))) score += 2;
-            if (['product', 'gallery', 'video', 'image', 'media', 'feature', 'detail', 'spec'].some(kw => link.text.toLowerCase().includes(kw))) score +=1;
-            return {...link, score};
-        })
-        .filter(link => link.score > 0)
-        .sort((a,b) => b.score - a.score)
-        .slice(0, 7); // Analyze top 7 keyword-relevant links semantically
-
-    const linkAnalysisPromises = linksForSemanticAnalysis.map(async link => {
-        if (Date.now() - operationStartTime > operationTimeoutMs - 5000) return; 
-
-        const subject = await getLinkSubject(link.text, link.href, currentIntent.object);
-        let semanticScore = link.score; // Start with keyword score
-        const intentKeywords = [currentIntent.object, ...currentIntent.expanded].filter(Boolean).map(k => String(k).toLowerCase());
-        
-        if (intentKeywords.some(kw => subject.includes(kw))) {
-            semanticScore += 10;
-        }
-        if (['about', 'contact', 'support', 'privacy', 'terms', 'blog', 'news'].some(kw => subject.includes(kw) || link.text.toLowerCase().includes(kw) )) {
-            semanticScore -= 5;
-        }
-        if (semanticScore > 3) { // Final threshold after semantic check
-            scoredLinks.push({ ...link, score: semanticScore });
-        }
-    });
-    
-    await Promise.all(linkAnalysisPromises);
-    
-    scoredLinks.sort((a, b) => b.score - a.score);
-    console.log(`[extractAndScoreLinks] For ${currentUrl}, top semantically scored links:`, scoredLinks.slice(0, 5).map(l=> ({text:l.text, href:l.href, score: l.score})));
-    return scoredLinks.slice(0, 5); // Return top 5 overall
-}
-
-function extractMainContent(html: string): string {
-    // Basic extraction - can be improved with libraries like Readability.js for server-side node
-    let mainText = html;
-    mainText = mainText.replace(/<nav[\s\S]*?<\/nav>/gi, '');
-    mainText = mainText.replace(/<header[\s\S]*?<\/header>/gi, '');
-    mainText = mainText.replace(/<footer[\s\S]*?<\/footer>/gi, '');
-    mainText = mainText.replace(/<aside[\s\S]*?<\/aside>/gi, '');
-    mainText = mainText.replace(/<style[\s\S]*?<\/style>/gi, '');
-    mainText = mainText.replace(/<script[\s\S]*?<\/script>/gi, '');
-    mainText = mainText.replace(/<[^>]+>/g, ' '); // Strip all remaining tags
-    mainText = mainText.replace(/\s+/g, ' ').trim(); // Collapse whitespace
-    return mainText;
-}
-
-function narrateResults(allImgs: any[], allVids: any[], textContentExists: boolean, currentInt: any, startUrl: string, wasRecursive: boolean) {
-    const objectStr = currentInt.object || "the requested content";
-    const qualifierStr = currentInt.qualifiers?.length > 0 ? ` (${currentInt.qualifiers.join(', ')})` : '';
-    const searchLocation = wasRecursive ? `across related pages starting from ${startUrl}` : `on ${startUrl}`;
-
-    if (currentInt.modality === 'summary') {
-        if (textContentExists) {
-            // The actual summary is generated and placed in finalResult.narration later
-            return `I've processed the text from ${searchLocation} and will provide a summary.`;
-        } else {
-            return `I couldn't retrieve enough text content from ${searchLocation} to create a summary for "${objectStr}${qualifierStr}".`;
-        }
-    }
-
-    if (allImgs.length === 0 && allVids.length === 0) {
-        return `I couldn't find any relevant images or videos for "${objectStr}${qualifierStr}" ${searchLocation}.`;
-    }
-    let msg = `Searching ${searchLocation}, I found:`;
-    if (allImgs.length > 0) {
-        msg += `\n- ${allImgs.length} relevant image(s) for "${objectStr}${qualifierStr}". The best match appears to be: "${allImgs[0].description || 'Image of ' + objectStr}" (Confidence: ${Math.round((allImgs[0].confidence || 0) * 100)}%).`;
-    }
-    if (allVids.length > 0) {
-        msg += `\n- ${allVids.length} relevant video(s) for "${objectStr}${qualifierStr}". The best match seems to be: "${allVids[0].description || 'Video of ' + objectStr}" (Confidence: ${Math.round((allVids[0].confidence || 0) * 100)}%).`;
-    }
-    return msg.trim();
-}
-
-// --- UNIFIED FETCHURLTOOL ---
-export const fetchUrlTool = tool({
-  description:
-    "The primary tool for all URL-based tasks. It can fetch, analyze, and recursively navigate web pages. It can also handle direct media links for display or analysis. It intelligently determines the correct action based on the URL type and user's intent.",
-  parameters: z.object({
-    url: z.string().describe("The URL to process."),
-    userIntent: z.string().describe("The user's full goal or question regarding the URL."),
-    recursionDepth: z.number().optional().describe("Levels to recurse for webpage analysis. Default is 1."),
-  }),
-  execute: async (params) => {
-    const {
-      url,
-      userIntent,
-      recursionDepth = 1,
-    } = params;
-    
-    const maxPages = 5;
-    const timeoutMs = 45000;
-
-    const overallStartTime = Date.now();
-    let isOperationTimedOut = () => (Date.now() - overallStartTime) > timeoutMs;
-
-    console.log(`[fetchUrlTool] Starting. URL: ${url}, Intent: "${userIntent}", Depth: ${recursionDepth}, Timeout: ${timeoutMs}ms`);
-
-    const initialIntent = await extractUserIntent(userIntent);
-    if (!initialIntent.object && initialIntent.modality !== 'render') { // Allow render even if object isn't clear
-        return { error: "Could not understand the main object of your request.", intent: initialIntent, narration: "I'm sorry, I had trouble understanding exactly what you're looking for. Could you try rephrasing?" };
-    }
-    
-    const baseOrigin = (() => { try { return new URL(url).origin; } catch { return null; } })();
-    if (!baseOrigin) {
-        return { error: "Invalid base URL.", url, images: [], videos: [], steps: ["Invalid base URL"], narration: "The URL provided seems to be invalid." };
-    }
-
-    // --- INTERNAL ROUTER ---
-    const isDirectImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(new URL(url).pathname);
-    const isDirectVideo = /\.(mp4|webm|mov)$/i.test(new URL(url).pathname);
-    const isDirectMedia = isDirectImage || isDirectVideo;
-    
-    const inferredModality = initialIntent.modality || 
-                           (userIntent.toLowerCase().includes("analyze") || userIntent.toLowerCase().includes("what is") ? 'analysis' : 
-                           (userIntent.toLowerCase().includes("show") || userIntent.toLowerCase().includes("render") ? 'render' : ''));
-
-    if (isDirectMedia) {
-      if (inferredModality === 'render' && isDirectImage) {
-        console.log(`[fetchUrlTool] Direct image render: ${url}`);
-        return {
-          images: [{ src: url, alt: initialIntent.object || 'User-provided image', source: { url: url, title: "Direct Link" } }],
-          videos: [],
-          narration: "Of course, Here's the image you asked for.",
-          overallStats: { pagesFetched: 0, totalTimeMs: Date.now() - overallStartTime, timedOut: false }
-        };
-      } else { // Default to analysis for direct media if not explicit render
-        console.log(`[fetchUrlTool] Direct media analysis: ${url}`);
-        let analysisResult;
-        if (isDirectVideo) {
-            analysisResult = await describeVideoWithVision(url, initialIntent, overallStartTime, timeoutMs);
-            return {
-              videos: analysisResult.isRelevant ? [{ src: url, ...analysisResult }] : [],
-              images: [],
-              narration: `I've analyzed the video: ${analysisResult.description}`,
-              steps: [`Analyzed direct video: ${url}`],
-              overallStats: { pagesFetched: 0, totalTimeMs: Date.now() - overallStartTime, timedOut: isOperationTimedOut() }
-            };
-        } else { // isDirectImage
-            analysisResult = await describeImageWithVision(url, initialIntent, overallStartTime, timeoutMs);
-             return {
-              images: analysisResult.isRelevant ? [{ src: url, ...analysisResult }] : [],
-              videos: [],
-              narration: `I've analyzed the image: ${analysisResult.description}`,
-              steps: [`Analyzed direct image: ${url}`],
-              overallStats: { pagesFetched: 0, totalTimeMs: Date.now() - overallStartTime, timedOut: isOperationTimedOut() }
-            };
-        }
       }
     }
 
-    // --- Web Page Analysis Path ---
-    console.log(`[fetchUrlTool] Proceeding with web page analysis for: ${url}`);
-    const visitedSet = new Set<string>();
-    let pagesFetchedCount = 0;
-    
-    async function fetchAndAnalyzePage({ currentUrl, pageReferer, currentDepth, CIntent }: any): Promise<any> {
-        if (isOperationTimedOut()) return { error: 'Timeout before processing page', url: currentUrl, steps: ["Timeout prior"] };
-        if (pagesFetchedCount >= maxPages) return { error: 'Max pages limit', url: currentUrl, steps: ["Max pages prior"] };
-        if (visitedSet.has(currentUrl)) return { error: 'Already visited', url: currentUrl, steps: ["Already visited"] };
+    async function filterImagesWithVision(
+        imagesFromHtml: { src: string, alt: string, width?: number, height?: number }[],
+        currentIntent: any
+    ) {
+      const results = [];
+      const imagesToProcess = imagesFromHtml.slice(0, 10);
+      for (const img of imagesToProcess) {
+        if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+        const visionAnalysis = await describeImageWithVision(img.src, currentIntent);
+        if (visionAnalysis.isRelevant) {
+          results.push({ ...img, ...visionAnalysis });
+        }
+      }
+      results.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+      return results;
+    }
 
-        visitedSet.add(currentUrl);
+    async function filterVideosWithVision(
+        videosFromHtml: { src: string, poster?: string, alt?: string }[],
+        currentIntent: any
+    ) {
+      const results = [];
+      const videosToProcess = videosFromHtml.slice(0, 5);
+      for (const vid of videosToProcess) {
+        if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+        const visionAnalysis = await describeVideoWithVision(vid.src, currentIntent);
+        if (visionAnalysis.isRelevant) {
+          results.push({ ...vid, ...visionAnalysis });
+        }
+      }
+      results.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+      return results;
+    }
+
+    function narrateResults(allImgs: any[], allVids: any[], currentInt: any, startUrl: string, wasRecursive: boolean) {
+        const objectStr = currentInt.object || "the requested content";
+        const qualifierStr = currentInt.qualifiers?.length > 0 ? ` (${currentInt.qualifiers.join(', ')})` : '';
+        const searchLocation = wasRecursive ? `across related pages starting from ${startUrl}` : `on ${startUrl}`;
+        if (allImgs.length === 0 && allVids.length === 0) {
+            return `I couldn't find any relevant images or videos for "${objectStr}${qualifierStr}" ${searchLocation}.`;
+        }
+        let msg = `Searching ${searchLocation}, I found ${allImgs.length} relevant image(s) and ${allVids.length} relevant video(s) for "${objectStr}${qualifierStr}".\n`;
+        if (allImgs.length > 0) {
+            const topImage = allImgs[0];
+            msg += `The best image match: "${topImage.description || 'Image of ' + objectStr}" (Confidence: ${Math.round((topImage.confidence || 0) * 100)}%).`;
+        }
+        if (allVids.length > 0) {
+            msg += `\nThe best video match: "${allVids[0].description || 'Video of ' + objectStr}" (Confidence: ${Math.round((allVids[0].confidence || 0) * 100)}%).`;
+        }
+        return msg.trim();
+    }
+
+
+    async function fetchAndAnalyze({ currentUrl, pageReferer, currentDepth, CIntent }: { currentUrl: string, pageReferer?: string, currentDepth: number, CIntent: any }): Promise<any> {
+        console.log(`[fetchAndAnalyze] Depth ${recursionDepth - currentDepth}, URL: ${currentUrl}, Object: ${CIntent.object}`);
+        if (operationTimedOut || Date.now() - overallStartTime > timeoutMs) {
+            operationTimedOut = true;
+            return { error: 'Operation timeout reached before processing this page.', url: currentUrl, steps: ["Timeout prior"] };
+        }
+        if (pagesFetchedCount >= maxPages) return { error: 'Max pages limit reached.', url: currentUrl, steps: ["Max pages hit prior"] };
+        if (visited.has(currentUrl)) return { error: 'Already visited.', url: currentUrl, steps: ["Already visited"] };
+
+        visited.add(currentUrl);
         pagesFetchedCount++;
-        const localSteps: string[] = [`Fetching L${recursionDepth - currentDepth}: ${currentUrl}`];
-        
+        const localSteps: string[] = [];
+        localSteps.push(`Fetching L${recursionDepth - currentDepth}: ${currentUrl}`);
+
         let htmlContent = "";
         try {
-            const res = await fetch(currentUrl, { headers: { 'User-Agent': 'AvurnaBot/1.0' }, signal: AbortSignal.timeout(15000) });
-            if (!res.ok || !res.headers.get('content-type')?.includes('text/html')) throw new Error('Fetch failed or not HTML');
+            const headers: Record<string, string> = { 'User-Agent': 'Mozilla/5.0 (compatible; AvurnaBot/1.0)' };
+            if (pageReferer) headers['Referer'] = pageReferer;
+            const res = await fetch(currentUrl, { method: 'GET', headers, signal: AbortSignal.timeout(15000) });
+            if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+            const contentType = res.headers.get('content-type') || '';
+            if (!contentType.includes('text/html')) throw new Error(`Unsupported content type: ${contentType}`);
             htmlContent = await res.text();
             localSteps.push('Processing HTML content.');
-        } catch (e: any) {
-            localSteps.push(`Error fetching ${currentUrl}: ${e.message}`);
-            return { error: e.message, url: currentUrl, steps: localSteps, images: [], videos: [] };
+        } catch (fetchError: any) {
+            localSteps.push(`Error fetching ${currentUrl}: ${fetchError.message}`);
+            console.error(`[fetchAndAnalyze] Fetch error for ${currentUrl}:`, fetchError);
+            return { error: `Fetch error: ${fetchError.message}`, url: currentUrl, steps: localSteps };
         }
 
-        const currentModality = CIntent.modality || (userIntent.toLowerCase().includes('video') ? 'video' : (userIntent.toLowerCase().includes('image') ? 'image' : 'summary'));
         let pageResults: { images: any[], videos: any[], textContent?: string } = { images: [], videos: [] };
         let isGoodEnoughFound = false;
+        const inferredModality = CIntent.modality || (userIntent.toLowerCase().includes('video') ? 'video' : (userIntent.toLowerCase().includes('image') ? 'image' : 'summary'));
+        let foundItemsOnPage = 0;
 
-        if (currentModality === 'image' || currentModality === 'video') {
+        if (inferredModality === 'image' || inferredModality === 'video') {
             const imagesOnPage = extractImagesFromHtml(htmlContent, currentUrl);
             const videosOnPage = extractVideosFromHtml(htmlContent, currentUrl);
-            pageResults.images = await filterImagesWithVision(imagesOnPage, CIntent, overallStartTime, timeoutMs);
-            pageResults.videos = await filterVideosWithVision(videosOnPage, CIntent, overallStartTime, timeoutMs);
-            if ((currentModality === 'image' && pageResults.images.length > 0 && pageResults.images[0].confidence >= 0.75) ||
-                (currentModality === 'video' && pageResults.videos.length > 0 && pageResults.videos[0].confidence >= 0.75)) {
+            pageResults.images = await filterImagesWithVision(imagesOnPage, CIntent);
+            pageResults.videos = await filterVideosWithVision(videosOnPage, CIntent);
+            foundItemsOnPage = pageResults.images.length + pageResults.videos.length;
+            if ((inferredModality === 'image' && pageResults.images.length > 0 && pageResults.images[0].confidence >= 0.75) ||
+                (inferredModality === 'video' && pageResults.videos.length > 0 && pageResults.videos[0].confidence >= 0.75)) {
                 isGoodEnoughFound = true;
             }
-        } else if (currentModality === 'summary' || currentModality === 'specs' || currentModality === 'information') {
-            const text = extractMainContent(htmlContent);
-            if (text.length > 500) { // Arbitrary length for "enough text"
-                pageResults.textContent = text;
-                isGoodEnoughFound = true; // For specs/info, one page is usually enough if text is found
-                localSteps.push(`Extracted ${text.length} chars of text.`);
+        } else if (inferredModality === 'summary') {
+            const textContent = extractMainContent(htmlContent);
+            if (textContent.length > 500) {
+                pageResults.textContent = textContent;
+                isGoodEnoughFound = true;
+                foundItemsOnPage = 1;
+                localSteps.push(`Extracted ${textContent.length} characters of text for summarization.`);
+            } else {
+                localSteps.push(`Found insufficient text on page for a good summary.`);
             }
         }
-
-        if (isOperationTimedOut()) {
-            localSteps.push("Operation timed out during content analysis for this page.");
-        }
+        
+        if (Date.now() - overallStartTime > timeoutMs) operationTimedOut = true;
 
         let pageRecursiveResults: any[] = [];
-        if (currentDepth > 0 && !isGoodEnoughFound && !isOperationTimedOut()) {
-            const navLinks = await extractAndScoreLinks(htmlContent, currentUrl, CIntent, visitedSet, overallStartTime, timeoutMs);
-            if (navLinks.length > 0) {
-                localSteps.push(`No high-confidence result found. Semantically exploring ${navLinks.length} link(s)...`);
-                const linksToFollowCount = Math.min(navLinks.length, currentDepth > 1 ? 1 : 2); 
+        if (currentDepth > 0 && !isGoodEnoughFound && !operationTimedOut) {
+            const pageNavLinks = await extractAndScoreLinks(htmlContent, currentUrl, CIntent);
+            if (pageNavLinks.length > 0) {
+                localSteps.push(`No high-confidence result found. Semantically exploring ${pageNavLinks.length} link(s)...`);
+                const linksToFollowCount = Math.min(pageNavLinks.length, currentDepth > 1 ? 1 : 2);
                 for (let i = 0; i < linksToFollowCount; i++) {
-                    if (isOperationTimedOut()) break;
-                    const subResult = await fetchAndAnalyzePage({ currentUrl: navLinks[i].href, pageReferer: currentUrl, currentDepth: currentDepth - 1, CIntent: initialIntent });
+                    if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+                    const link = pageNavLinks[i];
+                    const subResult = await fetchAndAnalyze({ currentUrl: link.href, pageReferer: currentUrl, currentDepth: currentDepth - 1, CIntent: initialIntent });
                     if (subResult && !subResult.error) {
                         pageRecursiveResults.push(subResult);
-                        const sr = subResult; // shorthand
-                        if ((sr.images?.length && sr.images[0].confidence > 0.85) || (sr.videos?.length && sr.videos[0].confidence > 0.85) || (sr.textContent?.length > 1000)) {
-                            localSteps.push(`Excellent result found via ${navLinks[i].href}. Halting exploration.`);
+                        const subImages = subResult.images || [];
+                        const subVideos = subResult.videos || [];
+                        const subText = subResult.textContent || "";
+                        if ((subImages.length > 0 && subImages[0].confidence > 0.85) || 
+                            (subVideos.length > 0 && subVideos[0].confidence > 0.85) || 
+                            (subText.length > 1000)) {
+                            localSteps.push(`Excellent result found via ${link.href}. Halting further exploration from this page.`);
                             break;
                         }
+                    } else if (subResult?.error) {
+                        localSteps.push(`Sub-fetch for ${link.href} resulted in error: ${subResult.error}`);
                     }
                 }
             }
         }
-        
+
         const allImages = [...pageResults.images, ...pageRecursiveResults.flatMap(r => r.images || [])];
         const allVideos = [...pageResults.videos, ...pageRecursiveResults.flatMap(r => r.videos || [])];
         const allText = pageResults.textContent || pageRecursiveResults.map(r => r.textContent).find(t => t) || "";
+
         allImages.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
         allVideos.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
 
         return { url: currentUrl, images: allImages, videos: allVideos, textContent: allText, steps: localSteps, recursiveResults: pageRecursiveResults };
     }
+    
+    // --- Start the process ---
+    const finalResult = await fetchAndAnalyze({ currentUrl: url, pageReferer: undefined, currentDepth: recursionDepth, CIntent: initialIntent });
 
-    const finalResult = await fetchAndAnalyzePage({ currentUrl: url, pageReferer: undefined, currentDepth: recursionDepth, CIntent: initialIntent });
-    let finalNarration = "";
-
-    if ((initialIntent.modality === 'summary' || initialIntent.modality === 'specs' || initialIntent.modality === 'information') && finalResult.textContent && !isOperationTimedOut()) {
-        console.log(`[Summarization/Info Extraction] Processing ${finalResult.textContent.length} characters for intent: ${initialIntent.modality}`);
-        const summaryModel = google('gemma-3-27b-it');
-        const summaryPrompt = `User intent: "${userIntent}". Based on the following text, provide a concise answer or summary: "${finalResult.textContent.substring(0, 25000)}"`;
+    // --- Final Summarization Step (if needed) ---
+    if (initialIntent.modality === 'summary' && finalResult.textContent && !operationTimedOut) {
         try {
+            console.log(`[Summarization] Summarizing ${finalResult.textContent.length} characters.`);
+            const summaryModel = google('gemma-3-27b-it'); // Use powerful model for summarization
+            const summaryPrompt = `Based on the following article text, provide a concise summary highlighting the key points. Article Text: "${finalResult.textContent.substring(0, 25000)}"`; // Limit context
             const { text } = await generateText({ model: summaryModel, prompt: summaryPrompt });
-            finalNarration = text;
+            finalResult.narration = text;
         } catch (e) {
-            finalNarration = "I found relevant text, but encountered an issue trying to process it for you.";
-            console.error("[Summarization/Info] Error:", e);
+            finalResult.narration = "I found the article text, but there was an error while trying to summarize it.";
+            console.error("[Summarization] Error:", e);
         }
-    } else if (isOperationTimedOut() && (initialIntent.modality === 'summary' || initialIntent.modality === 'specs' || initialIntent.modality === 'information')) {
-        finalNarration = "My apologies, The operation timed out while I was gathering the full information, so I can't provide a complete answer right now.";
+    } else if (operationTimedOut && initialIntent.modality === 'summary') {
+        finalResult.narration = "My apologies, King. The operation timed out while I was gathering the full article text, so I can't provide a complete summary right now."
     } else {
-        finalNarration = narrateResults(finalResult.images || [], finalResult.videos || [], !!finalResult.textContent, initialIntent, url, pagesFetchedCount > 1);
+        finalResult.narration = narrateResults(finalResult.images || [], finalResult.videos || [], initialIntent, url, pagesFetchedCount > 1);
     }
     
     return {
         ...finalResult,
-        narration: finalNarration,
-        overallStats: { pagesFetched: pagesFetchedCount, totalTimeMs: Date.now() - overallStartTime, timedOut: isOperationTimedOut() }
+        overallStats: { pagesFetched: pagesFetchedCount, totalTimeMs: Date.now() - overallStartTime, timedOut: operationTimedOut }
     };
   },
 });
@@ -600,22 +552,22 @@ export const googleSearchTool = tool({
       const webSearchQueries = metadata?.groundingMetadata?.webSearchQueries ?? [];
       return { query, groundedResponse: text, sources: sources ?? [], webSearchQueries };
     } catch (error: any) {
-      return { query, error: `Failed to execute Google search: ${error.message || String(error)}`, groundedResponse: null, sources: [], webSearchQueries: [] };
+        return { query, error: `Failed to execute Google search: ${error.message || String(error)}`, groundedResponse: null, sources: [], webSearchQueries: [] };
     }
   },
 });
 
 // --- HTML Media Extraction Utilities ---
 function extractImagesFromHtml(html: string, baseUrl: string): { src: string, alt: string, width?: number, height?: number }[] {
-  const images: { src: string, alt: string, width?: number, height?: number }[] = [];
   const imgTagRegex = /<img\s+([^>]*?)>/gi;
   const srcRegex = /src=["']([^"']+)["']/;
   const altRegex = /alt=["']([^"']*)["']/;
   const widthRegex = /width=["']?(\d+)/;
   const heightRegex = /height=["']?(\d+)/;
 
+  const images: { src: string, alt: string, width?: number, height?: number }[] = [];
   const commonUiPatterns = /\/(logo|icon|sprite|spinner|loader|avatar|profile|badge|button|arrow|thumb|pixel|spacer)-?.*\.(\w{3,4})$/i;
-  const commonUiKeywordsInAlt = ['logo', 'icon', 'button', 'arrow', 'avatar', 'profile', 'badge', 'banner ad', 'advertisement', 'placeholder'];
+  const commonUiKeywordsInAlt = ['logo', 'icon', 'button', 'arrow', 'avatar', 'profile', 'badge', 'banner ad', 'advertisement'];
 
   let match;
   while ((match = imgTagRegex.exec(html)) !== null) {
@@ -627,16 +579,12 @@ function extractImagesFromHtml(html: string, baseUrl: string): { src: string, al
     let alt = altMatch ? altMatch[1] : '';
     try {
       src = new URL(src, baseUrl).toString();
-      if (src.toLowerCase().endsWith('.svg') || src.startsWith('data:image/svg+xml')) continue; // Skip SVGs
-
       const widthMatch = widthRegex.exec(imgTagContent);
       const heightMatch = heightRegex.exec(imgTagContent);
       const width = widthMatch ? parseInt(widthMatch[1], 10) : undefined;
       const height = heightMatch ? parseInt(heightMatch[1], 10) : undefined;
-      
       if (commonUiPatterns.test(src) || commonUiKeywordsInAlt.some(kw => alt.toLowerCase().includes(kw))) continue;
-      if ((width !== undefined && width < 60) && (height !== undefined && height < 60)) continue; // Increased threshold slightly
-      
+      if ((width !== undefined && width < 50) && (height !== undefined && height < 50)) continue;
       images.push({ src, alt, width, height });
     } catch { /* Invalid URL */ }
   }
