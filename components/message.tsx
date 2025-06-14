@@ -44,32 +44,116 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-// --- WebpageTitleDisplay expects a { title, url, snippet } object ---
-function WebpageTitleDisplay({ source }: { source?: { title?: string; url: string; snippet?: string } }) {
-  if (!source || !source.url) {
-    return null;
-  }
-  // Fallback logic for title
-  let displayTitle = source.title;
-  if (!displayTitle || displayTitle.trim() === "") {
-    try {
-      const u = new URL(source.url);
-      if (u.hostname === 'vertexaisearch.cloud.google.com' && u.pathname.startsWith('/grounding-api-redirect/')) {
-        displayTitle = 'Unknown Source';
-      } else {
-        displayTitle = u.hostname.replace(/^www\./, "");
+/**
+ * Extracts a display name from a resolved URL using an open API for semantic extraction.
+ * Falls back to domain extraction if the API is unavailable.
+ * @param resolvedUrl The fully resolved URL string
+ */
+export async function extractWebpageName(resolvedUrl: string): Promise<string> {
+  if (!resolvedUrl) return '';
+  try {
+    // Use microlink.io public API (no key required)
+    const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(resolvedUrl)}`;
+    const response = await fetch(apiUrl);
+    if (response.ok) {
+      const data = await response.json();
+      // Try to get the best name: site, publisher, title, url
+      if (data && data.data) {
+        if (typeof data.data.site === 'string' && data.data.site.trim()) {
+          return data.data.site.trim();
+        }
+        if (typeof data.data.publisher === 'string' && data.data.publisher.trim()) {
+          return data.data.publisher.trim();
+        }
+        if (typeof data.data.title === 'string' && data.data.title.trim()) {
+          return data.data.title.trim();
+        }
       }
-    } catch {
-      displayTitle = source.url;
     }
+  } catch { }
+  // Fallback: extract domain
+  try {
+    const u = new URL(resolvedUrl);
+    if (u.hostname === 'vertexaisearch.cloud.google.com' && u.pathname.startsWith('/grounding-api-redirect/')) {
+      return 'Unknown Source';
+    }
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return resolvedUrl;
   }
-  if (displayTitle && displayTitle.trim().toUpperCase().startsWith("AUZI")) {
-    displayTitle = "Unknown source";
+}
+
+// --- WebpageTitleDisplay expects a { title, url, snippet } object ---
+// Now uses useWebpageTitle to fetch the actual webpage title from microlink.io
+function useWebpageTitle(url: string) {
+  const [title, setTitle] = useState<string>("");
+  useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    async function fetchTitle() {
+      try {
+        const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}`;
+        const resp = await fetch(apiUrl);
+        const data = await resp.json();
+        if (!cancelled && data.status === 'success' && data.data && data.data.title) {
+          setTitle(data.data.title);
+        }
+      } catch {
+        // fallback: show nothing
+      }
+    }
+    fetchTitle();
+    return () => { cancelled = true; };
+  }, [url]);
+  return title;
+}
+
+async function fetchWebpageDescription(url: string): Promise<string> {
+  try {
+    const resp = await fetch(`/api/extract-description?url=${encodeURIComponent(url)}`);
+    if (!resp.ok) return "";
+    const data = await resp.json();
+    return data.description || "";
+  } catch {
+    return "";
   }
+}
+
+function WebpageTitleDisplay({ source }: { source?: { title?: string; url: string; snippet?: string } }) {
+  // Always use the actual webpage title from microlink.io
+  const title = useWebpageTitle(source?.url || "");
+  const [description, setDescription] = useState<string>("");
+  const [hasFetched, setHasFetched] = useState(false);
+  useEffect(() => {
+    if (!source?.url || hasFetched) return;
+    let cancelled = false;
+    (async () => {
+      const desc = await fetchWebpageDescription(source.url);
+      if (!cancelled) {
+        setDescription(desc);
+        setHasFetched(true);
+      }
+    })();
+    return () => { cancelled = true; };
+    // Only run once per URL
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source?.url]);
+  if (!source || !source.url) return null;
+  // If the title starts with "AUZI", render "Unknown Source"
+  const displayTitle = (title && title.trim().toUpperCase().startsWith("AUZI"))
+    ? "Unknown Source"
+    : (title || source.title || source.url);
   return (
     <>
-      <div className="font-semibold text-sm mt-1 text-zinc-800 dark:text-zinc-100">{displayTitle}</div>
-      {source.snippet && (
+      <div className="font-semibold text-sm mt-1 text-zinc-800 dark:text-zinc-100">
+        {displayTitle}
+      </div>
+      {description && (
+        <div className="text-xs mt-1 text-zinc-500 dark:text-zinc-400 italic max-w-xs line-clamp-2">
+          <Markdown>{description}</Markdown>
+        </div>
+      )}
+      {source.snippet && !description && (
         <div className="text-xs mt-1 text-zinc-500 dark:text-zinc-400 italic max-w-xs line-clamp-2">
           <Markdown>{source.snippet}</Markdown>
         </div>
@@ -164,10 +248,10 @@ function SourceFavicon({ url, title }: { url: string; title: string }) {
                   title: title,
                   sourceUrl: url,
                 });
-              } catch {}
+              } catch { }
             }
           }
-        } catch {}
+        } catch { }
       }
     };
     img.onerror = () => {
@@ -687,7 +771,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                         );
                                         const searchResults =
                                           googleSearchPart && 'toolInvocation' in googleSearchPart &&
-                                          (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                            (googleSearchPart.toolInvocation as any)?.result?.searchResults
                                             ? (googleSearchPart.toolInvocation as any).result.searchResults
                                             : [];
                                         if (searchResults.length > 0) {
@@ -713,30 +797,30 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                         // Fallback: extract markdown sources
                                         const markdownSources = extractSourcesFromText(allText);
                                         if (markdownSources.length > 0) {
-                                        // Helper to check if a title is valid
-                                        const isValidTitle = (title: string) => {
-                                          if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
-                                            return false;
-                                          }
-                                          return true;
-                                        };
-                                        return markdownSources.map((src, i) => (
-                                          <a
-                                            key={i}
-                                            href={src.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
-                                          >
-                                            <SourceFavicon url={src.url} title={src.title} />
-                                            <div className="flex flex-col">
-                                              <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">
-                                                {isValidTitle(src.title) ? src.title : (() => { try { return new URL(src.url).hostname; } catch { return src.url; } })()}
+                                          // Helper to check if a title is valid
+                                          const isValidTitle = (title: string) => {
+                                            if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
+                                              return false;
+                                            }
+                                            return true;
+                                          };
+                                          return markdownSources.map((src, i) => (
+                                            <a
+                                              key={i}
+                                              href={src.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                            >
+                                              <SourceFavicon url={src.url} title={src.title} />
+                                              <div className="flex flex-col">
+                                                <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                                                  {isValidTitle(src.title) ? src.title : (() => { try { return new URL(src.url).hostname; } catch { return src.url; } })()}
+                                                </div>
+                                                <WebpageTitleDisplay source={{ url: src.url }} />
                                               </div>
-                                              <WebpageTitleDisplay url={src.url} />
-                                            </div>
-                                          </a>
-                                        ));
+                                            </a>
+                                          ));
                                         }
                                         return <div className="text-sm text-zinc-500 dark:text-zinc-400">No sources found.</div>;
                                       })()}
@@ -781,7 +865,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                       );
                                       const searchResults =
                                         googleSearchPart && 'toolInvocation' in googleSearchPart &&
-                                        (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                          (googleSearchPart.toolInvocation as any)?.result?.searchResults
                                           ? (googleSearchPart.toolInvocation as any).result.searchResults
                                           : [];
                                       if (searchResults.length > 0) {
@@ -818,8 +902,8 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                             <SourceFavicon url={src.url} title={src.title} />
                                             <div className="flex flex-col">
                                               <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
-                                              style={{marginTop: '-3px'}}>{src.title}</div>
-                                              <WebpageTitleDisplay url={src.url} />
+                                                style={{ marginTop: '-3px' }}>{src.title}</div>
+                                              <WebpageTitleDisplay source={{ url: src.url }} />
                                             </div>
                                           </a>
                                         ));
