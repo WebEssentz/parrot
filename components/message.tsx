@@ -3,7 +3,6 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import { saveMediaToIDB } from "@/lib/media-idb";
-import { Modal } from "./ui/modal";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
@@ -70,7 +69,7 @@ export async function extractWebpageName(resolvedUrl: string): Promise<string> {
         }
       }
     }
-  } catch { }
+  } catch {}
   // Fallback: extract domain
   try {
     const u = new URL(resolvedUrl);
@@ -109,14 +108,14 @@ function useWebpageTitle(url: string) {
 }
 
 async function fetchWebpageDescription(url: string): Promise<string> {
-  try {
-    const resp = await fetch(`/api/extract-description?url=${encodeURIComponent(url)}`);
-    if (!resp.ok) return "";
-    const data = await resp.json();
-    return data.description || "";
-  } catch {
-    return "";
-  }
+try {
+const resp = await fetch(`/api/extract-description?url=${encodeURIComponent(url)}`);
+if (!resp.ok) return "";
+const data = await resp.json();
+return data.description || "";
+} catch {
+return "";
+}
 }
 
 function WebpageTitleDisplay({ source }: { source?: { title?: string; url: string; snippet?: string } }) {
@@ -248,10 +247,10 @@ function SourceFavicon({ url, title }: { url: string; title: string }) {
                   title: title,
                   sourceUrl: url,
                 });
-              } catch { }
+              } catch {}
             }
           }
-        } catch { }
+        } catch {}
       }
     };
     img.onerror = () => {
@@ -771,7 +770,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                         );
                                         const searchResults =
                                           googleSearchPart && 'toolInvocation' in googleSearchPart &&
-                                            (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                          (googleSearchPart.toolInvocation as any)?.result?.searchResults
                                             ? (googleSearchPart.toolInvocation as any).result.searchResults
                                             : [];
                                         if (searchResults.length > 0) {
@@ -797,30 +796,30 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                         // Fallback: extract markdown sources
                                         const markdownSources = extractSourcesFromText(allText);
                                         if (markdownSources.length > 0) {
-                                          // Helper to check if a title is valid
-                                          const isValidTitle = (title: string) => {
-                                            if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
-                                              return false;
-                                            }
-                                            return true;
-                                          };
-                                          return markdownSources.map((src, i) => (
-                                            <a
-                                              key={i}
-                                              href={src.url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
-                                            >
-                                              <SourceFavicon url={src.url} title={src.title} />
-                                              <div className="flex flex-col">
-                                                <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">
-                                                  {isValidTitle(src.title) ? src.title : (() => { try { return new URL(src.url).hostname; } catch { return src.url; } })()}
-                                                </div>
-                                                <WebpageTitleDisplay source={{ url: src.url }} />
+                                        // Helper to check if a title is valid
+                                        const isValidTitle = (title: string) => {
+                                          if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
+                                            return false;
+                                          }
+                                          return true;
+                                        };
+                                        return markdownSources.map((src, i) => (
+                                          <a
+                                            key={i}
+                                            href={src.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                          >
+                                            <SourceFavicon url={src.url} title={src.title} />
+                                            <div className="flex flex-col">
+                                              <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                                                {isValidTitle(src.title) ? src.title : (() => { try { return new URL(src.url).hostname; } catch { return src.url; } })()}
                                               </div>
-                                            </a>
-                                          ));
+                                              <WebpageTitleDisplay source={{ url: src.url }} />
+                                            </div>
+                                          </a>
+                                        ));
                                         }
                                         return <div className="text-sm text-zinc-500 dark:text-zinc-400">No sources found.</div>;
                                       })()}
@@ -865,7 +864,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                       );
                                       const searchResults =
                                         googleSearchPart && 'toolInvocation' in googleSearchPart &&
-                                          (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                        (googleSearchPart.toolInvocation as any)?.result?.searchResults
                                           ? (googleSearchPart.toolInvocation as any).result.searchResults
                                           : [];
                                       if (searchResults.length > 0) {
@@ -902,7 +901,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                             <SourceFavicon url={src.url} title={src.title} />
                                             <div className="flex flex-col">
                                               <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
-                                                style={{ marginTop: '-3px' }}>{src.title}</div>
+                                              style={{marginTop: '-3px'}}>{src.title}</div>
                                               <WebpageTitleDisplay source={{ url: src.url }} />
                                             </div>
                                           </a>
