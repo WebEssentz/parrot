@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useEffect, useState } from "react";
+import { saveDescriptionToIDB, getDescriptionFromIDB } from "../lib/desc-idb";
 import { saveMediaToIDB } from "@/lib/media-idb";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import type { Message as TMessage } from "ai";
@@ -118,25 +119,83 @@ return "";
 }
 }
 
+// --- Description cache (persists across sheet/drawer open/close) ---
+const descriptionCache: Record<string, string> = {};
+
 function WebpageTitleDisplay({ source }: { source?: { title?: string; url: string; snippet?: string } }) {
   // Always use the actual webpage title from microlink.io
   const title = useWebpageTitle(source?.url || "");
   const [description, setDescription] = useState<string>("");
   const [hasFetched, setHasFetched] = useState(false);
+  // Offline/online state
+  const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !navigator.onLine : false);
+
+  // On mount, try to load description from IDB if offline or if not in memory
   useEffect(() => {
-    if (!source?.url || hasFetched) return;
     let cancelled = false;
+    if (!source?.url) return;
+    (async () => {
+      // Try IDB first
+      const idbDesc = await getDescriptionFromIDB(source.url);
+      if (!cancelled && idbDesc) {
+        setDescription(idbDesc);
+        setHasFetched(true);
+        return;
+      }
+      // Fallback to in-memory cache
+      if (!cancelled && descriptionCache[source.url]) {
+        setDescription(descriptionCache[source.url]);
+        setHasFetched(true);
+        return;
+      }
+      // Otherwise, fetch from API
+      if (!cancelled) {
+        setHasFetched(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [source?.url]);
+
+  // Fetch and cache description if not already fetched
+  useEffect(() => {
+    let cancelled = false;
+    if (!source?.url || hasFetched) return;
     (async () => {
       const desc = await fetchWebpageDescription(source.url);
-      if (!cancelled) {
+      if (!cancelled && desc) {
         setDescription(desc);
+        descriptionCache[source.url] = desc;
+        // If offline, store in IDB
+        if (isOffline) {
+          await saveDescriptionToIDB(source.url, desc);
+        }
         setHasFetched(true);
       }
     })();
     return () => { cancelled = true; };
-    // Only run once per URL
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source?.url]);
+  }, [source?.url, hasFetched, isOffline]);
+
+  // Listen for online/offline events and persist state
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    setIsOffline(!navigator.onLine);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  // When going offline, move in-memory cache to IDB
+  useEffect(() => {
+    if (!isOffline || !source?.url) return;
+    if (descriptionCache[source.url]) {
+      saveDescriptionToIDB(source.url, descriptionCache[source.url]);
+    }
+  }, [isOffline, source?.url]);
+
   if (!source || !source.url) return null;
   // If the title starts with "AUZI", render "Unknown Source"
   const displayTitle = (title && title.trim().toUpperCase().startsWith("AUZI"))
@@ -183,13 +242,22 @@ function FaviconSkeleton() {
   );
 }
 
+// --- Favicon cache (persists across sheet/drawer open/close) ---
+const faviconCache: Record<string, string> = {};
+
 function SourceFavicon({ url, title }: { url: string; title: string }) {
-  const [favicon, setFavicon] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [favicon, setFavicon] = React.useState<string | null>(url ? faviconCache[url] || null : null);
+  const [loading, setLoading] = React.useState(!favicon);
   const [errored, setErrored] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
+    if (faviconCache[url]) {
+      setFavicon(faviconCache[url]);
+      setLoading(false);
+      setErrored(false);
+      return;
+    }
     setLoading(true);
     setErrored(false);
     (async () => {
@@ -200,17 +268,21 @@ function SourceFavicon({ url, title }: { url: string; title: string }) {
       try {
         const u = new URL(urlToUse);
         if (u.protocol === "file:") {
+          faviconCache[url] = "/file.svg";
           setFavicon("/file.svg");
           setLoading(false);
           return;
         } else if (u.protocol === "window:") {
+          faviconCache[url] = "/window.svg";
           setFavicon("/window.svg");
           setLoading(false);
           return;
         } else {
-          setFavicon(getFaviconUrl(urlToUse));
+          const favUrl = getFaviconUrl(urlToUse);
+          setFavicon(favUrl);
         }
       } catch {
+        faviconCache[url] = "/globe.svg";
         setFavicon("/globe.svg");
         setLoading(false);
         return;
@@ -219,17 +291,23 @@ function SourceFavicon({ url, title }: { url: string; title: string }) {
     return () => { cancelled = true; };
   }, [url]);
 
-  // When favicon changes, try to load it, then store in IndexedDB after successful load
+  // When favicon changes, try to load it, then store in cache and IndexedDB after successful load
   useEffect(() => {
     if (!favicon) return;
+    if (faviconCache[url] === favicon) {
+      setLoading(false);
+      setErrored(false);
+      return;
+    }
     setLoading(true);
     setErrored(false);
     const img = new window.Image();
     img.src = favicon;
     img.onload = async () => {
+      faviconCache[url] = favicon;
       setLoading(false);
       setErrored(false);
-      // Only cache if not a local fallback
+      // Only cache in IDB if not a local fallback
       if (favicon.startsWith('http') || favicon.startsWith('https')) {
         try {
           const resp = await fetch(favicon);
