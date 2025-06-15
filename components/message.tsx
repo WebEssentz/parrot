@@ -31,6 +31,7 @@ import { MediaCarousel } from "./ui/media-carousel";
 
 // --- Helper Components & Hooks ---
 
+
 const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-[2] size-4" {...props}>
     <rect x="3" y="8" width="13" height="13" rx="4" stroke="currentColor"></rect>
@@ -43,6 +44,25 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+// --- Prefetch webpage name and description for sources ---
+async function prefetchSourceMeta(sources: { url: string; title?: string }[]) {
+  for (const src of sources) {
+    // Prefetch webpage name
+    extractWebpageName(src.url).then(name => {
+      // Optionally, cache the name somewhere if needed
+    });
+    // Prefetch AI description and store in IDB
+    getDescriptionFromIDB(src.url).then(async (desc) => {
+      if (!desc) {
+        const newDesc = await fetchWebpageDescription(src.url);
+        if (newDesc) {
+          await saveDescriptionToIDB(src.url, newDesc);
+        }
+      }
+    });
+  }
+}
 
 /**
  * Extracts a display name from a resolved URL using an open API for semantic extraction.
@@ -70,7 +90,7 @@ export async function extractWebpageName(resolvedUrl: string): Promise<string> {
         }
       }
     }
-  } catch {}
+  } catch { }
   // Fallback: extract domain
   try {
     const u = new URL(resolvedUrl);
@@ -109,14 +129,14 @@ function useWebpageTitle(url: string) {
 }
 
 async function fetchWebpageDescription(url: string): Promise<string> {
-try {
-const resp = await fetch(`/api/extract-description?url=${encodeURIComponent(url)}`);
-if (!resp.ok) return "";
-const data = await resp.json();
-return data.description || "";
-} catch {
-return "";
-}
+  try {
+    const resp = await fetch(`/api/extract-description?url=${encodeURIComponent(url)}`);
+    if (!resp.ok) return "";
+    const data = await resp.json();
+    return data.description || "";
+  } catch {
+    return "";
+  }
 }
 
 // --- Description cache (persists across sheet/drawer open/close) ---
@@ -325,10 +345,10 @@ function SourceFavicon({ url, title }: { url: string; title: string }) {
                   title: title,
                   sourceUrl: url,
                 });
-              } catch {}
+              } catch { }
             }
           }
-        } catch {}
+        } catch { }
       }
     };
     img.onerror = () => {
@@ -369,19 +389,55 @@ const resolvedUrlCache: Record<string, Promise<string>> = {};
  * Resolves a redirect URL (e.g., vertexaisearch.cloud.google.com/grounding-api-redirect/...) to its final destination.
  * Returns the resolved URL, or the original if not a redirect or on error.
  */
+// Batch resolve function
+export async function resolveRedirectUrls(sites: string[]): Promise<Record<string, string>> {
+  // Only process URLs that need redirect resolving
+  const toResolve = sites.filter(siteUrl => siteUrl.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/"));
+  const alreadyCached: Record<string, string> = {};
+  // Only use resolved values from cache
+  for (const url of toResolve) {
+    if (Object.prototype.hasOwnProperty.call(resolvedUrlCache, url)) {
+      // Only use if the promise has resolved
+      const cached = resolvedUrlCache[url];
+      if (cached && typeof cached.then === 'function') {
+        // This is a Promise, but we can't synchronously get its value, so skip for now
+        // Optionally, you could await all cached promises here, but for now, skip
+      }
+    }
+  }
+  const needToFetch = toResolve.filter(url => !alreadyCached[url]);
+  let resolvedMap: Record<string, string> = {};
+  if (needToFetch.length > 0) {
+    const promise = fetch("/api/resolve-redirect/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: needToFetch }),
+    })
+      .then(res => res.json())
+      .then(data => data.resolved || {})
+      .catch(() => ({}));
+    const result = await promise;
+    // Store in cache as Promise<string>
+    Object.entries(result).forEach(([k, v]) => {
+      resolvedUrlCache[k] = Promise.resolve(String(v));
+    });
+    resolvedMap = { ...alreadyCached, ...result };
+  } else {
+    resolvedMap = alreadyCached;
+  }
+  // For URLs that don't need resolving, just return as-is
+  sites.forEach(url => {
+    if (!url.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/")) {
+      resolvedMap[url] = url;
+    }
+  });
+  return resolvedMap;
+}
+
+// Single URL fallback for compatibility
 export async function resolveRedirectUrl(siteUrl: string): Promise<string> {
-  if (!siteUrl.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/")) return siteUrl;
-  if (Object.prototype.hasOwnProperty.call(resolvedUrlCache, siteUrl)) return resolvedUrlCache[siteUrl];
-  const promise = fetch("/api/resolve-redirect", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: siteUrl }),
-  })
-    .then(res => res.json())
-    .then(data => data.resolvedUrl || siteUrl)
-    .catch(() => siteUrl);
-  resolvedUrlCache[siteUrl] = promise;
-  return promise;
+  const result = await resolveRedirectUrls([siteUrl]);
+  return result[siteUrl] || siteUrl;
 }
 
 export function getFaviconUrl(siteUrl: string): string {
@@ -496,7 +552,7 @@ export function ReasoningMessagePart({ part, isReasoning }: ReasoningMessagePart
   );
 }
 
-const UserTextMessagePart = ({ part, isLatestMessage }: { part: TMessage['parts'][number], isLatestMessage: boolean }) => {
+const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMessage: boolean }) => {
   const [expanded, setExpanded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -606,6 +662,10 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
       }
     }
     const extractedSources = extractSourcesFromText(combinedText);
+    // Prefetch meta for all sources (webpage name and description)
+    if (extractedSources.length > 0) {
+      prefetchSourceMeta(extractedSources);
+    }
     return { images: extractedImages, videos: extractedVideos, sources: extractedSources, allText: combinedText };
   }, [message.parts, isAssistant]);
 
@@ -848,7 +908,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                         );
                                         const searchResults =
                                           googleSearchPart && 'toolInvocation' in googleSearchPart &&
-                                          (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                            (googleSearchPart.toolInvocation as any)?.result?.searchResults
                                             ? (googleSearchPart.toolInvocation as any).result.searchResults
                                             : [];
                                         if (searchResults.length > 0) {
@@ -874,30 +934,30 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                         // Fallback: extract markdown sources
                                         const markdownSources = extractSourcesFromText(allText);
                                         if (markdownSources.length > 0) {
-                                        // Helper to check if a title is valid
-                                        const isValidTitle = (title: string) => {
-                                          if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
-                                            return false;
-                                          }
-                                          return true;
-                                        };
-                                        return markdownSources.map((src, i) => (
-                                          <a
-                                            key={i}
-                                            href={src.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
-                                          >
-                                            <SourceFavicon url={src.url} title={src.title} />
-                                            <div className="flex flex-col">
-                                              <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">
-                                                {isValidTitle(src.title) ? src.title : (() => { try { return new URL(src.url).hostname; } catch { return src.url; } })()}
+                                          // Helper to check if a title is valid
+                                          const isValidTitle = (title: string) => {
+                                            if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
+                                              return false;
+                                            }
+                                            return true;
+                                          };
+                                          return markdownSources.map((src, i) => (
+                                            <a
+                                              key={i}
+                                              href={src.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                            >
+                                              <SourceFavicon url={src.url} title={src.title} />
+                                              <div className="flex flex-col">
+                                                <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                                                  {isValidTitle(src.title) ? src.title : (() => { try { return new URL(src.url).hostname; } catch { return src.url; } })()}
+                                                </div>
+                                                <WebpageTitleDisplay source={{ url: src.url }} />
                                               </div>
-                                              <WebpageTitleDisplay source={{ url: src.url }} />
-                                            </div>
-                                          </a>
-                                        ));
+                                            </a>
+                                          ));
                                         }
                                         return <div className="text-sm text-zinc-500 dark:text-zinc-400">No sources found.</div>;
                                       })()}
@@ -942,7 +1002,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                       );
                                       const searchResults =
                                         googleSearchPart && 'toolInvocation' in googleSearchPart &&
-                                        (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                          (googleSearchPart.toolInvocation as any)?.result?.searchResults
                                           ? (googleSearchPart.toolInvocation as any).result.searchResults
                                           : [];
                                       if (searchResults.length > 0) {
@@ -979,7 +1039,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                             <SourceFavicon url={src.url} title={src.title} />
                                             <div className="flex flex-col">
                                               <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
-                                              style={{marginTop: '-3px'}}>{src.title}</div>
+                                                style={{ marginTop: '-3px' }}>{src.title}</div>
                                               <WebpageTitleDisplay source={{ url: src.url }} />
                                             </div>
                                           </a>
