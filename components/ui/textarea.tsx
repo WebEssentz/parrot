@@ -179,126 +179,182 @@ export const ToolsButton = ({ onClick, disabled, hasSentMessage }: { onClick: ()
   }
 
   if (showSearchInline) {
-    // Animate in/out the inline search UI
+    // Show the dropdown menu when wrench is clicked in inline search mode
     return (
-      <motion.div
-        className="flex items-center px-0 py-0"
-        initial={{ opacity: 0, x: 16 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 16 }}
-        transition={{ duration: 0.22, ease: 'circOut' }}
-        key="inline-search-ui"
-      >
-        <button
-          type="button"
-          disabled={disabled}
-          className={cn(
-            "inline-flex items-center justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 font-medium px-2.5",
-            disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-          )}
-          style={{ fontWeight: 500, minWidth: 40, boxShadow: 'none', border: 'none', background: 'none' }}
-          aria-label="Open tools"
-          tabIndex={-1}
-          onClick={() => {
-            setShowSearchInline(false);
-          }}
-        >
-          <Wrench className="h-[18px] w-[18px] text-zinc-400" />
-        </button>
-        <VerticalSeparator />
+      <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
         <motion.div
-          className="flex items-center"
+          className="flex items-center px-0 py-0"
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 16 }}
           transition={{ duration: 0.22, ease: 'circOut' }}
         >
-          <InlineSearchButton
-            isSearchEnabled={inlineSearchEnabled}
-            setIsSearchEnabled={(enabled) => {
-              // Only allow closing (enabled === false)
-              if (!enabled) {
-                setShowSearchInline(false);
-              }
-            }}
-            disabled={disabled}
-          />
-        </motion.div>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div
-      key="tools-ui"
-      initial={{ opacity: 0, x: 16 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 16 }}
-      transition={{ duration: 0.22, ease: 'circOut' }}
-    >
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            disabled={disabled}
-            className={cn(
-              "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-transparent font-medium px-2.5",
-              "hover:bg-zinc-100 dark:hover:bg-zinc-700/70",
-              disabled ? "opacity-50 cursor-not-allowed" : ""
-            )}
-            style={{ fontWeight: 500, minWidth: 40 }}
-            aria-label="Open tools"
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              disabled={disabled}
+              className={cn(
+                "inline-flex items-center justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 font-medium px-2.5",
+                disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+              )}
+              style={{ fontWeight: 500, minWidth: 40, boxShadow: 'none', border: 'none', background: 'none' }}
+              aria-label="Open tools"
+              tabIndex={-1}
+              onClick={() => {
+                setDropdownOpen(true);
+              }}
+            >
+              <Wrench className="h-[18px] w-[18px] text-zinc-400" />
+            </button>
+          </DropdownMenuTrigger>
+          <VerticalSeparator />
+          <motion.div
+            className="flex items-center"
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 16 }}
+            transition={{ duration: 0.22, ease: 'circOut' }}
           >
-            <Wrench className="h-[18px] w-[18px] text-zinc-400" />
-            <span className="ml-1.5 font-medium text-sm">Tools</span>
-          </button>
-        </DropdownMenuTrigger>
+            <InlineSearchButton
+              isSearchEnabled={inlineSearchEnabled}
+              setIsSearchEnabled={(enabled) => {
+                // Only allow closing (enabled === false)
+                if (!enabled) {
+                  setShowSearchInline(false);
+                }
+              }}
+              disabled={disabled}
+            />
+          </motion.div>
+        </motion.div>
         <DropdownMenuContent
           align="start"
-          side={hasSentMessage ? "top" : "bottom"}
+          side={typeof hasSentMessage !== 'undefined' && hasSentMessage ? "top" : "bottom"}
           className={cn(
-            "min-w-[260px] max-w-[320px] p-2",
-            "rounded-2xl",
-            "transition-all duration-200",
-            "bg-white/80 dark:bg-zinc-800"
-          )}
-          style={{
-            ...(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? { boxShadow: 'none', backdropFilter: 'none', border: 'none', borderRadius: 20 }
-              : { boxShadow: '0 8px 32px 0 rgba(31,38,135,0.18)', backdropFilter: 'blur(8px)', border: 'none', borderRadius: 20 }
-            )
-          }}
+    "min-w-[260px] max-w-[320px] p-2",
+    "rounded-2xl",
+    "transition-all duration-200",
+    "bg-white/80 dark:bg-zinc-800"
+  )}
+  style={{
+    ...(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? { background: '#212121e8', boxShadow: 'none', backdropFilter: 'none', border: 'none', borderRadius: 20 }
+      : { boxShadow: '0 8px 32px 0 rgba(31,38,135,0.18)', backdropFilter: 'blur(8px)', border: 'none', borderRadius: 20 }
+    )
+  }}
         >
-          <div className="px-3 pt-1 pb-2 text-sm font-semibold text-zinc-500 dark:text-zinc-300 select-none tracking-wider">Tools</div>
+          <div className="px-3 pt-1 pb-2 text-sm font-semibold text-zinc-500 dark:text-zinc-300 select-none uppercase tracking-wider">Tools</div>
           <button
             type="button"
             className={cn(
-              "flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer",
-              "font-medium"
+              "flex items-center w-full px-3 py-2 text-sm rounded-xl transition-colors cursor-pointer font-medium",
+              selectedTool === 'search'
+                ? "text-[#1e93ff] dark:text-[#46a5e7]"
+                : "text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
             )}
             tabIndex={-1}
             onClick={() => {
               setShowSearchInline(true);
+              setDropdownOpen(false);
+              setSelectedTool('search');
             }}
           >
             <WebSearchIcon isToggled={showSearchInline} />
-            <span className="ml-2">Search the web</span>
+            <span className={cn("ml-2", selectedTool === 'search' && "text-[#1e93ff] dark:text-[#46a5e7]")}>Search the web</span>
+            {selectedTool === 'search' && (
+              <span className="ml-auto flex items-center">
+                <CheckIcon className="text-[#1e93ff] dark:text-[#46a5e7]" />
+              </span>
+            )}
           </button>
           <button
             type="button"
             className={cn(
-              "flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer",
-              "font-medium mt-1"
+              "flex items-center w-full px-3 py-2 text-sm rounded-xl transition-colors cursor-pointer font-medium mt-1",
+              "text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
             )}
             tabIndex={-1}
-            // onClick: not implemented yet
+            onClick={() => {
+              setSelectedTool('reason');
+            }}
           >
             <ReasonBulbIcon />
             <span className="ml-2">Reason before response</span>
+            {selectedTool === 'reason' && (
+              <span className="ml-auto flex items-center">
+                <CheckIcon className="text-[#1e93ff] dark:text-[#46a5e7]" />
+              </span>
+            )}
           </button>
         </DropdownMenuContent>
       </DropdownMenu>
-    </motion.div>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={cn(
+            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-transparent font-medium px-2.5",
+            "hover:bg-zinc-100 dark:hover:bg-zinc-700/70",
+            disabled ? "opacity-50 cursor-not-allowed" : ""
+          )}
+          style={{ fontWeight: 500, minWidth: 40 }}
+          aria-label="Open tools"
+        >
+          <Wrench className="h-[18px] w-[18px] text-zinc-400" />
+          <span className="ml-1.5 font-medium text-sm">Tools</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        side={hasSentMessage ? "top" : "bottom"}
+        className={cn(
+          "min-w-[260px] max-w-[320px] p-2",
+          "rounded-2xl",
+          "transition-all duration-200"
+          // Removed bg utility classes to avoid override
+        )}
+        style={{
+          background: '#212121e8',
+          ...(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? { boxShadow: 'none', backdropFilter: 'none', border: 'none', borderRadius: 20 }
+            : { boxShadow: '0 8px 32px 0 rgba(31,38,135,0.18)', backdropFilter: 'blur(8px)', border: 'none', borderRadius: 20 }
+          )
+        }}
+      >
+        <div className="px-3 pt-1 pb-2 text-sm font-semibold text-zinc-500 dark:text-zinc-300 select-none uppercase tracking-wider">Tools</div>
+        <button
+          type="button"
+          className={cn(
+            "flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer",
+            "font-medium"
+          )}
+          tabIndex={-1}
+          onClick={() => {
+            setShowSearchInline(true);
+          }}
+        >
+          <WebSearchIcon isToggled={showSearchInline} />
+          <span className="ml-2">Search the web</span>
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "flex items-center w-full px-3 py-2 text-sm text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition-colors cursor-pointer",
+            "font-medium mt-1"
+          )}
+          tabIndex={-1}
+          // onClick: not implemented yet
+        >
+          <ReasonBulbIcon />
+          <span className="ml-2">Reason before response</span>
+        </button>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

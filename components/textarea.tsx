@@ -54,7 +54,7 @@ export const Textarea = ({
   const [isPaletteOpen, setIsPaletteOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLTextAreaElement>(null); // NEW: Ref for the textarea
 
-  const REASON_MODEL_ID = "qwen-qwq-32b"; // Example
+  const REASON_MODEL_ID = "gemini-2.5-flash-preview-05-20"; // Example
   // Remove suggested prompts for signed-in users
   const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
 
