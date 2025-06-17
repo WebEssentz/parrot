@@ -2,10 +2,10 @@ import { smoothStream, streamText, UIMessage } from "ai";
 import { SEARCH_MODE } from "@/components/ui/textarea";
 import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
-import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
+import { weatherTool, fetchUrlTool, exaSearchTool } from "@/ai/tools";
 
 export const maxDuration = 60;
-const REASON_MODEL_ID = "qwen-qwq-32b";
+const REASON_MODEL_ID = "gemini-2.5-flash-preview-05-20";
 
 // Define suggested prompts highlighting Avurna capabilities
 const AVURNA_SUGGESTED_PROMPTS = [
@@ -428,7 +428,7 @@ export async function POST(req: Request) {
         return result.result;
       },
     },
-    googleSearch: googleSearchTool,
+    googleSearch: exaSearchTool,
   };
 
   const result = streamText({
@@ -440,6 +440,17 @@ export async function POST(req: Request) {
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
     ...(forceInitialGoogleSearch && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
+    ...(selectedModel === REASON_MODEL_ID && { // Apply thinkingConfig ONLY when REASON_MODEL_ID is selected
+        providerOptions: {
+            google: {
+                thinkingConfig: {
+                    thinkingBudget: 24576, // Adjust as needed
+                    includeThoughts: true,
+                },
+            },
+        },
+      }
+    ),
   });
 
   return result.toDataStreamResponse({

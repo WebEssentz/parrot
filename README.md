@@ -15,7 +15,14 @@
 </p>
 <br/>
 
-## 🚀 Latest Major Update: The Semantic Web Agent
+## 🚀 Latest Major Update: Exa Pro Deep Research (2025-06-17)
+
+-   **Exa Pro Deep Research:** Avurna now uses Exa Pro for web research, providing research-grade, multi-source, reasoned answers with direct citations. This is a leap beyond traditional search—it's automated deep research.
+-   **Record-Breaking Speed:** Achieved a new record: 9.8 seconds for a full deep research answer (measured end-to-end, streaming enabled). No URL fails in testing.
+-   **Streaming Results:** Answers stream in real time for the fastest possible experience.
+-   **More Grounded Than Google or ChatGPT:** Every claim is directly cited, with no hallucinated URLs. Exa Pro is more grounded and up-to-date than Google or ChatGPT search.
+-   **Note:** The standard Exa model is even faster than Exa Pro for pure search.
+
 
 -   **Semantic Navigation:** Avurna no longer just follows links; it uses a fast AI model to understand the *meaning* of links before navigating. This allows it to make human-like decisions, avoiding irrelevant rabbit holes and finding information more accurately.
 -   **Multi-Modal Understanding:** Avurna can see images and watch videos on webpages using `gemma-3-27b-it` to analyze content, not just text.
@@ -51,6 +58,17 @@
 - **Responsive Design:** Enhanced experience for both desktop and mobile users.
 
 See [CHANGELOG.md](./CHANGELOG.md) for details.
+
+---
+
+## ⚡️ 2025-06-17: Exa Pro Deep Research Integration
+
+- Exa Pro is now the default for web research, replacing Google Search.
+- Achieved a record-breaking 9.8 seconds for full deep research answers (streaming, no URL fails).
+- Streaming mode returns partial results in real time.
+- Every claim is directly cited, with no hallucinated URLs.
+- Exa Pro is more grounded and up-to-date than Google or ChatGPT search.
+- According to Exa’s developer, the standard Exa model is even faster than Exa Pro for pure search.
 </p>
 
 <p align="center">

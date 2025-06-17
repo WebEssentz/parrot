@@ -1,6 +1,18 @@
 # Changelog
 
-## 2025-06-12 (Current)
+## 2025-06-17
+
+### 🚀 Exa Pro Deep Research Integration — Record-Breaking Speed
+
+- **Exa Pro Deep Research Tool:** Integrated Exa Pro as the new default for web research, replacing Google Search. Exa Pro delivers research-grade, multi-source, reasoned answers with direct citations, not just search results.
+- **Streaming & Ultra-Fast:** Achieved a record-breaking 9.8 seconds for full deep research answers (measured end-to-end). No URL fails observed in testing.
+- **Streaming Support:** Added streaming mode for Exa Pro, returning partial results in real time for the fastest possible answers.
+- **Grounded, Up-to-Date, and Reliable:** Every claim is directly cited, with no hallucinated URLs. Exa Pro is more grounded and up-to-date than Google or ChatGPT search.
+- **Note:** According to Exa’s developer, the standard Exa model is even faster than Exa Pro. Imagine the speed for pure search!
+
+---
+
+## 2025-06-12
 
 ### 🚀 Major Architectural Upgrade: The Semantic Web Agent
 

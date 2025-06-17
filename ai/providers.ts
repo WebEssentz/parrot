@@ -16,12 +16,12 @@ const languageModels = {
     "gemini-2.0-flash-lite",
   ),
   "llama-3.1-8b-instant": groq("llama-3.1-8b-instant"),
-  "qwen-qwq-32b": wrapLanguageModel({
-    middleware: extractReasoningMiddleware({
-      tagName: "think",
-    }),
-    model: groq("qwen-qwq-32b"),
-  }),
+  // "qwen-qwq-32b": wrapLanguageModel({
+  //   middleware: extractReasoningMiddleware({
+  //     tagName: "think",
+  //   }),
+  //   model: groq("qwen-qwq-32b"),
+  // }),
   "llama-3.3-70b-versatile": groq("llama-3.3-70b-versatile"),
 };
 

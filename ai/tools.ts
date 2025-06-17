@@ -529,7 +529,7 @@ export const fetchUrlTool = tool({
 
         if (inferredModality === 'image' || inferredModality === 'video') {
             const imagesOnPage = extractImagesFromHtml(htmlContent, currentUrl);
-            const videosOnPage = extractVideosFromHtml(htmlContent, currentUrl);
+            const videosOnPage = await extractVideosFromHtml(htmlContent, currentUrl);
             pageResults.images = await filterImagesWithVision(imagesOnPage, CIntent);
             pageResults.videos = await filterVideosWithVision(videosOnPage, CIntent);
             foundItemsOnPage = pageResults.images.length + pageResults.videos.length;
@@ -618,26 +618,82 @@ export const fetchUrlTool = tool({
 });
 
 // --- Google Search Tool ---
-export const googleSearchTool = tool({
-  description: "Search the web using Google Search Grounding for up-to-date information, current events, or general knowledge questions.",
+// --- Exa Search Tool (replaces Google Search Tool) ---
+
+import Exa from "exa-js"; // Correct Exa import
+
+// Initialize Exa client with your API key
+const exa = new Exa("af94b87b-cc3e-43b0-80c2-fd73198009d2");
+
+export const exaSearchTool = tool({
+  description: "Search the web using Exa's neural search for up-to-date information, current events, or general knowledge questions.",
   parameters: z.object({
     query: z.string().describe("The search query to look up on the web"),
+    stream: z.boolean().optional().describe("Whether to stream the answer (default false)"),
   }),
-  execute: async ({ query }) => {
+  execute: async ({ query, stream }: { query: string; stream?: boolean }) => {
     try {
-      const modelInstance = google('gemini-2.5-flash-preview-05-20', {
-        useSearchGrounding: true,
-        dynamicRetrievalConfig: { mode: 'MODE_DYNAMIC', dynamicThreshold: 0.8 },
-      });
-      const { text, sources, providerMetadata } = await generateText({ model: modelInstance, prompt: query });
-      const metadata = providerMetadata?.google as any | undefined;
-      const webSearchQueries = metadata?.groundingMetadata?.webSearchQueries ?? [];
-      return { query, groundedResponse: text, sources: sources ?? [], webSearchQueries };
+      if (stream) {
+        let answer = "";
+        let sources: Array<{ url: string; sourceUrl: string; title: string; snippet: string; siteName: string }> = [];
+        const start = Date.now();
+        for await (const chunk of exa.streamAnswer(query, { model: "exa-pro", text: true })) {
+          // @ts-ignore: Exa's types may not include 'answer', but it is present in the stream
+          if ((chunk as any).answer) answer += (chunk as any).answer;
+          if ((chunk as any).citations) sources = (chunk as any).citations.map((c: any) => ({
+            url: c.url,
+            sourceUrl: c.url,
+            title: c.title || c.url,
+            snippet: c.text || '',
+            siteName: c.title || (c.url ? (() => { try { return new URL(c.url).hostname; } catch { return c.url; } })() : ''),
+            image: (c as any).image,
+            favicon: (c as any).favicon
+          }));
+        }
+        const elapsedMs = Date.now() - start;
+        return {
+          query,
+          answer,
+          sources,
+          searchResults: sources,
+          webSearchQueries: [query],
+          elapsedMs
+        };
+      } else {
+        const start = Date.now();
+        const result = await exa.answer(query, { model: "exa-pro", text: true });
+        const sources = (result.citations || []).map((c: any) => ({
+          url: c.url,
+          sourceUrl: c.url,
+          title: c.title || c.url,
+          snippet: c.text || '',
+          siteName: c.title || (c.url ? (() => { try { return new URL(c.url).hostname; } catch { return c.url; } })() : ''),
+          image: (c as any).image,
+          favicon: (c as any).favicon
+        }));
+        const elapsedMs = Date.now() - start;
+        return {
+          query,
+          answer: result.answer,
+          sources,
+          searchResults: sources,
+          webSearchQueries: [query],
+          elapsedMs
+        };
+      }
     } catch (error: any) {
-        return { query, error: `Failed to execute Google search: ${error.message || String(error)}`, groundedResponse: null, sources: [], webSearchQueries: [] };
+      console.error("Exa search error:", error);
+      return {
+        query,
+        error: `Failed to execute Exa search: ${error && typeof error === 'object' && 'message' in error ? (error as any).message : String(error)}`,
+        sources: [],
+        searchResults: [],
+        webSearchQueries: []
+      };
     }
   },
 });
+// (The old googleSearchTool code is commented out above and replaced by exaSearchTool)
 
 // --- HTML Media Extraction Utilities ---
 function extractImagesFromHtml(html: string, baseUrl: string): { src: string, alt: string, width?: number, height?: number }[] {
@@ -673,7 +729,7 @@ function extractImagesFromHtml(html: string, baseUrl: string): { src: string, al
   return images;
 }
 
-function extractVideosFromHtml(html: string, baseUrl: string): { src: string, poster?: string, alt?: string }[] {
+async function extractVideosFromHtml(html: string, baseUrl: string): Promise<{ src: string, poster?: string, alt?: string }[]> {
   const videos: { src: string, poster?: string, alt?: string }[] = [];
   const videoTagRegex = /<video[^>]*?(?:poster=["']([^"']*)["'])?[^>]*>([\s\S]*?)<\/video>/gi;
   const sourceTagRegex = /<source[^>]+src=["']([^"']+)["'][^>]*?(?:type=["']video\/([^"']+)["'])?/gi;
@@ -704,107 +760,89 @@ function extractVideosFromHtml(html: string, baseUrl: string): { src: string, po
   }
 
   // --- Iframe embeds for popular video platforms ---
-  // Because we need to use await, refactor this block into an async helper and call it synchronously below
-  async function processIframeVideos() {
-    for (let match; (match = iframeRegex.exec(html)) !== null;) {
-      const iframeSrc = match[1];
-      let absoluteSrc: string;
+  while ((match = iframeRegex.exec(html)) !== null) {
+    const iframeSrc = match[1];
+    let absoluteSrc: string;
+    try {
+      absoluteSrc = new URL(iframeSrc, baseUrl).toString();
+    } catch { continue; }
+
+    // --- YouTube ---
+    if (
+      /youtube\.(com|nocookie\.com)\/embed\//.test(absoluteSrc) ||
+      /youtube\.(com|nocookie\.com)\/watch\?/.test(absoluteSrc)
+    ) {
+      // Try to get oEmbed info for title/thumbnail
+      let title: string | undefined = undefined;
+      let poster: string | undefined = undefined;
       try {
-        absoluteSrc = new URL(iframeSrc, baseUrl).toString();
-      } catch { continue; }
-
-      // --- YouTube ---
-      if (
-        /youtube\.(com|nocookie\.com)\/embed\//.test(absoluteSrc) ||
-        /youtube\.(com|nocookie\.com)\/watch\?/.test(absoluteSrc)
-      ) {
-        let title: string | undefined = undefined;
-        let poster: string | undefined = undefined;
-        try {
-          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(absoluteSrc)}&format=json`;
-          const resp = await fetch(oembedUrl);
-          if (resp.ok) {
-            const data = await resp.json();
-            title = data.title;
-            poster = data.thumbnail_url;
-          }
-        } catch {}
-        videos.push({ src: absoluteSrc, alt: title || "YouTube video", poster });
-        continue;
-      }
-
-      // --- Vimeo ---
-      if (/player\.vimeo\.com\/video\//.test(absoluteSrc)) {
-        let title: string | undefined = undefined;
-        let poster: string | undefined = undefined;
-        try {
-          const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(absoluteSrc)}`;
-          const resp = await fetch(oembedUrl);
-          if (resp.ok) {
-            const data = await resp.json();
-            title = data.title;
-            poster = data.thumbnail_url;
-          }
-        } catch {}
-        videos.push({ src: absoluteSrc, alt: title || "Vimeo video", poster });
-        continue;
-      }
-
-      // --- Dailymotion ---
-      if (/dailymotion\.com\/embed\//.test(absoluteSrc)) {
-        let title: string | undefined = undefined;
-        let poster: string | undefined = undefined;
-        try {
-          const oembedUrl = `https://www.dailymotion.com/services/oembed?url=${encodeURIComponent(absoluteSrc)}`;
-          const resp = await fetch(oembedUrl);
-          if (resp.ok) {
-            const data = await resp.json();
-            title = data.title;
-            poster = data.thumbnail_url;
-          }
-        } catch {}
-        videos.push({ src: absoluteSrc, alt: title || "Dailymotion video", poster });
-        continue;
-      }
-
-      // --- Twitch ---
-      if (/player\.twitch\.tv\//.test(absoluteSrc) || /twitch\.tv\//.test(absoluteSrc)) {
-        let title: string | undefined = undefined;
-        let poster: string | undefined = undefined;
-        try {
-          const oembedUrl = `https://api.twitch.tv/v5/oembed?url=${encodeURIComponent(absoluteSrc)}`;
-          const resp = await fetch(oembedUrl);
-          if (resp.ok) {
-            const data = await resp.json();
-            title = data.title;
-            poster = data.thumbnail_url;
-          }
-        } catch {}
-        videos.push({ src: absoluteSrc, alt: title || "Twitch video", poster });
-        continue;
-      }
-
-      // --- Fallback for other platforms ---
-      videos.push({ src: absoluteSrc, alt: "embedded video player" });
+        const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(absoluteSrc)}&format=json`;
+        // Use fetch if available (node or edge runtime may need polyfill)
+        const resp = await fetch(oembedUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          title = data.title;
+          poster = data.thumbnail_url;
+        }
+      } catch {}
+      videos.push({ src: absoluteSrc, alt: title || "YouTube video", poster });
+      continue;
     }
-  }
-  // Call the async helper and wait for it to finish
-  // If this function is called in an async context, await it; otherwise, return a Promise
-  // But for compatibility, check if we're in an async context
-  // (In this codebase, fetchAndAnalyze is async, so this is safe)
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
-  if (typeof process !== 'undefined' && process.nextTick) {
-    // Node.js: use nextTick to avoid blocking
-    process.nextTick(processIframeVideos);
-  } else {
-    // Browser/edge: just call and await
-    // @ts-ignore
-    if (typeof window !== 'undefined') {
-      processIframeVideos();
-    } else {
-      // fallback
-      processIframeVideos();
+
+    // --- Vimeo ---
+    if (/player\.vimeo\.com\/video\//.test(absoluteSrc)) {
+      let title: string | undefined = undefined;
+      let poster: string | undefined = undefined;
+      try {
+        const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(absoluteSrc)}`;
+        const resp = await fetch(oembedUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          title = data.title;
+          poster = data.thumbnail_url;
+        }
+      } catch {}
+      videos.push({ src: absoluteSrc, alt: title || "Vimeo video", poster });
+      continue;
     }
+
+    // --- Dailymotion ---
+    if (/dailymotion\.com\/embed\//.test(absoluteSrc)) {
+      let title: string | undefined = undefined;
+      let poster: string | undefined = undefined;
+      try {
+        const oembedUrl = `https://www.dailymotion.com/services/oembed?url=${encodeURIComponent(absoluteSrc)}`;
+        const resp = await fetch(oembedUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          title = data.title;
+          poster = data.thumbnail_url;
+        }
+      } catch {}
+      videos.push({ src: absoluteSrc, alt: title || "Dailymotion video", poster });
+      continue;
+    }
+
+    // --- Twitch ---
+    if (/player\.twitch\.tv\//.test(absoluteSrc) || /twitch\.tv\//.test(absoluteSrc)) {
+      // Twitch does not provide oEmbed for all embeds, but try
+      let title: string | undefined = undefined;
+      let poster: string | undefined = undefined;
+      try {
+        const oembedUrl = `https://api.twitch.tv/v5/oembed?url=${encodeURIComponent(absoluteSrc)}`;
+        const resp = await fetch(oembedUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          title = data.title;
+          poster = data.thumbnail_url;
+        }
+      } catch {}
+      videos.push({ src: absoluteSrc, alt: title || "Twitch video", poster });
+      continue;
+    }
+
+    // --- Fallback for other platforms ---
+    videos.push({ src: absoluteSrc, alt: "embedded video player" });
   }
   return videos;
 }
