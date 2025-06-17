@@ -16,6 +16,11 @@ async function extractKeyDescription(url: string): Promise<string> {
       } else {
         base = 'http://localhost:3000';
       }
+      // Prevent infinite loop: do not allow requests to this API itself
+      if (url.startsWith(base + '/api/resolve-redirect')) {
+        console.warn('[extractKeyDescription] Recursive call detected:', url);
+        return '';
+      }
       const res = await fetch(`${base}/api/resolve-redirect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

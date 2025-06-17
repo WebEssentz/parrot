@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useMobile } from "../hooks/use-mobile";
-import { defaultModel } from "@/ai/providers";
+import { defaultModel, getDefaultModel } from "@/ai/providers";
 import { SEARCH_MODE } from "@/components/ui/textarea";
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -102,21 +102,24 @@ function useReconnectToClerk() {
 export default function UserChat() {
   const offlineState = useReconnectToClerk();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
+  const { user, isLoaded, isSignedIn } = useUser();
+  const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModel(!!isSignedIn));
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
   const inputAreaRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState<undefined | boolean>(undefined);
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
 
-  // --- Clerk user info for debugging ---
-  const { user, isLoaded } = useUser();
-
   // --- Compose user info for backend ---
   const userInfo = isLoaded && user ? {
     firstName: user.firstName || user.username || '',
     email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || '',
   } : undefined;
+
+  // Update selectedModel if sign-in state changes
+  useEffect(() => {
+    setSelectedModel(getDefaultModel(!!isSignedIn));
+  }, [isSignedIn]);
 
   const {
     messages,
@@ -132,12 +135,12 @@ export default function UserChat() {
     body: { selectedModel, user: userInfo },
     initialMessages: [],
     onFinish: () => {
-      setSelectedModel(defaultModel);
+      setSelectedModel(getDefaultModel(!!isSignedIn));
       setIsSubmittingSearch(false);
     },
     onError: (error) => {
       toast.error(error.message || "An error occurred.", { position: "top-center", richColors: true });
-      setSelectedModel(defaultModel);
+      setSelectedModel(getDefaultModel(!!isSignedIn));
       setIsSubmittingSearch(false);
     },
   });

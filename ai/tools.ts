@@ -425,20 +425,102 @@ export const fetchUrlTool = tool({
         localSteps.push(`Fetching L${recursionDepth - currentDepth}: ${currentUrl}`);
 
         let htmlContent = "";
+        let contentType = "";
+        let res: Response | undefined = undefined;
         try {
             const headers: Record<string, string> = { 'User-Agent': 'Mozilla/5.0 (compatible; AvurnaBot/1.0)' };
             if (pageReferer) headers['Referer'] = pageReferer;
-            const res = await fetch(currentUrl, { method: 'GET', headers, signal: AbortSignal.timeout(15000) });
+            res = await fetch(currentUrl, { method: 'GET', headers, signal: AbortSignal.timeout(15000) });
             if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-            const contentType = res.headers.get('content-type') || '';
-            if (!contentType.includes('text/html')) throw new Error(`Unsupported content type: ${contentType}`);
-            htmlContent = await res.text();
-            localSteps.push('Processing HTML content.');
+            contentType = res.headers.get('content-type') || '';
         } catch (fetchError: any) {
             localSteps.push(`Error fetching ${currentUrl}: ${fetchError.message}`);
             console.error(`[fetchAndAnalyze] Fetch error for ${currentUrl}:`, fetchError);
             return { error: `Fetch error: ${fetchError.message}`, url: currentUrl, steps: localSteps };
         }
+
+        // --- Content-Type Handling (non-destructive, before HTML logic) ---
+        if (contentType.startsWith('image/')) {
+            localSteps.push('Detected image file. Previewing and initiating AI analysis.');
+            const imageType = contentType.split('/')[1] || 'image';
+            let imageName = 'image';
+            try { imageName = new URL(currentUrl).pathname.split('/').pop() || 'image'; } catch {}
+            const markdownPreview = `![Preview of ${imageName}](${currentUrl})`;
+            let analysis = "Image analysis could not be performed at this time.";
+            let analysisError = null;
+            let visionResult = null;
+            try {
+                localSteps.push('Sending image to Gemini for analysis.');
+                const geminiModel = google('gemini-2.0-flash');
+                const analysisResult = await generateText({
+                    model: geminiModel,
+                    messages: [
+                        { role: 'user', content: [
+                            { type: 'text', text: 'Describe this image in detail. What is depicted (objects, beings, scene)? What are the key visual elements (colors, composition, style)? If there are actions or a story, briefly describe it. Provide a comprehensive and objective description.' },
+                            { type: 'image', image: new URL(currentUrl) },
+                        ] },
+                    ],
+                });
+                analysis = analysisResult.text;
+                localSteps.push('Image analysis received from Gemini.');
+                // Try to get a vision result in the same format as filterImagesWithVision
+                visionResult = {
+                    src: currentUrl,
+                    alt: analysis,
+                    confidence: 1.0,
+                    isRelevant: true,
+                    description: analysis,
+                };
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                localSteps.push(`Error during Gemini image analysis: ${msg}`);
+                analysisError = `AI analysis failed: ${msg}`;
+                analysis = `AI-powered analysis of the image failed. Details: ${msg}`;
+                visionResult = {
+                    src: currentUrl,
+                    alt: 'Image',
+                    confidence: 0.8,
+                    isRelevant: true,
+                    description: analysis,
+                };
+            }
+            // Always return an images array for direct image URLs
+            return {
+                type: 'image_analyzed',
+                url: currentUrl,
+                images: visionResult ? [visionResult] : [],
+                markdown: markdownPreview,
+                analysis,
+                description: `The URL points to an image (${imageType.toUpperCase()}). Markdown Preview: ${markdownPreview}. AI-generated analysis: ${analysis}`,
+                ...(analysisError && { analysisErrorDetail: analysisError }),
+                steps: localSteps,
+                elapsed: Date.now() - overallStartTime,
+            };
+        } else if (contentType.includes('application/pdf')) {
+            localSteps.push('Detected PDF document.');
+            return { type: 'document', url: currentUrl, description: 'PDF document. Content analysis and table extraction are not supported by this tool for PDFs.', steps: localSteps, elapsed: Date.now() - overallStartTime };
+        } else if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('application/xml')) {
+            localSteps.push('Detected non-HTML, non-image, non-PDF file. Attempting to extract plain text preview.');
+            let textPreview = "Content is not plain text or could not be previewed.";
+            if (contentType.startsWith('text/')) {
+                try {
+                    if (res) {
+                        const text = await res.text();
+                        textPreview = text.slice(0, 500) + (text.length > 500 ? '...' : '');
+                    }
+                } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); localSteps.push(`Error reading text content: ${msg}`); textPreview = "Error reading text content."; }
+            }
+            return { type: 'file', url: currentUrl, preview: textPreview, contentType, description: `File (${contentType}). Preview: ${textPreview}`, steps: localSteps, elapsed: Date.now() - overallStartTime };
+        }
+
+        // --- HTML Content Handling (as before) ---
+        try {
+            htmlContent = await res.text();
+        } catch (e) {
+            localSteps.push('Error reading HTML content.');
+            return { error: 'Error reading HTML content', url: currentUrl, steps: localSteps };
+        }
+        localSteps.push('Processing HTML content.');
 
         let pageResults: { images: any[], videos: any[], textContent?: string } = { images: [], videos: [] };
         let isGoodEnoughFound = false;
@@ -597,6 +679,7 @@ function extractVideosFromHtml(html: string, baseUrl: string): { src: string, po
   const sourceTagRegex = /<source[^>]+src=["']([^"']+)["'][^>]*?(?:type=["']video\/([^"']+)["'])?/gi;
   const iframeRegex = /<iframe[^>]+src=["']([^"']+)["'][^>]*><\/iframe>/gi;
   let match;
+  // --- HTML5 <video> tags ---
   while ((match = videoTagRegex.exec(html)) !== null) {
     const poster = match[1];
     const videoInnerHtml = match[2];
@@ -619,13 +702,108 @@ function extractVideosFromHtml(html: string, baseUrl: string): { src: string, po
       } catch { /* Invalid URL */ }
     }
   }
-  while ((match = iframeRegex.exec(html)) !== null) {
-    const iframeSrc = match[1];
-    if (iframeSrc.includes('youtube.com/embed/') || iframeSrc.includes('player.vimeo.com/video/')) {
+
+  // --- Iframe embeds for popular video platforms ---
+  // Because we need to use await, refactor this block into an async helper and call it synchronously below
+  async function processIframeVideos() {
+    for (let match; (match = iframeRegex.exec(html)) !== null;) {
+      const iframeSrc = match[1];
+      let absoluteSrc: string;
       try {
-        const absoluteSrc = new URL(iframeSrc, baseUrl).toString();
-        videos.push({ src: absoluteSrc, alt: "embedded video player" });
-      } catch { /* Invalid URL */ }
+        absoluteSrc = new URL(iframeSrc, baseUrl).toString();
+      } catch { continue; }
+
+      // --- YouTube ---
+      if (
+        /youtube\.(com|nocookie\.com)\/embed\//.test(absoluteSrc) ||
+        /youtube\.(com|nocookie\.com)\/watch\?/.test(absoluteSrc)
+      ) {
+        let title: string | undefined = undefined;
+        let poster: string | undefined = undefined;
+        try {
+          const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(absoluteSrc)}&format=json`;
+          const resp = await fetch(oembedUrl);
+          if (resp.ok) {
+            const data = await resp.json();
+            title = data.title;
+            poster = data.thumbnail_url;
+          }
+        } catch {}
+        videos.push({ src: absoluteSrc, alt: title || "YouTube video", poster });
+        continue;
+      }
+
+      // --- Vimeo ---
+      if (/player\.vimeo\.com\/video\//.test(absoluteSrc)) {
+        let title: string | undefined = undefined;
+        let poster: string | undefined = undefined;
+        try {
+          const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(absoluteSrc)}`;
+          const resp = await fetch(oembedUrl);
+          if (resp.ok) {
+            const data = await resp.json();
+            title = data.title;
+            poster = data.thumbnail_url;
+          }
+        } catch {}
+        videos.push({ src: absoluteSrc, alt: title || "Vimeo video", poster });
+        continue;
+      }
+
+      // --- Dailymotion ---
+      if (/dailymotion\.com\/embed\//.test(absoluteSrc)) {
+        let title: string | undefined = undefined;
+        let poster: string | undefined = undefined;
+        try {
+          const oembedUrl = `https://www.dailymotion.com/services/oembed?url=${encodeURIComponent(absoluteSrc)}`;
+          const resp = await fetch(oembedUrl);
+          if (resp.ok) {
+            const data = await resp.json();
+            title = data.title;
+            poster = data.thumbnail_url;
+          }
+        } catch {}
+        videos.push({ src: absoluteSrc, alt: title || "Dailymotion video", poster });
+        continue;
+      }
+
+      // --- Twitch ---
+      if (/player\.twitch\.tv\//.test(absoluteSrc) || /twitch\.tv\//.test(absoluteSrc)) {
+        let title: string | undefined = undefined;
+        let poster: string | undefined = undefined;
+        try {
+          const oembedUrl = `https://api.twitch.tv/v5/oembed?url=${encodeURIComponent(absoluteSrc)}`;
+          const resp = await fetch(oembedUrl);
+          if (resp.ok) {
+            const data = await resp.json();
+            title = data.title;
+            poster = data.thumbnail_url;
+          }
+        } catch {}
+        videos.push({ src: absoluteSrc, alt: title || "Twitch video", poster });
+        continue;
+      }
+
+      // --- Fallback for other platforms ---
+      videos.push({ src: absoluteSrc, alt: "embedded video player" });
+    }
+  }
+  // Call the async helper and wait for it to finish
+  // If this function is called in an async context, await it; otherwise, return a Promise
+  // But for compatibility, check if we're in an async context
+  // (In this codebase, fetchAndAnalyze is async, so this is safe)
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  if (typeof process !== 'undefined' && process.nextTick) {
+    // Node.js: use nextTick to avoid blocking
+    process.nextTick(processIframeVideos);
+  } else {
+    // Browser/edge: just call and await
+    // @ts-ignore
+    if (typeof window !== 'undefined') {
+      processIframeVideos();
+    } else {
+      // fallback
+      processIframeVideos();
     }
   }
   return videos;

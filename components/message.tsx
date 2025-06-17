@@ -163,12 +163,12 @@ function WebpageTitleDisplay({ source }: { source?: { title?: string; url: strin
         return;
       }
       // Fallback to in-memory cache
-      if (!cancelled && descriptionCache[source.url]) {
+      if (!cancelled && Object.prototype.hasOwnProperty.call(descriptionCache, source.url)) {
         setDescription(descriptionCache[source.url]);
         setHasFetched(true);
         return;
       }
-      // Otherwise, fetch from API
+      // Otherwise, mark as not fetched so fetch effect can run
       if (!cancelled) {
         setHasFetched(false);
       }
@@ -180,16 +180,22 @@ function WebpageTitleDisplay({ source }: { source?: { title?: string; url: strin
   useEffect(() => {
     let cancelled = false;
     if (!source?.url || hasFetched) return;
+    // If already in cache (even if empty string), do not fetch
+    if (Object.prototype.hasOwnProperty.call(descriptionCache, source.url)) {
+      setDescription(descriptionCache[source.url]);
+      setHasFetched(true);
+      return;
+    }
     (async () => {
       const desc = await fetchWebpageDescription(source.url);
-      if (!cancelled && desc) {
+      if (!cancelled) {
         setDescription(desc);
         descriptionCache[source.url] = desc;
         // If offline, store in IDB
-        if (isOffline) {
+        if (isOffline && desc) {
           await saveDescriptionToIDB(source.url, desc);
         }
-        setHasFetched(true);
+        setHasFetched(true); // Always set to true, even if desc is empty, to prevent infinite fetches
       }
     })();
     return () => { cancelled = true; };
@@ -270,7 +276,7 @@ function SourceFavicon({ url, title }: { url: string; title: string }) {
   const [loading, setLoading] = React.useState(!favicon);
   const [errored, setErrored] = React.useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
     if (faviconCache[url]) {
       setFavicon(faviconCache[url]);
@@ -360,6 +366,7 @@ function SourceFavicon({ url, title }: { url: string; title: string }) {
   if (loading) {
     return <FaviconSkeleton />;
   }
+
   if (errored) {
     return (
       <img
@@ -639,10 +646,10 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
 const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMessage; isLoading: boolean; status: "error" | "submitted" | "streaming" | "ready"; isLatestMessage: boolean; }) => {
   const { theme } = useTheme ? useTheme() : { theme: undefined };
   const isAssistant = message.role === "assistant";
-  // Sidebar open state for sources
   const [sourcesSidebarOpen, setSourcesSidebarOpen] = useState(false);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
+  // Memoize the calculation of sources, media, and text without side effects.
   const { images, videos, sources, allText } = React.useMemo(() => {
     const extractedImages: { src: string; alt?: string; source?: { url: string; title?: string; } }[] = [];
     const extractedVideos: { src: string; poster?: string; title?: string }[] = [];
@@ -662,19 +669,23 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
       }
     }
     const extractedSources = extractSourcesFromText(combinedText);
-    // Prefetch meta for all sources (webpage name and description)
-    if (extractedSources.length > 0) {
-      prefetchSourceMeta(extractedSources);
-    }
     return { images: extractedImages, videos: extractedVideos, sources: extractedSources, allText: combinedText };
   }, [message.parts, isAssistant]);
 
-  const [showSources, setShowSources] = useState(false);
+  // This new useEffect handles the side effect of prefetching source metadata.
+  // It runs ONLY when the `sources` array changes, not on every render.
+  useEffect(() => {
+    if (sources.length > 0) {
+      prefetchSourceMeta(sources);
+    }
+  }, [sources]);
+
   const isMobileOrTablet = useIsMobileOrTablet();
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
   const [searchedSitesByPart, setSearchedSitesByPart] = useState<Record<number, string[]>>({});
 
+  // This useEffect is now fixed to prevent the infinite loop by removing its own state from the dependency array.
   useEffect(() => {
     if (!message.parts) return;
     const currentUpdates: Record<number, string[]> = {};
@@ -682,21 +693,22 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
       if (part.type !== "tool-invocation") return;
       const { toolName, state, args } = part.toolInvocation;
       const result = (part.toolInvocation as any)?.result;
-      let sitesForThisPart = searchedSitesByPart[i] || [];
+      let sitesForThisPart: string[] = [];
       if (state === "call" && isLatestMessage && status !== "ready") {
         if (toolName === "fetchUrl" && args && typeof args === "object" && args.url) {
-          const url = args.url;
-          if (url && !sitesForThisPart.includes(url)) sitesForThisPart = [...sitesForThisPart, url];
+          const url = args.url as string;
+          if (url) sitesForThisPart.push(url);
         }
       } else if (state === "result") {
         if (toolName === "googleSearch" && result && result.sources && Array.isArray(result.sources)) {
           const sourceUrls = result.sources.map((s: any) => s.sourceUrl || s.url).filter(Boolean);
-          sourceUrls.forEach((url: string) => {
-            if (url && !sitesForThisPart.includes(url)) sitesForThisPart = [...sitesForThisPart, url];
-          });
+          sitesForThisPart.push(...sourceUrls);
         }
       }
-      if (sitesForThisPart.length > (searchedSitesByPart[i]?.length || 0)) currentUpdates[i] = sitesForThisPart;
+      const uniqueSites = Array.from(new Set(sitesForThisPart));
+      if (uniqueSites.length > 0) {
+        currentUpdates[i] = uniqueSites;
+      }
     });
 
     if (Object.keys(currentUpdates).length > 0) {
@@ -713,7 +725,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
         return changed ? newState : prev;
       });
     }
-  }, [message.parts, isLatestMessage, status, searchedSitesByPart]);
+  }, [message.parts, isLatestMessage, status]);
 
   const stripSourcesBlock = (text: string) => text.replace(/<!-- AVURNA_SOURCES_START -->[\s\S]*?<!-- AVURNA_SOURCES_END -->/g, "").trim();
   const aiMessageText = stripSourcesBlock(allText);
@@ -741,51 +753,37 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
               videos={videos}
               maxImages={(() => {
                 const text = allText.toLowerCase();
-                // If user explicitly asks for image(s), ignore videos
                 if (/\b(image|images|picture|pictures|photo|photos|pic|pics|img|jpg|jpeg|png|gif|gifs)\b/.test(text)) {
-                  // Try to extract a number from the message text (e.g., "show me 2 images")
                   const match = text.match(/(?:show|display|give|see|want|need|find|fetch|render|provide|list|give me|show me|display me|see me|want me|need me|find me|fetch me|render me|provide me|list me)?\s*(\d+)\s*(?:images|pictures|photos|pics|img|jpg|jpeg|png|gifs?)/);
                   if (match && match[1]) {
                     const n = parseInt(match[1], 10);
                     if (!isNaN(n) && n > 0) return n;
                   }
-                  // If plural, show 4 by default
                   if (/images|pictures|photos|pics|gifs/.test(text)) return 4;
-                  // If singular, show 1
                   if (/image|picture|photo|pic|gif/.test(text)) return 1;
-                  // Fallback: show 1 image
                   return 1;
                 }
-                // If user explicitly asks for video(s), ignore images
                 if (/\b(video|videos|clip|clips|movie|movies|mp4|webm|mov|avi)\b/.test(text)) {
                   return 0;
                 }
-                // If ambiguous (user didn't specify), show 4 images by default if available
                 if (images.length > 0) return 4;
                 return 0;
               })()}
               maxVideos={(() => {
                 const text = allText.toLowerCase();
-                // If user explicitly asks for video(s), ignore images
                 if (/\b(video|videos|clip|clips|movie|movies|mp4|webm|mov|avi)\b/.test(text)) {
-                  // Try to extract a number from the message text (e.g., "show me 2 videos")
                   const match = text.match(/(?:show|display|give|see|want|need|find|fetch|render|provide|list|give me|show me|display me|see me|want me|need me|find me|fetch me|render me|provide me|list me)?\s*(\d+)\s*(?:videos|clips|movies|mp4|webm|mov|avi)/);
                   if (match && match[1]) {
                     const n = parseInt(match[1], 10);
                     if (!isNaN(n) && n > 0) return n;
                   }
-                  // If plural, show 4 by default
                   if (/videos|clips|movies/.test(text)) return 4;
-                  // If singular, show 1
                   if (/video|clip|movie/.test(text)) return 1;
-                  // Fallback: show 1 video
                   return 1;
                 }
-                // If user explicitly asks for image(s), ignore videos
                 if (/\b(image|images|picture|pictures|photo|photos|pic|pics|img|jpg|jpeg|png|gif|gifs)\b/.test(text)) {
                   return 0;
                 }
-                // If ambiguous, fallback to previous logic: if both present, prefer images
                 if (videos.length > 0 && images.length === 0) return 4;
                 return 0;
               })()}
@@ -796,7 +794,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
           {isAssistant ? (
             <div className={cn("group/ai-message-hoverable", isMobileOrTablet ? "w-full pl-10" : "w-fit")} style={{ marginLeft: 0, paddingLeft: 0, marginTop: isMobileOrTablet ? 32 : undefined }}>
               <div className={cn(!isMobileOrTablet && "flex flex-col space-y-4 w-fit", isMobileOrTablet && styles.clearfix)} style={{ alignItems: !isMobileOrTablet ? 'flex-start' : undefined }}>
-                {/* Render all message parts safely, with hooks only at the top level */}
                 {message.parts?.map((part, i) => {
                   if (part.type === "text") {
                     const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
@@ -856,7 +853,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                   return null;
                 })}
               </div>
-              {/* Always show the icon row, regardless of latest message */}
               {isAssistant && status === "ready" && (
                 <div className={cn(!isMobileOrTablet ? "flex flex-row mb-8" : "relative w-full mt-8")} style={!isMobileOrTablet ? { marginTop: '-20px' } : { marginTop: '-16px' }}>
                   <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto group/ai-icon-row")}
@@ -872,7 +868,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
                     </Tooltip>
-                    {/* Sources button beside copy icon */}
                     {sources.length > 0 && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -898,7 +893,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                   <div className="p-4 max-h-[70vh] w-full min-w-[260px] flex flex-col">
                                     <div className="overflow-y-auto max-h-[55vh] pr-1">
                                       {(() => {
-                                        // Find googleSearch tool result with searchResults
                                         const googleSearchPart = (message.parts || []).find(
                                           (part: any) =>
                                             part.type === 'tool-invocation' &&
@@ -931,10 +925,8 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                             </a>
                                           ));
                                         }
-                                        // Fallback: extract markdown sources
                                         const markdownSources = extractSourcesFromText(allText);
                                         if (markdownSources.length > 0) {
-                                          // Helper to check if a title is valid
                                           const isValidTitle = (title: string) => {
                                             if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
                                               return false;
@@ -992,7 +984,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                   </div>
                                   <div className="flex-1 overflow-y-auto px-6 py-4">
                                     {(() => {
-                                      // Find googleSearch tool result with searchResults
                                       const googleSearchPart = (message.parts || []).find(
                                         (part: any) =>
                                           part.type === 'tool-invocation' &&
@@ -1025,7 +1016,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                           </a>
                                         ));
                                       }
-                                      // Fallback: extract markdown sources
                                       const markdownSources = extractSourcesFromText(allText);
                                       if (markdownSources.length > 0) {
                                         return markdownSources.map((src, i) => (

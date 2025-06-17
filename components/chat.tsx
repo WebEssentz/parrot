@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { getDefaultModel } from "@/ai/providers";
+import { useUser } from "@clerk/nextjs";
 import { useMobile } from "../hooks/use-mobile";
 import { defaultModel } from "@/ai/providers";
 import { SEARCH_MODE } from "@/components/ui/textarea";
@@ -89,9 +91,11 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
   }
 }
 
+
 export default function Chat() {
+  const { isLoaded, isSignedIn } = useUser();
   const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
-  const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
+  const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModel(!!isSignedIn));
   const titleGeneratedRef = useRef(false);
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
   const inputAreaRef = useRef<HTMLDivElement>(null);
@@ -101,8 +105,12 @@ export default function Chat() {
   const [hasShownMobileInfoMessageOnce, setHasShownMobileInfoMessageOnce] = useState(false);
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
-  const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
-7
+  const modelForCurrentSubmissionRef = useRef<string>(getDefaultModel(!!isSignedIn));
+  // Update selectedModel if sign-in state changes
+  useEffect(() => {
+    setSelectedModel(getDefaultModel(!!isSignedIn));
+    modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (!showMobileInfoMessage || isDesktop) return;
@@ -158,9 +166,9 @@ export default function Chat() {
     //   return true;
     // },
     onFinish: (_message, _options) => {
-      setSelectedModel(defaultModel);
+      setSelectedModel(getDefaultModel(!!isSignedIn));
       setIsSubmittingSearch(false);
-      modelForCurrentSubmissionRef.current = defaultModel;
+      modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
     },
     onError: (error) => {
       toast.error(
@@ -169,9 +177,9 @@ export default function Chat() {
           : "An error occurred, please try again later.",
         { position: "top-center", richColors: true },
       );
-      setSelectedModel(defaultModel);
+      setSelectedModel(getDefaultModel(!!isSignedIn));
       setIsSubmittingSearch(false);
-      modelForCurrentSubmissionRef.current = defaultModel;
+      modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
     },
   });
 

@@ -1,7 +1,6 @@
 "use client";
 
-
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea";
+import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, ToolsButton, SEARCH_MODE, } from "@/components/ui/textarea";
 import { defaultModel } from "@/ai/providers"; 
 import { ArrowUp, ArrowRight } from "lucide-react";
 import { PauseIcon } from "./icons"; 
@@ -23,7 +22,6 @@ interface InputProps {
   disabled?: boolean;
   offlineState?: 'online' | 'reconnecting' | 'offline';
 }
-
 
 export const Textarea = ({
   input,
@@ -52,6 +50,9 @@ export const Textarea = ({
   const [showAnimatedSuggestions, setShowAnimatedSuggestions] = React.useState(false);
   const [isTabToAcceptEnabled, setIsTabToAcceptEnabled] = React.useState(true);
   const [promptVisible, setPromptVisible] = React.useState(false);
+  // --- NEW: STATE FOR COMMAND PALETTE ---
+  const [isPaletteOpen, setIsPaletteOpen] = React.useState(false);
+  const inputRef = React.useRef<HTMLTextAreaElement>(null); // NEW: Ref for the textarea
 
   const REASON_MODEL_ID = "qwen-qwq-32b"; // Example
   // Remove suggested prompts for signed-in users
@@ -137,7 +138,7 @@ export const Textarea = ({
     return () => clearInterval(promptInterval);
   }, [showAnimatedSuggestions, suggestedPrompts.length, isTabToAcceptEnabled, featureActive, currentPromptIndex]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {  
     if (featureActive && showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && e.key === "Tab") {
       e.preventDefault();
       const currentDynamicPromptText = suggestedPrompts[currentPromptIndex];
@@ -160,6 +161,18 @@ export const Textarea = ({
         const form = (e.target as HTMLElement).closest("form");
         if (form) form.requestSubmit();
       }
+    }
+  };
+
+  // NEW: Function to handle the "Tools" button click
+  const handleToolsClick = () => {
+    inputRef.current?.focus();
+    // If input is not already showing palette, set it to '/' to trigger it
+    if (!input.startsWith('/')) {
+        setInput('/');
+    } else {
+        // If it is showing, this can be a toggle (optional)
+        setIsPaletteOpen(!isPaletteOpen);
     }
   };
   
@@ -277,16 +290,22 @@ export const Textarea = ({
         {/* This div acts as a spacer for the absolutely positioned buttons */}
         <div style={{paddingBottom: '48px'}} /> 
 
-        <div className="bg-primary-surface-primary absolute start-3 end-0 bottom-3 z-20 flex items-center">
+        <div className="bg-primary-surface-primary absolute start-0 end-0 bottom-3 z-20 flex items-center">
           <div className="w-full">
             <div
               data-testid="composer-footer-actions"
               className="flex items-center max-xs:gap-1 gap-2 overflow-x-auto [scrollbar-width:none]"
-              style={{ marginRight: 98 }} // Space for the send/stop button
+              style={{ marginLeft: 4, marginRight: 98 }} // Shift left, keep space for send/stop
             >
-              <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isLoading} />
-              <SearchButton isSearchEnabled={searchToggleIsOn} setIsSearchEnabled={handleSetSearchEnabled} />
-              <ReasonButton isReasonEnabled={reasonToggleIsOn} setIsReasonEnabled={handleSetReasonEnabled} hideTextOnMobile />
+              <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isSignedIn ? false : isLoading} />
+              {isSignedIn ? (
+                <ToolsButton onClick={handleToolsClick} disabled={false} />
+              ) : (
+                <>
+                  <SearchButton isSearchEnabled={searchToggleIsOn} setIsSearchEnabled={handleSetSearchEnabled} disabled={false} />
+                  <ReasonButton isReasonEnabled={reasonToggleIsOn} setIsReasonEnabled={handleSetReasonEnabled} hideTextOnMobile disabled={false} />
+                </>
+              )}
             </div>
             <div className="absolute end-3 bottom-0 flex items-center gap-2">
               <div className="ms-auto flex items-center gap-1.5">

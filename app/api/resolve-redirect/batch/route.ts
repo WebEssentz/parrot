@@ -9,6 +9,11 @@ export async function POST(req: NextRequest) {
   // Helper to resolve a single URL
   async function resolveOne(url: string): Promise<{ original: string; resolved: string }> {
     try {
+      // Prevent infinite loop: do not allow requests to this API itself
+      const apiHost = req.headers.get("host") || "";
+      if (url.includes("/api/resolve-redirect") && url.includes(apiHost)) {
+        return { original: url, resolved: url };
+      }
       let response = await fetch(url, { method: "HEAD", redirect: "follow" });
       if (!response.ok || response.url === url) {
         response = await fetch(url, { method: "GET", redirect: "follow" });
