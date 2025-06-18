@@ -9,8 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@ai-sdk/google": "^1.2.18",
-    "@ai-sdk/groq": "^1.2.5",
+    "@ai-sdk/google": "^1.2.19",
     "@ai-sdk/react": "^1.2.6",
     "@ai-sdk/vercel": "^0.0.1",
     "@clerk/nextjs": "^6.21.0",

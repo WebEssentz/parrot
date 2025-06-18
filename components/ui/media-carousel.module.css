@@ -135,15 +135,36 @@
   align-items: center;
   justify-content: center;
   scroll-snap-align: center;
-  padding: 1rem 4vw;
+  padding: 1rem 4vw; /* This padding defines the content area */
 }
 
+/* MODIFIED/AUGMENTED .lightboxMedia */
 .lightboxMedia {
-  max-width: 100%;
-  max-height: 100%;
+  display: block; /* Ensure block behavior for sizing */
+  max-width: 100%; /* Max width relative to lightboxItemWrapper's content box */
+  max-height: 100%; /* Max height relative to lightboxItemWrapper's content box */
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  overflow: hidden; /* Important for clipping iframe to border-radius */
 }
+
+/* NEW STYLES FOR YOUTUBE EMBED */
+.youtubeContainer {
+  /* This class will be combined with .lightboxMedia in the JSX.
+     .lightboxMedia provides: display, max-width, max-height, border-radius, box-shadow, overflow.
+  */
+  width: 100%; /* Take full available width, respecting max-width from .lightboxMedia */
+  aspect-ratio: 16 / 9; /* Maintain 16:9 aspect ratio */
+  background-color: #000; /* Background for letterboxing or during load */
+  /* Height is determined by width and aspect-ratio, constrained by max-height from .lightboxMedia */
+}
+
+.youtubeEmbed { /* The iframe itself */
+  width: 100%;
+  height: 100%;
+  border: none; /* Remove iframe border */
+}
+/* END OF NEW YOUTUBE STYLES */
 
 .lightboxFooter {
   flex-shrink: 0;
@@ -238,3 +259,12 @@
     display: flex;
   }
 }
+
+/* Optional: if you have a .videoWrapper class and want to use it
+.videoWrapper {
+  This class is applied to lightboxItemWrapper for videos.
+  You could add video-specific styles here if needed,
+  but for now, the general lightboxItemWrapper and the new youtubeContainer
+  should handle it.
+}
+*/

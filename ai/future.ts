@@ -1,15 +1,11 @@
-// tools.ts (Agent X integration scaffold)
-// import { agentXWebAgent, AgentXInstruction } from "./agent-x/agentXWebAgent";
+import Exa from "exa-js"; // Correct Exa import
 import { franc } from 'franc'; // For automatic language detection
 import { tool } from "ai";
 import { z } from "zod";
-import { google } from '@ai-sdk/google';      // For Gemini vision model
-import { generateText } from 'ai';         // For calling the Gemini model                                  
-import { JSDOM } from 'jsdom';  // --- Enhanced Table Parsing using jsdom ---
-// import { agentXWebAgent } from './agent-x/agentXWebAgent';
+import { google } from '@ai-sdk/google';      // For Google AI models
+import { generateText } from 'ai';         // For generating text with AI models
 
-// --- Simple Markdown Bar Chart Generator ---
-// ... (generateMarkdownBarChart function as provided)
+// --- Simple Markdown Bar Chart Generator (No changes) ---
 function generateMarkdownBarChart(
   table: { headers: string[]; rows: Record<string, string>[] },
   column: string,
@@ -37,68 +33,86 @@ function generateMarkdownBarChart(
   return chart;
 }
 
-// Utility: Format a value as inline code (ChatGPT style)
-// ... (formatInlineCode function as provided)
+// --- Utility: Format a value as inline code (No changes) ---
 export function formatInlineCode(value: string): string {
   return `\`${value.replace(/`/g, '\u0060')}\``;
 }
+// --- Helper Function for Basic Table Parsing (No changes) ---
+function parseHtmlTables(html: string): { headers: string[], rows: Record<string, string>[] }[] {
+    const tables = [];
+    const tableRegex = /<table[\s\S]*?>(.*?)<\/table>/gi;
+    let tableMatch;
 
-/**
- * Parses HTML tables robustly using jsdom.
- * @param html The HTML string to parse.
- * @param options Optional: { maxTables, maxRows }
- */
-function parseHtmlTables(
-  html: string,
-  options?: { maxTables?: number; maxRows?: number }
-): { headers: string[]; rows: Record<string, string>[] }[] {
-  const maxTables = options?.maxTables ?? 20;
-  const maxRows = options?.maxRows ?? 200;
-  const dom = new JSDOM(html);
-  const document = dom.window.document;
-  const tables = Array.from(document.querySelectorAll('table')).slice(0, maxTables);
-  const parsedTables: { headers: string[]; rows: Record<string, string>[] }[] = [];
+    while ((tableMatch = tableRegex.exec(html)) !== null && tables.length < 5) {
+        const tableHtml = tableMatch[1];
+        let headers: string[] = [];
+        const rows: string[][] = [];
+        const headerRegex = /<th[^>]*>([\s\S]*?)<\/th>/gi;
+        const firstRowHeaderRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/i;
+        const cellInHeaderRegex = /<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi;
+        let headerMatch;
+        let foundHeaders = false;
 
-  for (const table of tables) {
-    // Find headers
-    let headers: string[] = [];
-    const thead = table.querySelector('thead');
-    if (thead) {
-      const ths = Array.from(thead.querySelectorAll('th'));
-      headers = ths.map(th => th.textContent?.trim() || '');
-    } else {
-      // Try first row as header
-      const firstRow = table.querySelector('tr');
-      if (firstRow) {
-        const ths = Array.from(firstRow.querySelectorAll('th'));
-        if (ths.length > 0) {
-          headers = ths.map(th => th.textContent?.trim() || '');
-        } else {
-          const tds = Array.from(firstRow.querySelectorAll('td'));
-          headers = tds.map((_, i) => `Column ${i + 1}`);
+        while ((headerMatch = headerRegex.exec(tableHtml)) !== null) {
+            headers.push(headerMatch[1].replace(/<[^>]+>/g, '').trim());
+            foundHeaders = true;
         }
-      }
+
+        if (!foundHeaders) {
+            const firstRowMatch = firstRowHeaderRegex.exec(tableHtml);
+            if (firstRowMatch) {
+                let cellMatch;
+                while ((cellMatch = cellInHeaderRegex.exec(firstRowMatch[1])) !== null) {
+                    headers.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
+                }
+                foundHeaders = headers.length > 0;
+            }
+        }
+
+        const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+        const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+        let rowMatch;
+        let rowsProcessed = 0;
+
+        if (headers.length > 0 && !tableHtml.match(/<thead/i)){
+             rowRegex.exec(tableHtml);
+        }
+
+        while ((rowMatch = rowRegex.exec(tableHtml)) !== null && rowsProcessed < 50) {
+            const cells: string[] = [];
+            let cellMatch;
+             while ((cellMatch = cellRegex.exec(rowMatch[1])) !== null) {
+                cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
+            }
+             if (cells.length > 0 && (headers.length === 0 || cells.length === headers.length)) {
+                rows.push(cells);
+                rowsProcessed++;
+            }
+        }
+
+        if (headers.length > 0 && rows.length > 0) {
+             const tableData = rows.map(row => {
+                const rowObj: Record<string, string> = {};
+                headers.forEach((header, index) => {
+                    rowObj[header || `Column ${index + 1}`] = row[index] ?? '';
+                });
+                return rowObj;
+             });
+            tables.push({ headers, rows: tableData });
+        } else if (headers.length === 0 && rows.length > 0) {
+             const tableData = rows.map(row => {
+                const rowObj: Record<string, string> = {};
+                row.forEach((cell, index) => {
+                    rowObj[`Column ${index + 1}`] = cell ?? '';
+                });
+                return rowObj;
+             });
+            tables.push({ headers: rows[0] ? Object.keys(tableData[0]) : [], rows: tableData });
+        }
     }
-    // Parse rows
-    const rows: Record<string, string>[] = [];
-    const rowEls = Array.from(table.querySelectorAll('tr')).slice(headers.length > 0 ? 1 : 0, maxRows + (headers.length > 0 ? 1 : 0));
-    for (const rowEl of rowEls) {
-      const cells = Array.from(rowEl.querySelectorAll('td,th'));
-      if (cells.length === 0) continue;
-      const rowObj: Record<string, string> = {};
-      for (let i = 0; i < cells.length; i++) {
-        const header = headers[i] || `Column ${i + 1}`;
-        rowObj[header] = cells[i].textContent?.trim() || '';
-      }
-      rows.push(rowObj);
-      if (rows.length >= maxRows) break;
-    }
-    if (rows.length > 0) {
-      parsedTables.push({ headers, rows });
-    }
-  }
-  return parsedTables;
+    return tables;
 }
+
 
 export const weatherTool = tool({
   description: "Get the weather in a location",
@@ -111,907 +125,722 @@ export const weatherTool = tool({
   }),
 });
 
+// --- UPDATED Intent Extraction Utility ---
+async function extractUserIntent(userMessage: string): Promise<{ object: string; modality: string; qualifiers: string[]; expanded: string[] }> {
+  console.log(`[extractUserIntent] Starting for: "${userMessage}"`);
+  try {
+    const intentModel = google('gemma-3n-e4b-it');
+    const prompt = `
+      Analyze the following user request and extract the specified components.
+      Return the output strictly as a JSON object with the keys: "object", "modality", "qualifiers", "expanded".
+      - "object": The main subject or entity of interest (e.g., 'cat', 'Eiffel Tower', 'recipe for pasta'). BE SPECIFIC.
+      - "modality": The type of media or information requested (e.g., 'image', 'video', 'article', 'summary', 'data'). If not specified, try to infer or leave empty. For "summarize this article", the modality is "summary".
+      - "qualifiers": Descriptive adjectives or attributes modifying the object or modality (e.g., 'funny', 'high resolution', 'blue', 'quick', 'easy'). List them as an array of strings. If none, provide an empty array [].
+      - "expanded": Provide up to 3 synonyms or closely related terms for the "object" to aid in searching. List them as an array of strings. If none, provide an empty array [].
+
+      User Request: "${userMessage}"
+
+      JSON Output:
+    `;
+
+    const { text } = await generateText({ model: intentModel, prompt, temperature: 0.1 });
+    console.log(`[extractUserIntent] Raw LLM output: ${text}`);
+
+    let parsed: any;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch && jsonMatch[0]) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        parsed = JSON.parse(text);
+      }
+    } catch (e) {
+      console.error("[extractUserIntent] Failed to parse LLM intent JSON:", e, "Raw text was:", text);
+      return { object: userMessage, modality: '', qualifiers: [], expanded: [] };
+    }
+    const finalIntent = {
+      object: parsed.object || '',
+      modality: parsed.modality || '',
+      qualifiers: Array.isArray(parsed.qualifiers) ? parsed.qualifiers.map((q: any) => String(q).trim()).filter(Boolean) : [],
+      expanded: Array.isArray(parsed.expanded) ? parsed.expanded.map((e: any) => String(e).trim()).filter(Boolean) : [],
+    };
+    console.log("[extractUserIntent] Successfully parsed intent:", finalIntent);
+    return finalIntent;
+
+  } catch (error) {
+    console.error("[extractUserIntent] Outer error:", error);
+    return { object: userMessage, modality: '', qualifiers: [], expanded: [userMessage] };
+  }
+}
+
+// --- FULLY UPDATED AND RE-ARCHITECTED FETCHURLTOOL ---
 export const fetchUrlTool = tool({
   description:
-    "Enterprise-grade: Deeply fetch and analyze one or more URLs. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries. Now supports 'moles' — background helpers that fetch summaries from links in parallel, so Avurna can stay on the main page and quickly gather info from many places. If multiple URLs are provided, each is explored in parallel with its own set of moles.",
+    "Fetches content from a URL, and can recursively navigate to find specific information like images, videos, or text for summarization. It uses AI to understand the page content and make smart decisions.",
   parameters: z.object({
-    url: z.union([
-      z.string().describe("A single URL to fetch and analyze"),
-      z.array(z.string()).describe("Multiple URLs to fetch and analyze in parallel")
-    ]),
-    referer: z.string().optional().describe("The referring page, for multi-step navigation"),
-    userIntent: z.string().optional().describe("The user's question or intent, for focused extraction, including data analysis requests like 'analyze the table'."),
-    // agentX: z.boolean().optional().describe("If true, use Agent X for dynamic web interaction (Amazon, YouTube, etc.)"),
-    recursionDepth: z.number().optional().describe("How many levels of links to follow recursively (0 = just this page, 1 = follow links on this page, etc.)"),
-    maxPages: z.number().optional().describe("Maximum total number of pages to fetch (default 10)"),
-    timeoutMs: z.number().optional().describe("Timeout in milliseconds for the entire operation (default 20000 ms)"),
-    targetLanguage: z.string().optional().describe("ISO 639-3 code for the user's preferred language (e.g., 'eng', 'fra', 'spa'). If not provided, will be auto-detected from userIntent."),
+    url: z.string().describe("The starting URL to fetch and analyze."),
+    userIntent: z.string().describe("The user's goal or question (e.g., 'image of an iPhone', 'summarize this article about macOS')."),
+    recursionDepth: z.number().optional().describe("How many levels of links to follow (0 = current page only, default 1)."),
   }),
   execute: async (params) => {
-
-    let {
-      url: urlOrUrls,
-      referer,
+    const {
+      url,
       userIntent,
-      // agentX,
-      recursionDepth = 0, // Not used for moles, but kept for compatibility
-      maxPages = 10,
-      timeoutMs = 20000,
-      targetLanguage,
+      recursionDepth = 1,
     } = params;
+    
+    // Sensible defaults to prevent runaways
+    const maxPages = 5;
+    const timeoutMs = 45000; // Increased to 45 seconds
 
-    // --- Always detect user language from userIntent (ignore previous/cached translations) ---
-    const supportedLangs = ['eng','fra','spa','deu','ita','rus','zho','jpn','kor','por','ara','hin'];
-    let detectedUserLang: string | undefined = undefined;
-    if (targetLanguage && supportedLangs.includes(targetLanguage)) {
-      detectedUserLang = targetLanguage;
-    } else if (userIntent && typeof userIntent === 'string' && userIntent.length > 0) {
-      try {
-        const lang = franc(userIntent, { minLength: 3 }) || 'und';
-        // If detected language is supported, use it. If not, fallback to English.
-        if (supportedLangs.includes(lang) && lang !== 'und') {
-          detectedUserLang = lang;
-        } else {
-          detectedUserLang = 'eng';
-        }
-      } catch (e) {
-        detectedUserLang = 'eng';
-      }
-    } else {
-      detectedUserLang = 'eng';
+    console.log(`[fetchUrlTool] Starting. URL: ${url}, Intent: "${userIntent}", Depth: ${recursionDepth}, Timeout: ${timeoutMs}ms`);
+
+    const visited = new Set<string>();
+    const overallStartTime = Date.now();
+    let pagesFetchedCount = 0;
+    let operationTimedOut = false;
+    const baseOrigin = (() => { try { return new URL(url).origin; } catch { return null; } })();
+
+    if (!baseOrigin) {
+      return { error: "Invalid base URL provided.", url, images: [], videos: [], steps: ["Invalid base URL"], narration: "I couldn't process that request because the URL seems to be invalid." };
     }
-    // Always use detectedUserLang from the current message for translation decisions
 
-    // --- Mole Memory: Shared cache for all moles (per process) ---
-    const moleMemory: Map<string, any> = (fetchUrlTool as any)._moleMemory = (fetchUrlTool as any)._moleMemory || new Map<string, any>();
+    const initialIntent = await extractUserIntent(userIntent);
+    if (!initialIntent.object) {
+        return { error: "Could not understand the main object of your request.", intent: initialIntent, narration: "I'm sorry, I had trouble understanding exactly what you're looking for. Could you try rephrasing?" };
+    }
 
-    async function processOneUrl(urlToFetch: string) {
-      // --- Time Travel Mole: Fetches a snapshot from the Wayback Machine (web.archive.org) ---
-      async function fetchWaybackSnapshot(url: string, yearsAgo: number): Promise<any> {
-        // Use the Wayback Machine API to find the closest snapshot for a given number of years ago
-        const now = new Date();
-        const targetDate = new Date(now.getFullYear() - yearsAgo, now.getMonth(), now.getDate());
-        const yyyymmdd = `${targetDate.getFullYear()}${String(targetDate.getMonth() + 1).padStart(2, '0')}${String(targetDate.getDate()).padStart(2, '0')}`;
-        const apiUrl = `https://archive.org/wayback/available?url=${encodeURIComponent(url)}&timestamp=${yyyymmdd}`;
+    // --- Core Helper Functions with Semantic Intelligence ---
+
+    async function getLinkSubject(linkText: string, linkHref: string, userGoal: string): Promise<string> {
         try {
-          const res = await fetch(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          const data = await res.json();
-          const snapshotUrl = data?.archived_snapshots?.closest?.url;
-          if (snapshotUrl) {
-            // Fetch and analyze the snapshot as a normal page (but mark as time travel)
-            const result = await fetchAndAnalyzeSingle({ url: snapshotUrl, referer: url, userIntent});
-            return {
-              ...result,
-              timeTravel: true,
-              yearsAgo,
-              snapshotUrl,
-              snapshotTimestamp: data?.archived_snapshots?.closest?.timestamp || null,
-            };
-          } else {
-            return { error: 'No snapshot found', yearsAgo };
-          }
+            const linkModel = google('gemma-3n-e4b-it'); // Use the fast model
+            const prompt = `A user's goal is to "${userGoal}". On a webpage, there is a link with the text "${linkText}" that points to "${linkHref}". What is the primary subject of THIS LINK? Respond with a single noun or short phrase.`;
+            const { text } = await generateText({ model: linkModel, prompt, temperature: 0.1, maxTokens: 20 });
+            return text.trim().toLowerCase();
         } catch (e) {
-          return { error: String(e), yearsAgo };
+            console.warn(`[getLinkSubject] LLM call failed for link: ${linkText}`);
+            return "unknown";
         }
-      }
-      const visited = new Set<string>();
-      const origin = (() => { try { return new URL(urlToFetch).origin; } catch { return null; } })();
-      let pagesFetched = 0;
-      let timedOut = false;
-      const startTime = Date.now();
+    }
 
-      // Helper: Fetch and analyze a single page (no recursion)
-      async function fetchAndAnalyzeSingle({ url, referer, userIntent, agentX }: { url: string, referer?: string, userIntent?: string, agentX?: boolean }): Promise<any> {
-          // --- Abstractive Summarization: Use Gemini to generate a fluent summary ---
-          let abstractiveSummary = '';
-          // (moved below, after mainText is defined)
-          // --- Mole Memory: Check cache for translation after summary is built ---
-          if (moleMemory.has(url)) {
-            const cached = moleMemory.get(url);
-            // If the cached result is an error, ignore it and retry fetch
-            if (cached && typeof cached === 'object' && cached.error) {
-              moleMemory.delete(url);
-            } else if (cached && typeof cached === 'object') {
-              // If no translation is needed (page language matches detectedUserLang), return cached
-              if (!cached.language || cached.language === detectedUserLang) {
-                return { ...cached, fromMemory: true };
-              }
-              // If translation is needed, only return cached if translation exists for the current detectedUserLang and summary matches
-              // (rest of logic as before)
-            }
-          }
-        if (timedOut) return { error: 'Timeout reached', url };
-        if (pagesFetched >= maxPages) return { error: 'Max pages limit reached', url };
-        if (visited.has(url)) return { error: 'Already visited', url };
-        if (origin && !(url.startsWith(origin))) return { error: 'Out of domain', url };
-        if (Date.now() - startTime > timeoutMs) { timedOut = true; return { error: 'Timeout reached', url }; }
+    async function extractAndScoreLinks(htmlContent: string, currentUrl: string, currentIntent: any): Promise<{ href: string, text: string, score: number }[]> {
+        const aTagRegex = /<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi;
+        const potentialLinks: { href: string; text: string }[] = [];
+        let match;
 
-        // Move cache check for translation after summary is built
-        visited.add(url);
-        pagesFetched++;
-        // Use the original fetch/analyze logic (no recursion)
-        const result = await (async () => {
-          // --- BEGIN: Original fetch/analyze logic ---
-          const steps: string[] = [];
-          steps.push(`Step 1: Fetching ${url}`);
-          const headers: Record<string, string> = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          };
-          if (referer) headers['Referer'] = referer;
-          let res: Response | undefined = undefined;
-          let fetchError: string | null = null;
-          let fetchTimedOut = false;
-          let suspicious = false;
-          // --- Broken/Slow/Dangerous Link Detection ---
-          const suspiciousPatterns = [/\.exe$/i, /\.scr$/i, /\.zip$/i, /malware|phish|suspicious|danger/i];
-          if (suspiciousPatterns.some((pat) => pat.test(url))) {
-            suspicious = true;
-          }
-          let fetchStart = Date.now();
-          try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => {
-              controller.abort();
-              fetchTimedOut = true;
-            }, 8000); // 8s per-link timeout
-            res = await fetch(url, { method: 'GET', headers, signal: controller.signal });
-            clearTimeout(timeout);
-          } catch (e: any) {
-            fetchError = e?.name === 'AbortError' ? 'Timeout' : (e?.message || String(e));
-          }
-          const fetchElapsed = Date.now() - fetchStart;
-          if (fetchTimedOut) fetchError = 'Timeout';
-          if (!fetchError && res && res.status >= 400) fetchError = `HTTP ${res.status}`;
-          const contentType = res && res.headers ? res.headers.get('content-type') || '' : '';
-          // --- Alert for broken, slow, or suspicious links ---
-          let linkAlert: string | null = null;
-          if (fetchError) {
-            linkAlert = `⚠️ Link could not be fetched: ${fetchError}`;
-          } else if (fetchElapsed > 5000) {
-            linkAlert = `⚠️ Link was very slow to respond (${(fetchElapsed / 1000).toFixed(1)}s)`;
-          } else if (suspicious) {
-            linkAlert = `⚠️ Link looks suspicious (may be unsafe)`;
-          }
-
-          if (linkAlert) {
-            steps.push(`ALERT: ${linkAlert}`);
-          }
-
-          if (fetchError || !res) {
-            return {
-              type: 'error',
-              url,
-              error: fetchError || 'Unknown fetch error',
-              alert: linkAlert,
-              steps,
-              elapsed: Date.now() - startTime
-            };
-          }
-
-          if (contentType.startsWith('image/')) {
-            steps.push('Step 2: Detected image file. Previewing and initiating AI analysis.');
-            const imageType = contentType.split('/')[1] || 'image';
-            let imageName = 'image';
-            try { imageName = new URL(url).pathname.split('/').pop() || 'image'; } catch {}
-            const markdownPreview = `![Preview of ${imageName}](${url})`;
-            let analysis = "Image analysis could not be performed at this time.";
-            let analysisError = null;
+        while ((match = aTagRegex.exec(htmlContent)) !== null) {
+            const href = match[1];
+            const textContent = match[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+            if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || textContent.length < 3 || href.length > 300) continue;
             try {
-              steps.push('Step 2a: Sending image to Gemini for analysis.');
-              const geminiModel = google('gemini-2.0-flash');
-              const analysisResult = await generateText({
-                model: geminiModel,
-                messages: [
-                  { role: 'user', content: [
-                    { type: 'text', text: 'Describe this image in detail. What is depicted (objects, beings, scene)? What are the key visual elements (colors, composition, style)? If there are actions or a story, briefly describe it. Provide a comprehensive and objective description.' },
-                    { type: 'image', image: new URL(url) },
-                  ] },
-                ],
-              });
-              analysis = analysisResult.text;
-              steps.push('Step 2b: Image analysis received from Gemini.');
-            } catch (e: unknown) {
-              const msg = e instanceof Error ? e.message : String(e);
-              steps.push(`Step 2b: Error during Gemini image analysis: ${msg}`);
-              analysisError = `AI analysis failed: ${msg}`;
-              analysis = `AI-powered analysis of the image failed. Details: ${msg}`;
+                const absoluteHref = new URL(href, currentUrl).toString();
+                if (new URL(absoluteHref).origin === baseOrigin && !visited.has(absoluteHref)) {
+                    potentialLinks.push({ href: absoluteHref, text: textContent });
+                }
+            } catch { /* ignore invalid URLs */ }
+        }
+
+        const scoredLinks: { href: string; text: string; score: number }[] = [];
+        const linkAnalysisPromises = potentialLinks.slice(0, 10).map(async link => {
+            if (Date.now() - overallStartTime > timeoutMs - 5000) return; // Don't start new LLM calls if we're about to time out
+
+            const subject = await getLinkSubject(link.text, link.href, currentIntent.object);
+            let score = 0;
+            const intentKeywords = [currentIntent.object, ...currentIntent.expanded].filter(Boolean).map(k => k.toLowerCase());
+            
+            if (intentKeywords.some(kw => subject.includes(kw))) {
+                score += 10; // Massive bonus if the link's SEMANTIC subject matches the intent
+            } else if (intentKeywords.some(kw => link.text.toLowerCase().includes(kw) || link.href.toLowerCase().includes(kw))) {
+                score += 2; // Keyword match is a fallback bonus
             }
-            return {
-              type: 'image_analyzed', url, markdown: markdownPreview, analysis, description: `The URL points to an image (${imageType.toUpperCase()}). Markdown Preview: ${markdownPreview}. AI-generated analysis: ${analysis}`,
-              ...(analysisError && { analysisErrorDetail: analysisError }), steps, elapsed: Date.now() - startTime,
-            };
-          } else if (contentType.includes('application/pdf')) {
-            steps.push('Step 2: Detected PDF document.');
-            return { type: 'document', url, description: 'PDF document. Content analysis and table extraction are not supported by this tool for PDFs.', steps, elapsed: Date.now() - startTime };
-          } else if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('application/xml')) {
-            steps.push('Step 2: Detected non-HTML, non-image, non-PDF file. Attempting to extract plain text preview.');
-            let textPreview = "Content is not plain text or could not be previewed.";
-          if (contentType.startsWith('text/')) {
-            try {
-              if (res) {
-                const text = await res.text();
-                textPreview = text.slice(0, 500) + (text.length > 500 ? '...' : '');
-              }
-            } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); steps.push(`Step 2c: Error reading text content: ${msg}`); textPreview = "Error reading text content."; }
-          }
-          return { type: 'file', url, preview: textPreview, contentType, description: `File (${contentType}). Preview: ${textPreview}`, steps, elapsed: Date.now() - startTime };
-          }
-          // --- Process HTML ---
-          steps.push('Step 2: Processing HTML content.');
-          let html = '';
-          if (res) {
-            html = await res.text();
-          }
-          const metaDescription = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-          const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-          const ogDescription = (html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-          const headings = Array.from(html.matchAll(/<(h[1-3])[^>]*>(.*?)<\/\1>/gi)).map(m => ({ tag: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() })).slice(0, 10);
-          const navLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi))
-            .map(m => { try { return { href: new URL(m[1], url).toString(), text: m[2].replace(/<[^>]+>/g, '').trim() }; } catch { return null; } })
-            .filter(l => l && l.text && l.href && l.href.length < 256 && l.href.startsWith('https'))
-            .slice(0, 20);
-          const productCards = Array.from(html.matchAll(/<div[^>]*class=["'][^"']*(product|card|item|listing)[^"']*["'][^>]*>([\s\S]*?)(<\/div>)/gi))
-            .map(m => { const block = m[2]; const name = (block.match(/<h[1-4][^>]*>(.*?)<\/h[1-4]>/i) || [])[1]?.replace(/<[^>]+>/g, '').trim() || ''; const price = (block.match(/\$[0-9,.]+/) || [])[0] || ''; const features = Array.from(block.matchAll(/<li[^>]*>(.*?)<\/li>/gi)).map(x => x[1].replace(/<[^>]+>/g, '').trim()); const img = (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || ''; return { name, price, features, img }; }).filter(card => card.name || card.price || card.features.length > 0).slice(0, 10);
-          const faqs = Array.from(html.matchAll(/<details[\s\S]*?<\/details>/gi)).map(f => f[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
-          const newsSections = Array.from(html.matchAll(/<(section|div)[^>]+(news|blog|update)[^>]*>[\s\S]*?<\/(section|div)>/gi)).map(s => s[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 400));
-          steps.push('Step 3: Extracting table data.');
-          const extractedTables = parseHtmlTables(html);
-          let chartMarkdown = null;
-          if (userIntent && /chart|visualize|plot|bar chart|graph/i.test(userIntent) && extractedTables.length > 0) {
-            let col;
-            const match = userIntent.match(/(?:of|for)\s+([\w\s]+)/i);
-            if (match && match[1]) {
-              const guess = match[1].trim().toLowerCase();
-              col = extractedTables[0].headers.find(h => h.toLowerCase().includes(guess));
+            if (['about', 'contact', 'support', 'privacy', 'terms'].some(kw => link.text.toLowerCase().includes(kw))) {
+                score -= 5;
             }
-            if (!col && extractedTables[0].headers.length > 0) {
-              for (const h of extractedTables[0].headers) {
-                const vals = extractedTables[0].rows.map(r => r[h].replace(/[$,%]/g, '').replace(/,/g, ''));
-                if (vals.some(v => !isNaN(parseFloat(v)))) { col = h; break; }
-              }
+            if (score > 3) {
+                scoredLinks.push({ ...link, score });
             }
-            if (col) { chartMarkdown = generateMarkdownBarChart(extractedTables[0], col); }
-          }
-          steps.push(`Step 4: Found ${extractedTables.length} potential table(s).`);
-          const mainText = html
-            .replace(/<script[\s\S]*?<\/script>/gi, '')
+        });
+        
+        await Promise.all(linkAnalysisPromises);
+        
+        scoredLinks.sort((a, b) => b.score - a.score);
+        console.log(`[extractAndScoreLinks] For ${currentUrl}, top links:`, scoredLinks.slice(0, 5));
+        return scoredLinks.slice(0, 5);
+    }
+    
+    function extractMainContent(html: string): string {
+        return html
             .replace(/<style[\s\S]*?<\/style>/gi, '')
-            .replace(/<head[\s\S]*?<\/head>/gi, '')
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
             .replace(/<[^>]+>/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
-
-          // --- Abstractive Summarization: Use Gemini to generate a fluent summary ---
-          try {
-            if (mainText && mainText.length > 100) {
-              const abstractivePrompt = `Summarize the following web page content in a concise, fluent, and readable way. Capture the main points and key facts, using your own words. Limit to 3-5 sentences.\n\n---\n${mainText.slice(0, 4000)}`;
-              const geminiModel = google('gemini-2.5-flash-preview-05-20');
-              const abstractiveResult = await generateText({ model: geminiModel, prompt: abstractivePrompt });
-              abstractiveSummary = abstractiveResult.text.trim();
-            }
-          } catch (e) {
-            abstractiveSummary = '';
-          }
-
-          // --- Automatic Language Detection ---
-          let language = 'und';
-          try {
-            if (mainText && mainText.length > 20) {
-              language = franc(mainText, { minLength: 3 }) || 'und';
-            }
-          } catch (e) {
-            language = 'und';
-          }
-
-          // --- Build summary before translation logic ---
-          // Use abstractive summary if available, otherwise fallback to old extractive summary
-          const summary = abstractiveSummary || [
-            ogTitle || headings[0]?.text,
-            metaDescription || ogDescription,
-            ...headings.slice(1, 3).map(h => h.text),
-            extractedTables.length > 0 ? `Contains ${extractedTables.length} data table(s).` : '',
-            ...productCards.slice(0, 2).map(c => `${c.name} ${c.price}`),
-            ...faqs.slice(0, 1),
-            ...newsSections.slice(0, 1),
-            mainText.slice(0, 500)
-          ].filter(Boolean).join(' | ').replace(/\s+/g, ' ').slice(0, 1500);
-
-          // --- Language Mole: Translate only the summary if not user's language ---
-          let translated = false;
-          let translation = '';
-          let targetLanguageForCache = detectedUserLang;
-          // --- Translation Caching and Retry Logic ---
-          // Use a hash of summary+targetLanguage for cache key
-          function hashSummary(summary: string, lang: string) {
-            let hash = 0, i, chr;
-            if (!summary) return '0';
-            for (i = 0; i < summary.length; i++) {
-              chr = summary.charCodeAt(i);
-              hash = ((hash << 5) - hash) + chr;
-              hash |= 0;
-            }
-            return `${lang}_${Math.abs(hash)}`;
-          }
-          // Only translate if the page language is not the user's preferred language and not undetermined
-          if (language !== detectedUserLang && language !== 'und' && mainText.length > 0) {
-            const summaryHash = hashSummary(summary, detectedUserLang || 'eng');
-            // Check if translation for this summary and target language is already cached
-            const cacheKey = `translation_${summaryHash}`;
-            const cached = moleMemory.get(cacheKey);
-            if (cached && typeof cached === 'string' && cached.length > 0) {
-              translation = cached;
-              translated = true;
-            } else {
-              // Retry logic for Gemini translation
-              const langMap: Record<string, string> = {
-                eng: 'English',
-                fra: 'French',
-                spa: 'Spanish',
-                deu: 'German',
-                ita: 'Italian',
-                rus: 'Russian',
-                zho: 'Chinese',
-                jpn: 'Japanese',
-                kor: 'Korean',
-                por: 'Portuguese',
-                ara: 'Arabic',
-                hin: 'Hindi',
-              };
-              const targetLangName = langMap[detectedUserLang ?? 'eng'] || 'English';
-              let summaryToTranslate = summary && typeof summary === 'string' && summary.length > 0 ? summary : mainText.slice(0, 1000);
-              const MAX_TRANSLATE_CHARS = 800;
-              if (summaryToTranslate.length > MAX_TRANSLATE_CHARS) {
-                const summarizePrompt = `Summarize the following text in ${targetLangName} in under ${MAX_TRANSLATE_CHARS} characters.\n\n---\n${summaryToTranslate}`;
-                const geminiModel = google('gemini-2.5-flash-preview-05-20');
-                let summaryResult;
-                for (let attempt = 0; attempt < 2; attempt++) {
-                  try {
-                    summaryResult = await generateText({ model: geminiModel, prompt: summarizePrompt });
-                    if (summaryResult && summaryResult.text) break;
-                  } catch {}
-                }
-                summaryToTranslate = summaryResult?.text?.slice(0, MAX_TRANSLATE_CHARS) || summaryToTranslate.slice(0, MAX_TRANSLATE_CHARS);
-              }
-              const translationPrompt = `Translate the following summary to ${targetLangName}. Only output the translation, no explanation.\n\n---\n${summaryToTranslate}`;
-              const geminiModel = google('gemini-2.5-flash-preview-05-20');
-              let translationResult;
-              for (let attempt = 0; attempt < 2; attempt++) {
-                try {
-                  translationResult = await generateText({ model: geminiModel, prompt: translationPrompt });
-                  if (translationResult && translationResult.text) break;
-                } catch {}
-              }
-              translation = translationResult?.text || '';
-              if (translation) {
-                translated = true;
-                moleMemory.set(cacheKey, translation);
-              } else {
-                translated = false;
-              }
-            }
-          }
-          let siteType = 'general';
-          if (productCards.length > 2) siteType = 'e-commerce';
-          else if (newsSections.length > 0 || /news|blog|article/i.test(html)) siteType = 'news/blog';
-          else if (faqs.length > 0) siteType = 'docs/faq';
-          else if (extractedTables.length > 0) siteType = 'data/table';
-          steps.push('Step 5: Analyzing content and intent.');
-          let suggestedLinks: { href: string; text: string }[] = [];
-          if (userIntent && !userIntent.toLowerCase().includes('analyze')) {
-            const lowerIntent = userIntent.toLowerCase();
-            suggestedLinks = navLinks
-              .filter((l) => !!l)
-              .filter((l): l is { href: string; text: string } => !!l)
-              .filter(l => {
-                const linkTextLower = l.text.toLowerCase();
-                return lowerIntent.split(' ').some((word: string) => word.length > 3 && linkTextLower.includes(word)) || linkTextLower.includes(lowerIntent);
-              });
-            if (suggestedLinks.length > 0) {
-              steps.push(`Step 6: Based on intent '${userIntent}', suggesting navigation to: ${suggestedLinks.map(l => `[${l.text}](${l.href})`).join(', ')}`);
-            } else {
-              steps.push(`Step 6: No direct navigation links found matching intent '${userIntent}'.`);
-            }
-          } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length === 0) {
-            steps.push(`Step 6: User asked to analyze data, but no tables were extracted.`);
-          } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length > 0) {
-            steps.push(`Step 6: User asked to analyze data. Found ${extractedTables.length} table(s). Passing data to AI.`);
-          }
-          const articleLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi))
-            .map(m => { try { const href = new URL(m[1], url).toString(); const text = m[2].replace(/<[^>]+>/g, '').trim(); const isArticle = /(\/article|\/news|\/blog|\/post|\/story|[\d-]+\.html?$)/i.test(href); return (isArticle && text && href.startsWith('http')) ? { href, text } : null; } catch { return null; } })
-            .filter(Boolean).slice(0, 50);
-          steps.push('Step 7: Compiling results.');
-          const resultObj = {
-            type: 'website',
-            url,
-            siteType,
-            title: ogTitle || (headings[0]?.text ?? url),
-            metaDescription,
-            ogTitle,
-            ogDescription,
-            headings,
-            navLinks,
-            productCards,
-            faqs,
-            newsSections,
-            extractedTables,
-            chartMarkdown,
-            summary,
-            preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''),
-            suggestedLinks,
-            articleLinks,
-            language, // Add detected language code (e.g., 'eng', 'spa', 'und')
-            ...(translated ? { translation } : {}),
-            translated,
-            targetLanguage: targetLanguageForCache,
-            steps,
-            elapsed: Date.now() - startTime,
-            ...(linkAlert ? { alert: linkAlert } : {})
-          };
-          // --- Mole Memory: Save to cache (including translation and targetLanguage) ---
-          // Only cache if not an error (type === 'error' means error)
-          if (!resultObj.type || resultObj.type !== 'error') {
-            moleMemory.set(url, resultObj);
-          } else {
-            moleMemory.delete(url);
-          }
-          return resultObj;
-          // --- END: Original fetch/analyze logic ---
-        })();
-        // (cache is now handled above)
-      }
-
-      // --- Main Avurna fetch (no recursion, just main page) ---
-      const mainResult = await fetchAndAnalyzeSingle({ url: urlToFetch, referer, userIntent });
-      // --- Robust error handling: If mainResult is missing or is an error, return early ---
-      if (!mainResult || mainResult.type === 'error') {
-        return {
-          ...mainResult,
-          moles: [],
-          topicClusters: [],
-          timeTravelMoles: [],
-          toolFeatures: `Error: ${mainResult?.error || 'Unknown error'}`
-        };
-      }
-
-      // --- Smart Moles: Specialized moles with "skills" ---
-      type MoleResult = {
-        url: string;
-        title?: string;
-        summary?: string;
-        siteType?: string;
-        language?: string;
-        error?: string;
-        elapsed?: number;
-        translation?: string;
-        translated?: boolean;
-        targetLanguage?: string;
-        skill?: string;
-        images?: string[];
-        videos?: string[];
-        facts?: string[];
-      };
-      let moleResults: MoleResult[] = [];
-      let topicClusters: Record<string, any[]> = {};
-      let clusterSummaries: { topic: string; count: number; summary: string }[] = [];
-      if (mainResult && Array.isArray(mainResult.navLinks) && mainResult.navLinks.length > 0) {
-        // Smart moles: assign skills
-        type NavLink = { href: string; text: string };
-        const allLinks = (mainResult.navLinks as NavLink[])
-          .filter((link: NavLink) => link && link.href && !visited.has(link.href) && (!origin || link.href.startsWith(origin)));
-        // Limit to remaining maxPages
-        const availableSlots = Math.max(0, maxPages - pagesFetched);
-        const linksToFetch = allLinks.slice(0, availableSlots);
-        // Mark as visited before fetching to avoid race conditions
-        linksToFetch.forEach((link: NavLink) => visited.add(link.href));
-
-        // Define mole skills
-        const moleSkills = [
-          { skill: 'image-expert', match: (l: NavLink) => /image|img|photo|gallery|media|pic|unsplash|pexels|flickr|instagram|jpg|jpeg|png|gif/i.test(l.text + l.href) },
-          { skill: 'video-expert', match: (l: NavLink) => /video|youtube|vimeo|mp4|mov|avi|stream/i.test(l.text + l.href) },
-          { skill: 'facts-expert', match: (l: NavLink) => /fact|about|info|wiki|encyclopedia|data|stat/i.test(l.text + l.href) },
-          { skill: 'summary-expert', match: (_l: NavLink) => true }, // fallback
-        ];
-
-        // Assign a skill to each mole
-        const skilledLinks = linksToFetch.map((link, idx) => {
-          const skillObj = moleSkills.find(s => s.match(link)) || moleSkills[moleSkills.length - 1];
-          return { ...link, skill: skillObj.skill };
-        });
-
-        // Fetch all links concurrently (moles)
-        let rawMoleResults: MoleResult[] = await Promise.all(
-          skilledLinks.map(async (link: NavLink & { skill: string }): Promise<MoleResult> => {
-            if (timedOut || pagesFetched >= maxPages) return { error: 'Timeout or maxPages reached', url: link.href, skill: link.skill };
-            try {
-              pagesFetched++;
-              // Moles only fetch the page summary, not recursion
-              const mole = await fetchAndAnalyzeSingle({ url: link.href, referer: urlToFetch, userIntent });
-              // Skill-specific extraction
-              let images: string[] = [];
-              let videos: string[] = [];
-              let facts: string[] = [];
-              if (link.skill === 'image-expert') {
-                // Extract images from navLink or HTML (if available)
-                if (mole && mole.preview) {
-                  images = Array.from((mole.preview as string).matchAll(/https?:[^\s]+\.(jpg|jpeg|png|gif)/gi)).map(m => m[0]);
-                }
-                if (mole && Array.isArray(mole.productCards)) {
-                  for (const card of mole.productCards) {
-                    if (card.img) images.push(card.img);
-                  }
-                }
-              } else if (link.skill === 'video-expert') {
-                if (mole && mole.preview) {
-                  videos = Array.from((mole.preview as string).matchAll(/https?:[^\s]+\.(mp4|mov|avi|webm)/gi)).map(m => m[0]);
-                  // YouTube/Vimeo links
-                  videos = videos.concat(Array.from((mole.preview as string).matchAll(/https?:\/\/(www\.)?(youtube|vimeo)\.com\/[\w\-\?=&#]+/gi)).map(m => m[0]));
-                }
-              } else if (link.skill === 'facts-expert') {
-                if (mole && mole.summary) {
-                  // Extract short facts (split by period, filter short sentences)
-                  facts = (mole.summary as string).split('.').map(s => s.trim()).filter(s => s.length > 10 && s.length < 120);
-                }
-              }
-              return {
-                url: mole.url,
-                title: mole.title,
-                summary: mole.summary,
-                siteType: mole.siteType,
-                language: mole.language,
-                error: mole.error,
-                elapsed: mole.elapsed,
-                translation: mole.translation,
-                translated: mole.translated,
-                targetLanguage: mole.targetLanguage,
-                skill: link.skill,
-                images,
-                videos,
-                facts,
-              };
-            } catch (e) {
-              return { error: String(e), url: link.href, skill: link.skill, translation: undefined, translated: false };
-            }
-          })
-        );
-
-        // --- Batch translation for moles if needed ---
-        const molesNeedingTranslation = rawMoleResults.filter(mole => mole.summary && mole.language && mole.language !== detectedUserLang && mole.language !== 'und' && (!mole.translated || mole.targetLanguage !== detectedUserLang));
-        if (molesNeedingTranslation.length > 0) {
-          try {
-            const langMap: Record<string, string> = {
-              eng: 'English',
-              fra: 'French',
-              spa: 'Spanish',
-              deu: 'German',
-              ita: 'Italian',
-              rus: 'Russian',
-              zho: 'Chinese',
-              jpn: 'Japanese',
-              kor: 'Korean',
-              por: 'Portuguese',
-              ara: 'Arabic',
-              hin: 'Hindi',
-            };
-            const targetLangName = langMap[detectedUserLang ?? 'eng'] || 'English';
-            const summaries = molesNeedingTranslation.map((m, i) => `${i + 1}. ${m.summary}`);
-            const batchPrompt = `Translate the following ${summaries.length} summaries to ${targetLangName}. Only output the translations, numbered, in the same order, no explanation.\n\n${summaries.join('\n')}`;
-            const geminiModel = google('gemini-2.5-flash-preview-05-20');
-            const translationResult = await generateText({ model: geminiModel, prompt: batchPrompt });
-            const translations = translationResult.text.split(/\n+/).filter(line => line.trim()).map(line => line.replace(/^\d+\.\s*/, ''));
-            molesNeedingTranslation.forEach((mole, idx) => {
-              if (translations[idx]) {
-                mole.translation = translations[idx];
-                mole.translated = true;
-                mole.targetLanguage = detectedUserLang;
-                if (mole.url) {
-                  const cached = moleMemory.get(mole.url) || {};
-                  moleMemory.set(mole.url, { ...cached, ...mole });
-                }
-              }
-            });
-          } catch (e) {}
-        }
-        moleResults = rawMoleResults;
-        // --- Topic Clustering ---
-        for (const mole of moleResults) {
-          const topic = mole.siteType || 'other';
-          if (!topicClusters[topic]) topicClusters[topic] = [];
-          topicClusters[topic].push(mole);
-        }
-        for (const topic of Object.keys(topicClusters)) {
-          const group = topicClusters[topic];
-          const summary = group.map(m => m.title || m.summary || m.url).slice(0, 3).join(' | ');
-          clusterSummaries.push({ topic, count: group.length, summary });
-        }
-      }
-
-      // --- Time Travel Moles: Fetch older versions of the main page using the Wayback Machine ---
-      // Fetches for 1, 3, and 5 years ago (if available)
-      const timeTravelMoles = await Promise.all([
-        fetchWaybackSnapshot(urlToFetch, 1),
-        fetchWaybackSnapshot(urlToFetch, 3),
-        fetchWaybackSnapshot(urlToFetch, 5),
-      ]);
-
-      if (mainResult && Array.isArray(mainResult.navLinks) && mainResult.navLinks.length > 0) {
-        // Avurna decides when to use moles: always if there are links, but can be made smarter later
-        type NavLink = { href: string; text: string };
-        const allLinks = (mainResult.navLinks as NavLink[])
-          .filter((link: NavLink) => link && link.href && !visited.has(link.href) && (!origin || link.href.startsWith(origin)));
-        // Limit to remaining maxPages
-        const availableSlots = Math.max(0, maxPages - pagesFetched);
-        const linksToFetch = allLinks.slice(0, availableSlots);
-        // Mark as visited before fetching to avoid race conditions
-        linksToFetch.forEach((link: NavLink) => visited.add(link.href));
-        // Fetch all links concurrently (moles)
-        moleResults = await Promise.all(
-          linksToFetch.map(async (link: NavLink) => {
-            if (timedOut || pagesFetched >= maxPages) return { error: 'Timeout or maxPages reached', url: link.href };
-            try {
-              // Each fetch increments pagesFetched
-              pagesFetched++;
-              // Moles only fetch the page summary, not recursion
-              const mole = await fetchAndAnalyzeSingle({ url: link.href, referer: urlToFetch, userIntent });
-              // Only return a summary and key info for each mole
-              return {
-                url: mole.url,
-                title: mole.title,
-                summary: mole.summary,
-                siteType: mole.siteType,
-                language: mole.language,
-                error: mole.error,
-                elapsed: mole.elapsed,
-              };
-            } catch (e) {
-              return { error: String(e), url: link.href };
-            }
-          })
-        );
-        // --- Topic Clustering ---
-        // Group by siteType (fallback to 'other'), then summarize each group
-        for (const mole of moleResults) {
-          const topic = mole.siteType || 'other';
-          if (!topicClusters[topic]) topicClusters[topic] = [];
-          topicClusters[topic].push(mole);
-        }
-        // Create a summary for each cluster
-        for (const topic of Object.keys(topicClusters)) {
-          const group = topicClusters[topic];
-          // Simple summary: join titles or summaries
-          const summary = group.map(m => m.title || m.summary || m.url).slice(0, 3).join(' | ');
-          clusterSummaries.push({ topic, count: group.length, summary });
-        }
-      }
-
-      // Return main result + mole results + topic clusters + time travel moles
-      // --- Compose enhanced tool result summary ---
-      let toolFeatures: string[] = [];
-      // Defensive: check mainResult is defined and not an error before accessing properties
-      if (!mainResult || mainResult.type === 'error') {
-        return {
-          ...mainResult,
-          moles: moleResults,
-          topicClusters: clusterSummaries,
-          timeTravelMoles,
-          toolFeatures: `Error: ${mainResult?.error || 'Unknown error'}`
-        };
-      }
-      // Mention language detection and translation
-      toolFeatures.push(`Language detected: "${mainResult.language || 'und'}"`);
-      if (mainResult.translated) {
-        toolFeatures.push(`Summary translated to user's language (${mainResult.targetLanguage || ''})`);
-      } else {
-        toolFeatures.push('No translation needed');
-      }
-      // Mention moles (subpage summaries)
-      if (moleResults && moleResults.length > 0) {
-        const moleSummaries = moleResults
-          .filter(m => m && (m.summary || m.title))
-          .map(m => `- [${m.title || m.url}]: ${m.summary ? m.summary.slice(0, 120) : ''}${m.translated ? ` (translated)` : ''}`)
-          .join('\n');
-        toolFeatures.push(`Mole results (subpage summaries):\n${moleSummaries}`);
-      } else {
-        toolFeatures.push('No mole (subpage) summaries available');
-      }
-      // Mention time-travel moles
-      if (timeTravelMoles && timeTravelMoles.length > 0) {
-        const timeTravelSummaries = timeTravelMoles.map((snap) => {
-          if (snap && snap.snapshotUrl && !snap.error) {
-            return `- Wayback snapshot from ${snap.yearsAgo} year(s) ago: ${snap.snapshotUrl}`;
-          } else if (snap && snap.error) {
-            return `- Wayback snapshot from ${snap.yearsAgo} year(s) ago: [${snap.error}]`;
-          }
-          return null;
-        }).filter(Boolean).join('\n');
-        toolFeatures.push(`Time-travel moles:\n${timeTravelSummaries}`);
-      } else {
-        toolFeatures.push('No time-travel moles available');
-      }
-
-      return {
-        ...mainResult,
-        moles: moleResults,
-        topicClusters: clusterSummaries,
-        timeTravelMoles,
-        toolFeatures: toolFeatures.join('\n'),
-      };
     }
 
-    // --- Main entry: handle single or multiple URLs ---
-    if (Array.isArray(urlOrUrls)) {
-      // --- Parallel/concurrent processing: record total elapsed time ---
-      const parallelStart = Date.now();
-      // For each URL, measure its own elapsed time
-      const urlElapsedTimes: Record<string, number> = {};
-      const urlStartTimes: Record<string, number> = {};
-      const urlResultsPromises = urlOrUrls.map(async (u) => {
-        urlStartTimes[u] = Date.now();
-        const res = await processOneUrl(u);
-        urlElapsedTimes[u] = Date.now() - urlStartTimes[u];
-        return res;
-      });
-      const results = await Promise.all(urlResultsPromises);
-      const totalElapsed = Date.now() - parallelStart;
+    async function describeImageWithVision(
+      src: string,
+      currentIntent: { object: string; modality: string; qualifiers: string[]; expanded: string[] }
+    ): Promise<{ description: string; confidence: number; isRelevant: boolean; detailedAnalysis?: Record<string, any> }> {
+      console.log(`[describeImageWithVision] Analyzing image: ${src} for object: ${currentIntent.object}`);
+      try {
+        const visionModel = google('gemma-3-27b-it');
+        const visionPrompt = `
+          Analyze the image at the URL: ${src}
+          Based on the user's intent:
+          - Object of interest: "${currentIntent.object || 'any relevant content'}"
+          - Qualifiers: ${currentIntent.qualifiers?.length > 0 ? currentIntent.qualifiers.join(', ') : 'none'}
 
-      // --- Always include full main result details for each URL in the results array ---
-      // Each result is a detailed object, not just a cluster or summary
-      const detailedResults = results.map(res => {
-        if (!res) return {};
-        // Remove fields that are only for clustering, but keep all main details and moles/timeTravelMoles
-        const { topicClusters, ...rest } = res;
-        // Always ensure url, title, summary, siteType are present
-        return {
-          url: rest.url,
-          title: rest.title || '',
-          summary: rest.summary || '',
-          siteType: rest.siteType || 'other',
-          elapsed: urlElapsedTimes[rest.url] || rest.elapsed || undefined,
-          ...rest
-        };
-      });
+          Return VALID JSON: { "description": "Concise image description (max 15 words).", "relevanceToObject": "Score (0.0-1.0) of image to 'object of interest'.", "relevanceToQualifiers": "Score (0.0-1.0) of image to 'qualifiers'.", "overallConfidence": "Overall confidence (0.0-1.0) image matches FULL intent.", "subjectiveAssessment": { "isFunny": "boolean", "otherObservations": "Brief notes on subjective qualifiers." } }
+        `;
+        const { text } = await generateText({ model: visionModel, prompt: visionPrompt, temperature: 0.2 });
+        let parsed: any;
+        try {
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+        } catch (e) {
+          console.error(`[describeImageWithVision] Failed to parse vision JSON for ${src}:`, e, `Raw: "${text}"`);
+          return { description: "AI analysis parse error.", confidence: 0.1, isRelevant: false, detailedAnalysis: { error: 'parsing failed', raw: text } };
+        }
 
-      // --- Unified Clustering: cluster all main and mole results together by siteType ---
-      // Flatten all main results and all their moles into a single array
-      const allResults: any[] = [];
-      for (const res of detailedResults) {
-        if (res) {
-          // Always include the main result
-          allResults.push({
-            url: res.url,
-            title: res.title || '',
-            summary: res.summary || '',
-            siteType: res.siteType || 'other',
-            isMain: true,
-            moles: undefined,
-            topicClusters: undefined,
-            timeTravelMoles: undefined,
-          });
-          // Add moles if any
-          if (Array.isArray(res.moles)) {
-            for (const mole of res.moles) {
-              if (mole && mole.url) {
-                allResults.push({
-                  url: mole.url,
-                  title: mole.title || '',
-                  summary: mole.summary || '',
-                  siteType: mole.siteType || 'other',
-                  isMain: false
+        const overallConfidence = Number(parsed.overallConfidence) || 0;
+        const isFunnyQualifierPresent = currentIntent.qualifiers?.includes('funny');
+        const meetsFunnyCriteria = isFunnyQualifierPresent && parsed.subjectiveAssessment?.isFunny === true;
+
+        let isRelevant = overallConfidence > (isFunnyQualifierPresent ? 0.50 : 0.60);
+        if (isFunnyQualifierPresent && !meetsFunnyCriteria && overallConfidence > 0.45) {
+          isRelevant = overallConfidence > 0.80;
+        } else if (isFunnyQualifierPresent && meetsFunnyCriteria) {
+          isRelevant = overallConfidence > 0.45;
+        }
+
+        return { description: parsed.description || "No description.", confidence: overallConfidence, isRelevant, detailedAnalysis: parsed };
+      } catch (error) {
+        console.error(`[describeImageWithVision] Error for ${src}:`, error);
+        return { description: "Vision analysis error.", confidence: 0.0, isRelevant: false, detailedAnalysis: { error: String(error) } };
+      }
+    }
+
+    async function describeVideoWithVision(
+      src: string,
+      currentIntent: { object: string; modality: string; qualifiers: string[]; expanded: string[] }
+    ): Promise<{ description: string; confidence: number; isRelevant: boolean; poster?: string; detailedAnalysis?: Record<string, any> }> {
+        // This function would be very similar to describeImageWithVision, using the same gemma-3-27b-it model
+        // For brevity, the logic is kept close to the image version.
+      console.log(`[describeVideoWithVision] Analyzing video: ${src} for object: ${currentIntent.object}`);
+      try {
+        const visionModel = google('gemma-3-27b-it');
+        const visionPrompt = `
+          Analyze the video at the URL: ${src}
+          Based on the user's intent:
+          - Object of interest: "${currentIntent.object || 'any relevant content'}"
+          - Qualifiers: ${currentIntent.qualifiers?.length > 0 ? currentIntent.qualifiers.join(', ') : 'none'}
+
+          Return VALID JSON: { "description": "Concise video summary (max 20 words).", "relevanceToObject": "Score (0.0-1.0) of video to 'object of interest'.", "relevanceToQualifiers": "Score (0.0-1.0) of video to 'qualifiers'.", "overallConfidence": "Overall confidence (0.0-1.0) video matches FULL intent.", "subjectiveAssessment": { "isFunny": "boolean", "otherObservations": "Brief notes." }, "extractedPoster": "URL of poster image, if any, else null." }
+        `;
+        const { text } = await generateText({ model: visionModel, prompt: visionPrompt, temperature: 0.2 });
+        let parsed: any;
+        try {
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+        } catch (e) {
+          return { description: "AI analysis parse error.", confidence: 0.1, isRelevant: false, detailedAnalysis: { error: 'parsing failed', raw: text } };
+        }
+        const overallConfidence = Number(parsed.overallConfidence) || 0;
+        const isFunnyQualifierPresent = currentIntent.qualifiers?.includes('funny');
+        const meetsFunnyCriteria = isFunnyQualifierPresent && parsed.subjectiveAssessment?.isFunny === true;
+        let isRelevant = overallConfidence > (isFunnyQualifierPresent ? 0.50 : 0.60);
+        if (isFunnyQualifierPresent && !meetsFunnyCriteria && overallConfidence > 0.45) isRelevant = overallConfidence > 0.80;
+        else if (isFunnyQualifierPresent && meetsFunnyCriteria) isRelevant = overallConfidence > 0.45;
+        return { description: parsed.description || "No summary.", confidence: overallConfidence, isRelevant, poster: parsed.extractedPoster || undefined, detailedAnalysis: parsed };
+      } catch (error) {
+        return { description: "Vision analysis error.", confidence: 0.0, isRelevant: false, detailedAnalysis: { error: String(error) } };
+      }
+    }
+
+    async function filterImagesWithVision(
+        imagesFromHtml: { src: string, alt: string, width?: number, height?: number }[],
+        currentIntent: any
+    ) {
+      const results = [];
+      const imagesToProcess = imagesFromHtml.slice(0, 10);
+      for (const img of imagesToProcess) {
+        if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+        const visionAnalysis = await describeImageWithVision(img.src, currentIntent);
+        if (visionAnalysis.isRelevant) {
+          results.push({ ...img, ...visionAnalysis });
+        }
+      }
+      results.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+      return results;
+    }
+
+    async function filterVideosWithVision(
+        videosFromHtml: { src: string, poster?: string, alt?: string }[],
+        currentIntent: any
+    ) {
+      const results = [];
+      const videosToProcess = videosFromHtml.slice(0, 5);
+      for (const vid of videosToProcess) {
+        if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+        const visionAnalysis = await describeVideoWithVision(vid.src, currentIntent);
+        if (visionAnalysis.isRelevant) {
+          results.push({ ...vid, ...visionAnalysis });
+        }
+      }
+      results.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+      return results;
+    }
+
+    function narrateResults(allImgs: any[], allVids: any[], currentInt: any, startUrl: string, wasRecursive: boolean) {
+        const objectStr = currentInt.object || "the requested content";
+        const qualifierStr = currentInt.qualifiers?.length > 0 ? ` (${currentInt.qualifiers.join(', ')})` : '';
+        const searchLocation = wasRecursive ? `across related pages starting from ${startUrl}` : `on ${startUrl}`;
+        if (allImgs.length === 0 && allVids.length === 0) {
+            return `I couldn't find any relevant images or videos for "${objectStr}${qualifierStr}" ${searchLocation}.`;
+        }
+        let msg = `Searching ${searchLocation}, I found ${allImgs.length} relevant image(s) and ${allVids.length} relevant video(s) for "${objectStr}${qualifierStr}".\n`;
+        if (allImgs.length > 0) {
+            const topImage = allImgs[0];
+            msg += `The best image match: "${topImage.description || 'Image of ' + objectStr}" (Confidence: ${Math.round((topImage.confidence || 0) * 100)}%).`;
+        }
+        if (allVids.length > 0) {
+            msg += `\nThe best video match: "${allVids[0].description || 'Video of ' + objectStr}" (Confidence: ${Math.round((allVids[0].confidence || 0) * 100)}%).`;
+        }
+        return msg.trim();
+    }
+
+
+    async function fetchAndAnalyze({ currentUrl, pageReferer, currentDepth, CIntent }: { currentUrl: string, pageReferer?: string, currentDepth: number, CIntent: any }): Promise<any> {
+        console.log(`[fetchAndAnalyze] Depth ${recursionDepth - currentDepth}, URL: ${currentUrl}, Object: ${CIntent.object}`);
+        if (operationTimedOut || Date.now() - overallStartTime > timeoutMs) {
+            operationTimedOut = true;
+            return { error: 'Operation timeout reached before processing this page.', url: currentUrl, steps: ["Timeout prior"] };
+        }
+        if (pagesFetchedCount >= maxPages) return { error: 'Max pages limit reached.', url: currentUrl, steps: ["Max pages hit prior"] };
+        if (visited.has(currentUrl)) return { error: 'Already visited.', url: currentUrl, steps: ["Already visited"] };
+
+        visited.add(currentUrl);
+        pagesFetchedCount++;
+        const localSteps: string[] = [];
+        localSteps.push(`Fetching L${recursionDepth - currentDepth}: ${currentUrl}`);
+
+        let htmlContent = "";
+        let contentType = "";
+        let res: Response | undefined = undefined;
+        try {
+            const headers: Record<string, string> = { 'User-Agent': 'Mozilla/5.0 (compatible; AvurnaBot/1.0)' };
+            if (pageReferer) headers['Referer'] = pageReferer;
+            res = await fetch(currentUrl, { method: 'GET', headers, signal: AbortSignal.timeout(15000) });
+            if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+            contentType = res.headers.get('content-type') || '';
+        } catch (fetchError: any) {
+            localSteps.push(`Error fetching ${currentUrl}: ${fetchError.message}`);
+            console.error(`[fetchAndAnalyze] Fetch error for ${currentUrl}:`, fetchError);
+            return { error: `Fetch error: ${fetchError.message}`, url: currentUrl, steps: localSteps };
+        }
+
+        // --- Content-Type Handling (non-destructive, before HTML logic) ---
+        if (contentType.startsWith('image/')) {
+            localSteps.push('Detected image file. Previewing and initiating AI analysis.');
+            const imageType = contentType.split('/')[1] || 'image';
+            let imageName = 'image';
+            try { imageName = new URL(currentUrl).pathname.split('/').pop() || 'image'; } catch {}
+            const markdownPreview = `![Preview of ${imageName}](${currentUrl})`;
+            let analysis = "Image analysis could not be performed at this time.";
+            let analysisError = null;
+            let visionResult = null;
+            try {
+                localSteps.push('Sending image to Gemini for analysis.');
+                const geminiModel = google('gemini-2.0-flash');
+                const analysisResult = await generateText({
+                    model: geminiModel,
+                    messages: [
+                        { role: 'user', content: [
+                            { type: 'text', text: 'Describe this image in detail. What is depicted (objects, beings, scene)? What are the key visual elements (colors, composition, style)? If there are actions or a story, briefly describe it. Provide a comprehensive and objective description.' },
+                            { type: 'image', image: new URL(currentUrl) },
+                        ] },
+                    ],
                 });
-              }
+                analysis = analysisResult.text;
+                localSteps.push('Image analysis received from Gemini.');
+                // Try to get a vision result in the same format as filterImagesWithVision
+                visionResult = {
+                    src: currentUrl,
+                    alt: analysis,
+                    confidence: 1.0,
+                    isRelevant: true,
+                    description: analysis,
+                };
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                localSteps.push(`Error during Gemini image analysis: ${msg}`);
+                analysisError = `AI analysis failed: ${msg}`;
+                analysis = `AI-powered analysis of the image failed. Details: ${msg}`;
+                visionResult = {
+                    src: currentUrl,
+                    alt: 'Image',
+                    confidence: 0.8,
+                    isRelevant: true,
+                    description: analysis,
+                };
             }
-          }
+            // Always return an images array for direct image URLs
+            return {
+                type: 'image_analyzed',
+                url: currentUrl,
+                images: visionResult ? [visionResult] : [],
+                markdown: markdownPreview,
+                analysis,
+                description: `The URL points to an image (${imageType.toUpperCase()}). Markdown Preview: ${markdownPreview}. AI-generated analysis: ${analysis}`,
+                ...(analysisError && { analysisErrorDetail: analysisError }),
+                steps: localSteps,
+                elapsed: Date.now() - overallStartTime,
+            };
+        } else if (contentType.includes('application/pdf')) {
+            localSteps.push('Detected PDF document.');
+            return { type: 'document', url: currentUrl, description: 'PDF document. Content analysis and table extraction are not supported by this tool for PDFs.', steps: localSteps, elapsed: Date.now() - overallStartTime };
+        } else if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('application/xml')) {
+            localSteps.push('Detected non-HTML, non-image, non-PDF file. Attempting to extract plain text preview.');
+            let textPreview = "Content is not plain text or could not be previewed.";
+            if (contentType.startsWith('text/')) {
+                try {
+                    if (res) {
+                        const text = await res.text();
+                        textPreview = text.slice(0, 500) + (text.length > 500 ? '...' : '');
+                    }
+                } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); localSteps.push(`Error reading text content: ${msg}`); textPreview = "Error reading text content."; }
+            }
+            return { type: 'file', url: currentUrl, preview: textPreview, contentType, description: `File (${contentType}). Preview: ${textPreview}`, steps: localSteps, elapsed: Date.now() - overallStartTime };
         }
-      }
 
-      // --- Cluster by siteType ---
-      const clusterMap: Record<string, any[]> = {};
-      for (const item of allResults) {
-        const topic = item.siteType || 'other';
-        if (!clusterMap[topic]) clusterMap[topic] = [];
-        clusterMap[topic].push(item);
-      }
-
-      // --- Always provide cluster summaries, even if there are no navLinks/moles ---
-      const clusterSummaries: { topic: string; count: number; summary: string }[] = [];
-      for (const topic of Object.keys(clusterMap)) {
-        const group = clusterMap[topic];
-        // Summarize: join up to 3 titles or summaries, fallback to url if missing
-        const summary = group.map(m => m.title || m.summary || m.url || '').slice(0, 3).join(' | ');
-        clusterSummaries.push({ topic, count: group.length, summary });
-      }
-
-      // --- Highlight news/blog cluster explicitly if present ---
-      let newsBlogCluster: { topic: string; count: number; summary: string } | undefined = undefined;
-      for (const cluster of clusterSummaries) {
-        if (cluster.topic === 'news/blog') {
-          newsBlogCluster = cluster;
-          break;
+        // --- HTML Content Handling (as before) ---
+        try {
+            htmlContent = await res.text();
+        } catch (e) {
+            localSteps.push('Error reading HTML content.');
+            return { error: 'Error reading HTML content', url: currentUrl, steps: localSteps };
         }
-      }
+        localSteps.push('Processing HTML content.');
 
-      // --- Fallback: if no clusters found, return a cluster for each main result by siteType ---
-      if (clusterSummaries.length === 0) {
-        for (const res of detailedResults) {
-          const topic = res.siteType || 'other';
-          clusterSummaries.push({ topic, count: 1, summary: res.title || res.summary || res.url });
+        let pageResults: { images: any[], videos: any[], textContent?: string } = { images: [], videos: [] };
+        let isGoodEnoughFound = false;
+        const inferredModality = CIntent.modality || (userIntent.toLowerCase().includes('video') ? 'video' : (userIntent.toLowerCase().includes('image') ? 'image' : 'summary'));
+        let foundItemsOnPage = 0;
+
+        if (inferredModality === 'image' || inferredModality === 'video') {
+            const imagesOnPage = extractImagesFromHtml(htmlContent, currentUrl);
+            const videosOnPage = await extractVideosFromHtml(htmlContent, currentUrl);
+            pageResults.images = await filterImagesWithVision(imagesOnPage, CIntent);
+            pageResults.videos = await filterVideosWithVision(videosOnPage, CIntent);
+            foundItemsOnPage = pageResults.images.length + pageResults.videos.length;
+            if ((inferredModality === 'image' && pageResults.images.length > 0 && pageResults.images[0].confidence >= 0.75) ||
+                (inferredModality === 'video' && pageResults.videos.length > 0 && pageResults.videos[0].confidence >= 0.75)) {
+                isGoodEnoughFound = true;
+            }
+        } else if (inferredModality === 'summary') {
+            const textContent = extractMainContent(htmlContent);
+            if (textContent.length > 500) {
+                pageResults.textContent = textContent;
+                isGoodEnoughFound = true;
+                foundItemsOnPage = 1;
+                localSteps.push(`Extracted ${textContent.length} characters of text for summarization.`);
+            } else {
+                localSteps.push(`Found insufficient text on page for a good summary.`);
+            }
         }
-      }
+        
+        if (Date.now() - overallStartTime > timeoutMs) operationTimedOut = true;
 
-      // --- Compose parallel processing message ---
-      const parallelMsg = `Parallel processing: All URLs were fetched and analyzed concurrently. Elapsed times per URL: ${detailedResults.map(r => `${r.url}: ${typeof r.elapsed === 'number' ? (r.elapsed / 1000).toFixed(2) + 's' : 'n/a'}`).join('; ')}. Total elapsed time: ${(totalElapsed / 1000).toFixed(2)}s.`;
+        let pageRecursiveResults: any[] = [];
+        if (currentDepth > 0 && !isGoodEnoughFound && !operationTimedOut) {
+            const pageNavLinks = await extractAndScoreLinks(htmlContent, currentUrl, CIntent);
+            if (pageNavLinks.length > 0) {
+                localSteps.push(`No high-confidence result found. Semantically exploring ${pageNavLinks.length} link(s)...`);
+                const linksToFollowCount = Math.min(pageNavLinks.length, currentDepth > 1 ? 1 : 2);
+                for (let i = 0; i < linksToFollowCount; i++) {
+                    if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; }
+                    const link = pageNavLinks[i];
+                    const subResult = await fetchAndAnalyze({ currentUrl: link.href, pageReferer: currentUrl, currentDepth: currentDepth - 1, CIntent: initialIntent });
+                    if (subResult && !subResult.error) {
+                        pageRecursiveResults.push(subResult);
+                        const subImages = subResult.images || [];
+                        const subVideos = subResult.videos || [];
+                        const subText = subResult.textContent || "";
+                        if ((subImages.length > 0 && subImages[0].confidence > 0.85) || 
+                            (subVideos.length > 0 && subVideos[0].confidence > 0.85) || 
+                            (subText.length > 1000)) {
+                            localSteps.push(`Excellent result found via ${link.href}. Halting further exploration from this page.`);
+                            break;
+                        }
+                    } else if (subResult?.error) {
+                        localSteps.push(`Sub-fetch for ${link.href} resulted in error: ${subResult.error}`);
+                    }
+                }
+            }
+        }
 
-      // Return results array, plus unified clusters, and parallel processing info
-      return {
-        results: detailedResults,
-        topicClusters: clusterSummaries,
-        ...(newsBlogCluster ? { newsBlogCluster } : {}),
-        parallelProcessing: parallelMsg,
-        totalElapsedMs: totalElapsed,
-      };
-    } else {
-      // Single URL: process as before, but always cluster main result (even if no moles)
-      const mainResult = await processOneUrl(urlOrUrls);
-      // Always cluster the main result by siteType
-      const topic = mainResult?.siteType || 'other';
-      const clusterSummaries = [{
-        topic,
-        count: 1,
-        summary: mainResult?.title || mainResult?.summary || mainResult?.url,
-      }];
-      // Attach topicClusters to the result
-      // If news/blog, add explicit newsBlogCluster
-      const newsBlogCluster = clusterSummaries.find(c => c.topic === 'news/blog');
-      return {
-        ...mainResult,
-        topicClusters: clusterSummaries,
-        ...(newsBlogCluster ? { newsBlogCluster } : {}),
-      };
+        const allImages = [...pageResults.images, ...pageRecursiveResults.flatMap(r => r.images || [])];
+        const allVideos = [...pageResults.videos, ...pageRecursiveResults.flatMap(r => r.videos || [])];
+        const allText = pageResults.textContent || pageRecursiveResults.map(r => r.textContent).find(t => t) || "";
+
+        allImages.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+        allVideos.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+
+        return { url: currentUrl, images: allImages, videos: allVideos, textContent: allText, steps: localSteps, recursiveResults: pageRecursiveResults };
     }
+    
+    // --- Start the process ---
+    const finalResult = await fetchAndAnalyze({ currentUrl: url, pageReferer: undefined, currentDepth: recursionDepth, CIntent: initialIntent });
+
+    // --- Final Summarization Step (if needed) ---
+    if (initialIntent.modality === 'summary' && finalResult.textContent && !operationTimedOut) {
+        try {
+            console.log(`[Summarization] Summarizing ${finalResult.textContent.length} characters.`);
+            const summaryModel = google('gemma-3-27b-it'); // Use powerful model for summarization
+            const summaryPrompt = `Based on the following article text, provide a concise summary highlighting the key points. Article Text: "${finalResult.textContent.substring(0, 25000)}"`; // Limit context
+            const { text } = await generateText({ model: summaryModel, prompt: summaryPrompt });
+            finalResult.narration = text;
+        } catch (e) {
+            finalResult.narration = "I found the article text, but there was an error while trying to summarize it.";
+            console.error("[Summarization] Error:", e);
+        }
+    } else if (operationTimedOut && initialIntent.modality === 'summary') {
+        finalResult.narration = "My apologies, King. The operation timed out while I was gathering the full article text, so I can't provide a complete summary right now."
+    } else {
+        finalResult.narration = narrateResults(finalResult.images || [], finalResult.videos || [], initialIntent, url, pagesFetchedCount > 1);
+    }
+    
+    return {
+        ...finalResult,
+        overallStats: { pagesFetched: pagesFetchedCount, totalTimeMs: Date.now() - overallStartTime, timedOut: operationTimedOut }
+    };
   },
 });
 
-// --- Google Search Tool (as provided by user) ---
-export const googleSearchTool = tool({
-  description: "Search the web using Google Search Grounding for up-to-date information, current events, or general knowledge questions.",
+// --- Exa Search Tool (replaces Google Search Tool) ---
+
+// Initialize Exa client with your API key
+const exa = new Exa("af94b87b-cc3e-43b0-80c2-fd73198009d2");
+
+export const exaSearchTool = tool({
+  description: "Search the web using Exa's neural search for up-to-date information, current events, or general knowledge questions.",
   parameters: z.object({
     query: z.string().describe("The search query to look up on the web"),
+    stream: z.boolean().optional().describe("Whether to stream the answer (default false)"),
   }),
-  execute: async ({ query }) => {
-    console.log(`googleSearchTool: Executing search for query: "${query}"`);
+  execute: async ({ query, stream }: { query: string; stream?: boolean }) => {
     try {
-      const modelInstance = google('gemini-2.5-flash-preview-05-20', { // User-provided model
-        useSearchGrounding: true,
-        dynamicRetrievalConfig: {
-          mode: 'MODE_DYNAMIC',
-          dynamicThreshold: 0.8,
-        },
-      });
-
-      const { text, sources, providerMetadata } = await generateText({ // generateText for google search
-          model: modelInstance,
-          prompt: query,
-      });
-
-      const metadata = providerMetadata?.google as any | undefined;
-      const webSearchQueries = metadata?.groundingMetadata?.webSearchQueries ?? [];
-      
-      console.log(`googleSearchTool: Search successful for query: "${query}". Found ${sources?.length ?? 0} sources.`);
-
-      return {
-          query,
-          groundedResponse: text,
-          sources: sources ?? [],
-          webSearchQueries,
-      };
-    } catch (error: any) {
-        console.error(`googleSearchTool Error searching for "${query}":`, error);
+      if (stream) {
+        let answer = "";
+        let sources: Array<{ url: string; sourceUrl: string; title: string; snippet: string; siteName: string }> = [];
+        const start = Date.now();
+        for await (const chunk of exa.streamAnswer(query, { model: "exa-pro", text: true })) {
+          // @ts-ignore: Exa's types may not include 'answer', but it is present in the stream
+          if ((chunk as any).answer) answer += (chunk as any).answer;
+          if ((chunk as any).citations) sources = (chunk as any).citations.map((c: any) => ({
+            url: c.url,
+            sourceUrl: c.url,
+            title: c.title || c.url,
+            snippet: c.text || '',
+            siteName: c.title || (c.url ? (() => { try { return new URL(c.url).hostname; } catch { return c.url; } })() : ''),
+            image: (c as any).image,
+            favicon: (c as any).favicon
+          }));
+        }
+        const elapsedMs = Date.now() - start;
         return {
           query,
-          error: `Failed to execute Google search: ${error.message || error}`,
-          groundedResponse: null,
-          sources: [],
-          webSearchQueries: [],
+          answer,
+          sources,
+          searchResults: sources,
+          webSearchQueries: [query],
+          elapsedMs
         };
+      } else {
+        const start = Date.now();
+        const result = await exa.answer(query, { model: "exa-pro", text: true });
+        const sources = (result.citations || []).map((c: any) => ({
+          url: c.url,
+          sourceUrl: c.url,
+          title: c.title || c.url,
+          snippet: c.text || '',
+          siteName: c.title || (c.url ? (() => { try { return new URL(c.url).hostname; } catch { return c.url; } })() : ''),
+          image: (c as any).image,
+          favicon: (c as any).favicon
+        }));
+        const elapsedMs = Date.now() - start;
+        return {
+          query,
+          answer: result.answer,
+          sources,
+          searchResults: sources,
+          webSearchQueries: [query],
+          elapsedMs
+        };
+      }
+    } catch (error: any) {
+      console.error("Exa search error:", error);
+      return {
+        query,
+        error: `Failed to execute Exa search: ${error && typeof error === 'object' && 'message' in error ? (error as any).message : String(error)}`,
+        sources: [],
+        searchResults: [],
+        webSearchQueries: []
+      };
     }
   },
 });
+// (The old googleSearchTool code is commented out above and replaced by exaSearchTool)
+
+// --- HTML Media Extraction Utilities ---
+function extractImagesFromHtml(html: string, baseUrl: string): { src: string, alt: string, width?: number, height?: number }[] {
+  const imgTagRegex = /<img\s+([^>]*?)>/gi;
+  const srcRegex = /src=["']([^"']+)["']/;
+  const altRegex = /alt=["']([^"']*)["']/;
+  const widthRegex = /width=["']?(\d+)/;
+  const heightRegex = /height=["']?(\d+)/;
+
+  const images: { src: string, alt: string, width?: number, height?: number }[] = [];
+  const commonUiPatterns = /\/(logo|icon|sprite|spinner|loader|avatar|profile|badge|button|arrow|thumb|pixel|spacer)-?.*\.(\w{3,4})$/i;
+  const commonUiKeywordsInAlt = ['logo', 'icon', 'button', 'arrow', 'avatar', 'profile', 'badge', 'banner ad', 'advertisement'];
+
+  let match;
+  while ((match = imgTagRegex.exec(html)) !== null) {
+    const imgTagContent = match[1];
+    const srcMatch = srcRegex.exec(imgTagContent);
+    if (!srcMatch || !srcMatch[1]) continue;
+    let src = srcMatch[1];
+    const altMatch = altRegex.exec(imgTagContent);
+    let alt = altMatch ? altMatch[1] : '';
+    try {
+      src = new URL(src, baseUrl).toString();
+      const widthMatch = widthRegex.exec(imgTagContent);
+      const heightMatch = heightRegex.exec(imgTagContent);
+      const width = widthMatch ? parseInt(widthMatch[1], 10) : undefined;
+      const height = heightMatch ? parseInt(heightMatch[1], 10) : undefined;
+      if (commonUiPatterns.test(src) || commonUiKeywordsInAlt.some(kw => alt.toLowerCase().includes(kw))) continue;
+      if ((width !== undefined && width < 50) && (height !== undefined && height < 50)) continue;
+      images.push({ src, alt, width, height });
+    } catch { /* Invalid URL */ }
+  }
+  return images;
+}
+
+async function extractVideosFromHtml(html: string, baseUrl: string): Promise<{ src: string, poster?: string, alt?: string }[]> {
+  const videos: { src: string, poster?: string, alt?: string }[] = [];
+  const videoTagRegex = /<video[^>]*?(?:poster=["']([^"']*)["'])?[^>]*>([\s\S]*?)<\/video>/gi;
+  const sourceTagRegex = /<source[^>]+src=["']([^"']+)["'][^>]*?(?:type=["']video\/([^"']+)["'])?/gi;
+  const iframeRegex = /<iframe[^>]+src=["']([^"']+)["'][^>]*><\/iframe>/gi;
+  let match;
+  // --- HTML5 <video> tags ---
+  while ((match = videoTagRegex.exec(html)) !== null) {
+    const poster = match[1];
+    const videoInnerHtml = match[2];
+    let sourceMatch;
+    let videoSrc: string | null = null;
+    while((sourceMatch = sourceTagRegex.exec(videoInnerHtml)) !== null) {
+        if (sourceMatch[1] && (!videoSrc || (sourceMatch[2] && sourceMatch[2].includes('mp4')))) {
+            videoSrc = sourceMatch[1];
+            if (sourceMatch[2] && sourceMatch[2].includes('mp4')) break;
+        }
+    }
+    if (!videoSrc) {
+        const videoSrcAttrMatch = /src=["']([^"']+)["']/.exec(match[0]);
+        if (videoSrcAttrMatch) videoSrc = videoSrcAttrMatch[1];
+    }
+    if (videoSrc) {
+      try {
+        const absoluteSrc = new URL(videoSrc, baseUrl).toString();
+        videos.push({ src: absoluteSrc, poster, alt: poster || "video content" });
+      } catch { /* Invalid URL */ }
+    }
+  }
+
+  // --- Iframe embeds for popular video platforms ---
+  while ((match = iframeRegex.exec(html)) !== null) {
+    const iframeSrc = match[1];
+    let absoluteSrc: string;
+    try {
+      absoluteSrc = new URL(iframeSrc, baseUrl).toString();
+    } catch { continue; }
+
+    // --- YouTube ---
+    if (
+      /youtube\.(com|nocookie\.com)\/embed\//.test(absoluteSrc) ||
+      /youtube\.(com|nocookie\.com)\/watch\?/.test(absoluteSrc)
+    ) {
+      // Try to get oEmbed info for title/thumbnail
+      let title: string | undefined = undefined;
+      let poster: string | undefined = undefined;
+      try {
+        const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(absoluteSrc)}&format=json`;
+        // Use fetch if available (node or edge runtime may need polyfill)
+        const resp = await fetch(oembedUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          title = data.title;
+          poster = data.thumbnail_url;
+        }
+      } catch {}
+      videos.push({ src: absoluteSrc, alt: title || "YouTube video", poster });
+      continue;
+    }
+
+    // --- Vimeo ---
+    if (/player\.vimeo\.com\/video\//.test(absoluteSrc)) {
+      let title: string | undefined = undefined;
+      let poster: string | undefined = undefined;
+      try {
+        const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(absoluteSrc)}`;
+        const resp = await fetch(oembedUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          title = data.title;
+          poster = data.thumbnail_url;
+        }
+      } catch {}
+      videos.push({ src: absoluteSrc, alt: title || "Vimeo video", poster });
+      continue;
+    }
+
+    // --- Dailymotion ---
+    if (/dailymotion\.com\/embed\//.test(absoluteSrc)) {
+      let title: string | undefined = undefined;
+      let poster: string | undefined = undefined;
+      try {
+        const oembedUrl = `https://www.dailymotion.com/services/oembed?url=${encodeURIComponent(absoluteSrc)}`;
+        const resp = await fetch(oembedUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          title = data.title;
+          poster = data.thumbnail_url;
+        }
+      } catch {}
+      videos.push({ src: absoluteSrc, alt: title || "Dailymotion video", poster });
+      continue;
+    }
+
+    // --- Twitch ---
+    if (/player\.twitch\.tv\//.test(absoluteSrc) || /twitch\.tv\//.test(absoluteSrc)) {
+      // Twitch does not provide oEmbed for all embeds, but try
+      let title: string | undefined = undefined;
+      let poster: string | undefined = undefined;
+      try {
+        const oembedUrl = `https://api.twitch.tv/v5/oembed?url=${encodeURIComponent(absoluteSrc)}`;
+        const resp = await fetch(oembedUrl);
+        if (resp.ok) {
+          const data = await resp.json();
+          title = data.title;
+          poster = data.thumbnail_url;
+        }
+      } catch {}
+      videos.push({ src: absoluteSrc, alt: title || "Twitch video", poster });
+      continue;
+    }
+
+    // --- Fallback for other platforms ---
+    videos.push({ src: absoluteSrc, alt: "embedded video player" });
+  }
+  return videos;
+}

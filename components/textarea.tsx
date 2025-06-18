@@ -277,14 +277,6 @@ export const Textarea = ({
             onKeyDown={handleKeyDown}
             {...(disabled && offlineState !== 'online' ? { 'aria-disabled': true } : {})}
           />
-          {/* Tooltip for offline state */}
-          {disabled && offlineState !== 'online' && (
-            <div className="absolute left-0 right-0 top-0 bottom-0 flex items-center justify-center pointer-events-none select-none z-20">
-              <span className="bg-zinc-800 text-white text-xs rounded px-3 py-1 opacity-90 shadow-lg">
-                {offlineState === 'offline' ? "You’re offline. Please reconnect to continue." : "Reconnecting..."}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* This div acts as a spacer for the absolutely positioned buttons */}

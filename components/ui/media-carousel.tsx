@@ -35,6 +35,8 @@ type MediaItem = ImageMedia | VideoMedia;
 interface MediaCarouselProps {
   images?: Omit<ImageMedia, 'type'>[];
   videos?: Omit<VideoMedia, 'type'>[];
+  maxImages?: number;
+  maxVideos?: number;
 }
 
 // --- Helper Hook & Components ---
@@ -54,15 +56,12 @@ const CloseIcon = () => ( <svg width="20" height="20" viewBox="0 0 20 20" fill="
 const ChevronLeftIcon = () => ( <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M11.5292 3.7793C11.7889 3.5196 12.211 3.5196 12.4707 3.7793C12.7304 4.039 12.7304 4.461 12.4707 4.7207L7.19136 10L12.4707 15.2793L12.5556 15.3838C12.7261 15.6419 12.6979 15.9934 12.4707 16.2207C12.2434 16.448 11.8919 16.4762 11.6337 16.3057L11.5292 16.2207L5.77925 10.4707C5.51955 10.211 5.51955 9.789 5.77925 9.5293L11.5292 3.7793Z" /></svg> );
 const ChevronRightIcon = () => ( <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M7.52925 3.7793C7.75652 3.55203 8.10803 3.52383 8.36616 3.69434L8.47065 3.7793L14.2207 9.5293C14.4804 9.789 14.4804 10.211 14.2207 10.4707L8.47065 16.2207C8.21095 16.4804 7.78895 16.4804 7.52925 16.2207C7.26955 15.961 7.26955 15.539 7.52925 15.2793L12.8085 10L7.52925 4.7207L7.44429 4.61621C7.27378 4.35808 7.30198 4.00657 7.52925 3.7793Z" /></svg> );
 
-
-// SafeImage with IndexedDB fallback
 const SafeImage = ({ src, alt, className }: { src: string; alt?: string; className?: string }) => {
   const [imgSrc, setImgSrc] = useState<string | undefined>(undefined);
   useEffect(() => {
     let revoked: string | undefined;
     let cancelled = false;
     async function tryIDB() {
-      // Try IndexedDB first
       const idb = await getMediaFromIDB(src);
       if (idb && idb.blob) {
         const url = URL.createObjectURL(idb.blob);
@@ -70,7 +69,6 @@ const SafeImage = ({ src, alt, className }: { src: string; alt?: string; classNa
         if (!cancelled) setImgSrc(url);
         return;
       }
-      // Fallback to network
       setImgSrc(src);
     }
     tryIDB();
@@ -100,117 +98,99 @@ const SourceLink = ({ source }: { source?: MediaSource }) => {
   );
 };
 
-// Move VideoWithIDBFallback outside the component so it is in scope
-function VideoWithIDBFallback(props: { src: string; poster?: string; autoPlay?: boolean; muted?: boolean; className?: string }) {
-  const [videoSrc, setVideoSrc] = useState<string | undefined>(undefined);
-  const [fallback, setFallback] = useState(false);
-  useEffect(() => {
-    let revoked: string | undefined = undefined;
-    let cancelled = false;
-    async function tryIDB() {
-      const idb = await getMediaFromIDB(props.src);
-      if (idb && idb.blob) {
-        const url = URL.createObjectURL(idb.blob);
-        revoked = url;
-        if (!cancelled) setVideoSrc(url);
-        return;
-      }
-      setVideoSrc(props.src);
+// --- YouTube URL Transformation Utility ---
+function transformToEmbedUrl(url: string): string {
+  try {
+    // Extract YouTube video ID
+    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+    const match = url.match(youtubeRegex);
+    
+    if (match && match[1]) {
+      // Return proper embed URL
+      return `https://www.youtube.com/embed/${match[1]}`;
     }
-    tryIDB();
-    return () => {
-      cancelled = true;
-      if (revoked) URL.revokeObjectURL(revoked);
-    };
-  }, [props.src]);
-
-  // If the blob fails to play, fallback to direct URL
-  const handleError = useCallback(() => {
-    if (!fallback && videoSrc && videoSrc.startsWith('blob:')) {
-      setFallback(true);
-      setVideoSrc(props.src);
+    
+    // If it's already an embed URL, return as is
+    if (url.includes('youtube.com/embed/')) {
+      return url;
     }
-  }, [fallback, videoSrc, props.src]);
+  } catch (error) {
+    console.error('Error transforming YouTube URL:', error);
+  }
+  
+  // Return original URL if transformation failed
+  return url;
+}
 
+// --- UPGRADED: Intelligent Media Renderer ---
+// --- UPGRADED: Intelligent Media Renderer ---
+function MediaRenderer(props: { media: VideoMedia; isPlaying: boolean; className?: string }) {
+  const { media, isPlaying, className } = props;
+
+  // Check if this is a YouTube URL
+  if (media.src.includes('youtube.com') || media.src.includes('youtu.be')) {
+    // For YouTube videos, use an iframe with the transformed URL
+    const embedUrl = transformToEmbedUrl(media.src);
+    
+    // In lightbox view (when className contains lightboxMedia)
+    // MODIFICATION: Apply the passed 'className' (styles.lightboxMedia) to the container div
+    if (className?.includes('lightboxMedia')) {
+      return (
+        <div className={cn(styles.youtubeContainer, className)}> {/* Ensure 'className' is applied here */}
+          <iframe
+            className={styles.youtubeEmbed}
+            src={`${embedUrl}?autoplay=${isPlaying ? 1 : 0}&mute=1&controls=1&rel=0`} // Kept mute=1 for autoplay reliability
+            title={media.title || 'YouTube video player'}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          ></iframe>
+        </div>
+      );
+    }
+    
+    // In grid view (or other contexts if MediaRenderer is used differently)
+    // This part of your original code seems to be for a different rendering context (e.g., grid direct iframe).
+    // If MediaRenderer is ONLY used for lightbox videos, this path might not be hit
+    // or might need its own wrapper if consistent styling is desired.
+    // For now, focusing on the lightbox fix.
+    return (
+      <iframe
+        className={className} // This would apply directly to the iframe
+        src={`${embedUrl}?autoplay=${isPlaying ? 1 : 0}&mute=1&controls=1&rel=0`}
+        title={media.title || 'YouTube video player'}
+        frameBorder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      ></iframe>
+    );
+  }
+
+  // For direct video files, use the video tag
   return (
     <video
-      className={props.className}
-      src={fallback ? props.src : videoSrc}
-      poster={props.poster}
-      autoPlay={props.autoPlay}
-      muted={props.muted}
+      className={className}
+      src={media.src}
+      poster={media.poster}
+      autoPlay={isPlaying}
+      muted={!isPlaying} // Consider if direct videos in lightbox should also be muted initially if autoplaying
       controls
-      onError={handleError}
     >
       Your browser does not support videos.
     </video>
   );
 }
-// --- Main MediaCarousel Component ---
 
-export const MediaCarousel: React.FC<MediaCarouselProps & { maxImages?: number; maxVideos?: number }> = ({ images = [], videos = [], maxImages, maxVideos }) => {
-  // Determine how many images/videos to show based on props (user intent)
+// --- Main MediaCarousel Component ---
+export const MediaCarousel: React.FC<MediaCarouselProps> = ({ images = [], videos = [], maxImages, maxVideos }) => {
   const limitedImages = typeof maxImages === 'number' ? images.slice(0, maxImages) : images;
   const limitedVideos = typeof maxVideos === 'number' ? videos.slice(0, maxVideos) : videos;
-
-  // State to hold generated posters for videos without poster
-  const [generatedPosters, setGeneratedPosters] = useState<{ [src: string]: string }>({});
-
-  // Save all images/videos to IndexedDB for offline use (if not already present)
-  useEffect(() => {
-    async function saveAllMedia() {
-      // Save images
-      for (const img of limitedImages) {
-        const exists = await getMediaFromIDB(img.src);
-        if (!exists) {
-          try {
-            const resp = await fetch(img.src);
-            if (resp.ok) {
-              const blob = await resp.blob();
-              await saveMediaToIDB(img.src, blob, {
-                key: img.src,
-                type: 'image',
-                mimeType: blob.type,
-                size: blob.size,
-                title: img.alt,
-                sourceUrl: img.source?.url
-              });
-            }
-          } catch {}
-        }
-      }
-      // Save videos
-      for (const vid of limitedVideos) {
-        const exists = await getMediaFromIDB(vid.src);
-        if (!exists) {
-          try {
-            const resp = await fetch(vid.src);
-            if (resp.ok) {
-              const blob = await resp.blob();
-              await saveMediaToIDB(vid.src, blob, {
-                key: vid.src,
-                type: 'video',
-                mimeType: blob.type,
-                size: blob.size,
-                title: vid.title,
-                sourceUrl: vid.source?.url
-              });
-            }
-          } catch {}
-        }
-      }
-    }
-    saveAllMedia();
-  }, [limitedImages, limitedVideos]);
-
-  // For each video without a poster, generate one
 
   const allMedia: MediaItem[] = [
     ...limitedImages.map(img => ({ ...img, type: 'image' as const })),
     ...limitedVideos.map(vid => ({
       ...vid,
       type: 'video' as const,
-      poster: vid.poster || generatedPosters[vid.src] || undefined,
     })),
   ];
 
@@ -300,13 +280,9 @@ export const MediaCarousel: React.FC<MediaCarouselProps & { maxImages?: number; 
 
   if (allMedia.length === 0) return null;
 
-  // For desktop grid, show only what is in allMedia (already limited)
-  const desktopMedia = allMedia;
-
   return (
     <>
       <div className={styles.mediaContainer}>
-        {/* Mobile Slideshow */}
         <div className={styles.mobileSliderWrapper} onClick={() => openLightbox(currentIndex)}>
           <div className={styles.mobileMediaContainer}>
             {allMedia.map((item, index) => (
@@ -330,9 +306,8 @@ export const MediaCarousel: React.FC<MediaCarouselProps & { maxImages?: number; 
           )}
         </div>
         
-        {/* Desktop Grid */}
         <div className={styles.desktopGrid}>
-          {desktopMedia.map((item, index) => (
+          {allMedia.slice(0, 4).map((item, index) => ( // Respects the 4 video limit for the grid
             <button key={`grid-${index}`} className={styles.desktopGridItem} onClick={() => openLightbox(index)}>
               <SafeImage 
                 src={item.type === 'image' ? item.src : (item as VideoMedia).poster || '/video-fallback.png'}
@@ -354,22 +329,26 @@ export const MediaCarousel: React.FC<MediaCarouselProps & { maxImages?: number; 
           </header>
           <main className={styles.lightboxContent}>
             <div ref={lightboxCarouselRef} className={styles.lightboxCarousel}>
-              {allMedia.map((item, index) => (
-                <div key={`lightbox-${index}`} className={styles.lightboxItemWrapper}>
-                  {item.type === 'image' ? (
-                    <SafeImage src={item.src} alt={item.alt} className={styles.lightboxMedia} />
-                  ) : (
-                    <VideoWithIDBFallback
-                      src={item.src}
-                      poster={item.poster || generatedPosters[item.src]}
-                      autoPlay={index === selectedIndex}
-                      muted={index !== selectedIndex}
-                      className={styles.lightboxMedia}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+  {allMedia.map((item, index) => (
+    <div 
+      key={`lightbox-${index}`} 
+      className={cn(
+        styles.lightboxItemWrapper, 
+        item.type === 'video' ? styles.videoWrapper : ''
+      )}
+    >
+      {item.type === 'image' ? (
+        <SafeImage src={item.src} alt={item.alt} className={styles.lightboxMedia} />
+      ) : (
+        <MediaRenderer
+          media={item as VideoMedia}
+          isPlaying={index === selectedIndex}
+          className={styles.lightboxMedia}
+        />
+      )}
+    </div>
+  ))}
+</div>
           </main>
           <footer className={styles.lightboxFooter}>
             <SourceLink source={allMedia[selectedIndex]?.source} />
