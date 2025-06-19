@@ -650,11 +650,12 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
   // Memoize the calculation of sources, media, text, and searchResults without side effects.
-  const { images, videos, sources, allText, searchResults } = React.useMemo(() => {
+  const { images, videos, sources, allText, searchResults, visionFiltering } = React.useMemo(() => {
     const extractedImages: { src: string; alt?: string; source?: { url: string; title?: string; } }[] = [];
     const extractedVideos: { src: string; poster?: string; title?: string }[] = [];
     let combinedText = "";
     let foundSearchResults: Array<{ image?: string; imageUrl?: string; title?: string; url?: string }> = [];
+    let foundVisionFiltering: any = undefined;
 
     if (isAssistant) {
       for (const part of message.parts || []) {
@@ -670,6 +671,10 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
             ) {
               foundSearchResults = result.searchResults;
             }
+            // Look for visionFiltering in result
+            if (result.visionFiltering) {
+              foundVisionFiltering = result.visionFiltering;
+            }
           }
         } else if (part.type === "text" && part.text.trim()) {
           combinedText += part.text + "\n\n";
@@ -677,7 +682,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
       }
     }
     const extractedSources = extractSourcesFromText(combinedText);
-    return { images: extractedImages, videos: extractedVideos, sources: extractedSources, allText: combinedText, searchResults: foundSearchResults };
+    return { images: extractedImages, videos: extractedVideos, sources: extractedSources, allText: combinedText, searchResults: foundSearchResults, visionFiltering: foundVisionFiltering };
   }, [message.parts, isAssistant]);
 
   // This new useEffect handles the side effect of prefetching source metadata.
@@ -797,6 +802,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                   if (videos.length > 0 && images.length === 0) return 4;
                   return 0;
                 })()}
+                visionFiltering={visionFiltering}
               />
             </div>
           ) : (searchResults.length > 0 && (
@@ -809,6 +815,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                     alt: r.title || r.snippet || r.text || '',
                     source: { url: r.url || r.sourceUrl || '', title: r.title || '' }
                   }))}
+                visionFiltering={visionFiltering}
               />
             </div>
           ))

@@ -8,6 +8,79 @@ import { generateText } from 'ai';         // For generating text with AI models
 // Initialize Exa client with your API key from the environment
 const exa = new Exa("af94b87b-cc3e-43b0-80c2-fd73198009d2"); // Ensure this is your actual API key or managed securely
 
+// --- Vision-based Image Filtering Utility ---
+/**
+ * Filters images using a vision model to ensure relevance to the user's intent.
+ * Skips filtering for subjective queries (e.g., "sexy car").
+ * @param images Array of images ({ src, alt, ... })
+ * @param userQuery The user's original query
+ * @param userIntent The extracted intent object (optional, for modality/qualifiers)
+ * @returns { filtered: Image[], all: Image[], filteringApplied: boolean, warning?: string }
+ */
+export async function filterImagesWithVision(
+  images: Array<{ src: string; alt?: string; [key: string]: any }>,
+  userQuery: string,
+  userIntent: { modality?: string } | null = null
+): Promise<{
+  filtered: typeof images;
+  all: typeof images;
+  filteringApplied: boolean;
+  warning?: string;
+}> {
+  // Subjectivity detection: skip filtering for subjective queries
+  const subjectiveWords = [
+    'sexy', 'beautiful', 'cute', 'hot', 'gorgeous', 'pretty', 'handsome', 'ugly', 'attractive', 'aesthetic',
+    'cool', 'funny', 'weird', 'strange', 'creepy', 'disturbing', 'artistic', 'stylish', 'awesome', 'amazing',
+    'inspiring', 'breathtaking', 'adorable', 'silly', 'hilarious', 'sad', 'happy', 'emotional', 'moody',
+    'romantic', 'dreamy', 'vintage', 'retro', 'futuristic', 'minimalist', 'maximalist', 'abstract', 'surreal',
+    'impressionist', 'expressionist', 'dramatic', 'epic', 'intense', 'provocative', 'suggestive', 'explicit',
+    'nsfw', 'lewd', 'erotic', 'porn', 'nude', 'naked', 'sensual', 'fetish', 'fetishy', 'fetishistic', 'kinky',
+    'sexy', 'sex', 'sexual', 'provocative', 'suggestive', 'explicit', 'nsfw', 'lewd', 'erotic', 'porn', 'nude', 'naked', 'sensual', 'fetish', 'fetishy', 'fetishistic', 'kinky'
+  ];
+  const q = userQuery.toLowerCase();
+  if (subjectiveWords.some(w => q.includes(w))) {
+    return {
+      filtered: images,
+      all: images,
+      filteringApplied: false,
+      warning: 'Vision filtering skipped for subjective queries.'
+    };
+  }
+  // Only apply for objective image queries
+  const isObjective = (userIntent && userIntent.modality === 'image') || /\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/i.test(userQuery);
+  if (!isObjective) {
+    return {
+      filtered: images,
+      all: images,
+      filteringApplied: false
+    };
+  }
+  // Vision model scoring
+  const visionModel = google('gemma-3-27b-it');
+  const threshold = 0.85; // Stricter threshold
+  const results = [];
+  for (const img of images.slice(0, 10)) {
+    try {
+      const prompt = `Does this image clearly show ALL of the following: ${userQuery}? Be strict. Only give high confidence if every element is present and obvious.\nImage URL: ${img.src}\nRespond as JSON: { \"description\": \"15-word description\", \"confidence\": \"0.0-1.0\" }`;
+      const { text } = await generateText({ model: visionModel, prompt, temperature: 0.2 });
+      const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
+      const confidence = Number(parsed.confidence) || 0;
+      if (confidence >= threshold) {
+        results.push({ ...img, description: parsed.description || '', confidence });
+      }
+    } catch (e) {
+      // On error, skip image
+    }
+  }
+  // Sort by confidence
+  results.sort((a, b) => b.confidence - a.confidence);
+  return {
+    filtered: results,
+    all: images,
+    filteringApplied: true
+  };
+}
+
 // --- CORRECTED: UTILITY TO TRANSFORM YOUTUBE URLS ---
 /**
  * Transforms a standard YouTube 'watch' or 'youtu.be' URL into a proper 'embed' URL
@@ -458,38 +531,49 @@ export const exaSearchTool = tool({
         });
 
         // For images, map to carousel format
-        let imagesForCarousel: { src: string; alt: string; source: { url: string; title?: string } }[] = [];
-        let videosForCarousel: { type: string; src: string; title?: string; poster?: string; source: { url: string; title?: string } }[] = [];
+        let imagesForCarousel: { src: string; alt?: string; source?: { url: string; title?: string } }[] = [];
+        let videosForCarousel: { type: string; src: string; title?: string; poster?: string; source?: { url: string; title?: string } }[] = [];
+        let visionFilteringInfo: {
+          filtered: typeof imagesForCarousel;
+          all: typeof imagesForCarousel;
+          filteringApplied: boolean;
+          warning?: string;
+        } | null = null;
         if (isImageRequest) {
           imagesForCarousel = searchResponse.results
             .filter(r => typeof r.image === 'string' && !!r.image)
             .map(r => ({
-              src: r.image as string,
+              src: String(r.image),
               alt: (typeof r.title === 'string' && r.title) ? r.title : (r.url || ''),
-              source: { url: r.url as string, title: typeof r.title === 'string' ? r.title : undefined },
-            }));
+              source: { url: r.url, title: typeof r.title === 'string' ? r.title : undefined },
+            }))
+            .filter(img => !!img.src);
+          // Vision filtering step
+          const intent = await extractUserIntent(query);
+          visionFilteringInfo = await filterImagesWithVision(imagesForCarousel, query, intent);
+          imagesForCarousel = visionFilteringInfo.filtered;
         }
         if (isVideoRequest) {
           videosForCarousel = searchResponse.results
             .filter(r => r.url && /youtube|vimeo|dailymotion|tiktok|twitch|bilibili/.test(r.url))
-            .map(result => ({
+            .map((result: any) => ({
               type: 'video',
-              src: transformToEmbedUrl(result.url as string),
+              src: transformToEmbedUrl(result.url),
               title: typeof result.title === 'string' ? result.title : undefined,
               poster: typeof result.image === 'string' ? result.image : undefined,
-              source: { url: result.url as string, title: typeof result.title === 'string' ? result.title : undefined },
+              source: { url: result.url, title: typeof result.title === 'string' ? result.title : undefined },
             }));
         }
 
         // Map sources for cards
         const sourcesFromSearch = searchResponse.results.map(r => ({
-          url: r.url as string,
-          sourceUrl: r.url as string,
-          title: r.title || r.url as string,
+          url: r.url,
+          sourceUrl: r.url,
+          title: r.title || r.url,
           snippet: r.text || '',
           image: r.image,
           favicon: r.favicon,
-          siteName: r.title || (r.url ? (() => { try { return new URL(r.url as string).hostname.replace(/^www\./, ''); } catch { return r.url as string; } })() : ''),
+          siteName: r.title || (r.url ? (() => { try { return new URL(r.url).hostname.replace(/^www\./, ''); } catch { return r.url; } })() : ''),
           publishedDate: r.publishedDate,
           author: r.author,
           score: r.score
@@ -507,10 +591,11 @@ export const exaSearchTool = tool({
           searchResults: searchResponse.results,
           webSearchQueries: [query],
           elapsedMs,
+          visionFiltering: visionFilteringInfo,
         };
       } catch (error: any) {
         console.error("Exa targeted search error:", error);
-        return { query, error: `Failed to execute Exa search: ${error.message}` };
+        return { query, error: `Failed to execute Exa search: ${error && typeof error === 'object' && 'message' in error ? (error as any).message : String(error)}` };
       }
     } else {
       // --- GENERAL QUERY: Use exa.answer() and process citations ---

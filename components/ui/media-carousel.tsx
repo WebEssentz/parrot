@@ -34,15 +34,20 @@ type MediaItem = ImageMedia | VideoMedia;
 
 import { mapSearchResultsToCarouselImages } from '@/lib/utils';
 
+interface VisionFilteringInfo {
+  filtered: any[];
+  all: any[];
+  filteringApplied: boolean;
+  warning?: string;
+}
+
 interface MediaCarouselProps {
   images?: Omit<ImageMedia, 'type'>[];
   videos?: Omit<VideoMedia, 'type'>[];
   maxImages?: number;
   maxVideos?: number;
-  /**
-   * Optional: Pass raw search results (with imageUrl, image, title, url, sourceUrl) and the carousel will auto-map them to images.
-   */
   searchResults?: Array<{ imageUrl?: string; image?: string; title?: string; url?: string; sourceUrl?: string }>;
+  visionFiltering?: VisionFilteringInfo;
 }
 
 // --- Helper Hook & Components ---
@@ -194,7 +199,8 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
     videos = [],
     maxImages,
     maxVideos,
-    searchResults
+    searchResults,
+    visionFiltering
   } = props;
 
   // If searchResults is provided, map them to images (overrides images prop)
@@ -208,7 +214,32 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
         source: { url: r.url || r.sourceUrl || '', title: r.title || '' },
       }));
   }
-  const limitedImages = typeof maxImages === 'number' ? mappedImages.slice(0, maxImages) : mappedImages;
+
+  // Vision filtering integration
+  // Default to filtered for objective queries, unfiltered for subjective
+  const [showFiltered, setShowFiltered] = React.useState(() => {
+    if (visionFiltering && visionFiltering.filteringApplied) return true;
+    return false;
+  });
+  let filteredImages = mappedImages;
+  let filteringApplied = false;
+  let filteringWarning = '';
+  let canToggle = false;
+  let isSubjective = false;
+  if (visionFiltering) {
+    filteringApplied = visionFiltering.filteringApplied;
+    filteringWarning = visionFiltering.warning || '';
+    isSubjective = !!(visionFiltering.warning && visionFiltering.warning.toLowerCase().includes('subjective'));
+    if (filteringApplied) {
+      // Debug: log filtered and unfiltered arrays
+      console.log('[MediaCarousel] visionFiltering.filtered:', visionFiltering.filtered);
+      console.log('[MediaCarousel] visionFiltering.all:', visionFiltering.all);
+      filteredImages = showFiltered ? visionFiltering.filtered : visionFiltering.all;
+      canToggle = visionFiltering.all && visionFiltering.filtered && visionFiltering.all.length !== visionFiltering.filtered.length && !isSubjective;
+    }
+  }
+
+  const limitedImages = typeof maxImages === 'number' ? filteredImages.slice(0, maxImages) : filteredImages;
   const limitedVideos = typeof maxVideos === 'number' ? videos.slice(0, maxVideos) : videos;
 
   const allMedia: MediaItem[] = [
@@ -219,9 +250,8 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
     })),
   ];
 
-
   // DEBUG: Log allMedia to verify what is being passed to the carousel
-  console.log('[MediaCarousel] allMedia:', allMedia);
+  // console.log('[MediaCarousel] allMedia:', allMedia);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -248,7 +278,6 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
     }
     return () => resetTimers();
   }, [currentIndex, allMedia.length, resetTimers, isMobile]);
-
 
   const openLightbox = (index: number) => {
     setSelectedIndex(index);
@@ -285,7 +314,7 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isLightboxOpen, handleNext, handlePrev]);
-  
+
   useEffect(() => {
     const carousel = lightboxCarouselRef.current;
     if (!isLightboxOpen || !carousel) return;
@@ -311,6 +340,66 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
 
   return (
     <>
+      {/* Filtered by AI badge and toggle */}
+      {filteringApplied && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <span style={{
+            background: 'linear-gradient(90deg, #6366f1 0%, #06b6d4 100%)',
+            color: 'white',
+            borderRadius: 16,
+            fontWeight: 600,
+            fontSize: 13,
+            padding: '2px 12px',
+            letterSpacing: 0.2,
+            boxShadow: '0 1px 6px rgba(80,80,180,0.10)',
+            display: 'inline-block',
+            userSelect: 'none',
+          }}>Filtered by AI</span>
+          {canToggle && (
+            <>
+              <button
+                style={{
+                  background: showFiltered ? '#f3f4f6' : '#e0e7ef',
+                  color: '#374151',
+                  border: '1px solid #c7d2fe',
+                  borderRadius: 14,
+                  fontSize: 12,
+                  padding: '2px 10px',
+                  marginLeft: 4,
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  transition: 'background 0.2s',
+                }}
+                onClick={e => {
+                  e.stopPropagation();
+                  setShowFiltered(f => {
+                    const newVal = !f;
+                    // Feedback logging removed: /api/vision-filter-feedback endpoint does not exist
+                    return newVal;
+                  });
+                }}
+                title={showFiltered ? 'Show all images' : 'Show only relevant images'}
+              >
+                {showFiltered ? 'Show all' : 'Show only relevant'}
+              </button>
+              <span style={{ color: '#64748b', fontSize: 12, marginLeft: 6 }}>
+                {showFiltered
+                  ? 'Some images may have been filtered out as less relevant.'
+                  : 'Some images may be less relevant.'}
+              </span>
+            </>
+          )}
+          {isSubjective && (
+            <span style={{ color: '#f59e42', fontSize: 12, marginLeft: 8 }}>
+              Filtering disabled for subjective or sensitive queries.
+            </span>
+          )}
+          {filteringWarning && !isSubjective && (
+            <span style={{ color: '#f59e42', fontSize: 12, marginLeft: 8 }}>{filteringWarning}</span>
+          )}
+        </div>
+      )}
+
       <div className={styles.mediaContainer}>
         <div className={styles.mobileSliderWrapper} onClick={() => openLightbox(currentIndex)}>
           <div className={styles.mobileMediaContainer}>
