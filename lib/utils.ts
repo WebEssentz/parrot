@@ -171,3 +171,52 @@ export function generateDummyPassword() {
 
   return hash;
 }
+
+// lib/utils.ts (add these functions)
+
+export function extractBaseHostname(url: string): string {
+  if (!url) return '';
+  try {
+    const parsedUrl = new URL(url);
+    // Remove www. if it exists
+    return parsedUrl.hostname.replace(/^www\./, '');
+  } catch (error) {
+    // console.error("Error parsing URL for hostname:", error);
+    // Fallback for invalid URLs, or return a more generic placeholder
+    const parts = url.split('/');
+    if (parts.length > 2) {
+        return parts[2].replace(/^www\./, '');
+    }
+    return url;
+  }
+}
+
+/**
+ * Transforms an array of search results (with imageUrl) into MediaCarousel-compatible image objects.
+ * @param searchResults Array of search result objects, each possibly with imageUrl, title, and url.
+ * @returns Array of image objects for MediaCarousel.
+ */
+export function mapSearchResultsToCarouselImages(
+  searchResults: Array<{ imageUrl?: string; image?: string; title?: string; url?: string; sourceUrl?: string }>
+): Array<{ src: string; alt?: string; source?: { url: string; title?: string } }> {
+  if (!Array.isArray(searchResults)) return [];
+  return searchResults
+    .filter(r => (typeof r.image === 'string' && r.image) || (typeof r.imageUrl === 'string' && r.imageUrl))
+    .map(r => ({
+      src: r.image || r.imageUrl!,
+      alt: r.title || 'Search result image',
+      source: { url: r.url || r.sourceUrl || '', title: r.title || '' },
+    }));
+}
+
+// --- Example usage for integrating with MediaCarousel ---
+//
+// import { mapSearchResultsToCarouselImages } from '@/lib/utils';
+// import { MediaCarousel } from '@/components/ui/media-carousel';
+//
+// function SearchResults({ searchResults }) {
+//   const images = mapSearchResultsToCarouselImages(searchResults);
+//   return <MediaCarousel images={images} />;
+// }
+//
+// This ensures all imageUrls from search results are displayed in the carousel, following best practices.

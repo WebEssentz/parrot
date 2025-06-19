@@ -32,11 +32,17 @@ interface VideoMedia {
 
 type MediaItem = ImageMedia | VideoMedia;
 
+import { mapSearchResultsToCarouselImages } from '@/lib/utils';
+
 interface MediaCarouselProps {
   images?: Omit<ImageMedia, 'type'>[];
   videos?: Omit<VideoMedia, 'type'>[];
   maxImages?: number;
   maxVideos?: number;
+  /**
+   * Optional: Pass raw search results (with imageUrl, image, title, url, sourceUrl) and the carousel will auto-map them to images.
+   */
+  searchResults?: Array<{ imageUrl?: string; image?: string; title?: string; url?: string; sourceUrl?: string }>;
 }
 
 // --- Helper Hook & Components ---
@@ -182,17 +188,40 @@ function MediaRenderer(props: { media: VideoMedia; isPlaying: boolean; className
 }
 
 // --- Main MediaCarousel Component ---
-export const MediaCarousel: React.FC<MediaCarouselProps> = ({ images = [], videos = [], maxImages, maxVideos }) => {
-  const limitedImages = typeof maxImages === 'number' ? images.slice(0, maxImages) : images;
+export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
+  const {
+    images = [],
+    videos = [],
+    maxImages,
+    maxVideos,
+    searchResults
+  } = props;
+
+  // If searchResults is provided, map them to images (overrides images prop)
+  let mappedImages: Omit<ImageMedia, 'type'>[] = images;
+  if (Array.isArray(searchResults)) {
+    mappedImages = searchResults
+      .filter((r: any) => (typeof r.image === 'string' && r.image) || (typeof r.imageUrl === 'string' && r.imageUrl))
+      .map((r: any) => ({
+        src: r.image || r.imageUrl,
+        alt: r.title || 'Search result image',
+        source: { url: r.url || r.sourceUrl || '', title: r.title || '' },
+      }));
+  }
+  const limitedImages = typeof maxImages === 'number' ? mappedImages.slice(0, maxImages) : mappedImages;
   const limitedVideos = typeof maxVideos === 'number' ? videos.slice(0, maxVideos) : videos;
 
   const allMedia: MediaItem[] = [
-    ...limitedImages.map(img => ({ ...img, type: 'image' as const })),
-    ...limitedVideos.map(vid => ({
+    ...limitedImages.map((img: Omit<ImageMedia, 'type'>) => ({ ...img, type: 'image' as const })),
+    ...limitedVideos.map((vid: Omit<VideoMedia, 'type'>) => ({
       ...vid,
       type: 'video' as const,
     })),
   ];
+
+
+  // DEBUG: Log allMedia to verify what is being passed to the carousel
+  console.log('[MediaCarousel] allMedia:', allMedia);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -287,11 +316,23 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = ({ images = [], video
           <div className={styles.mobileMediaContainer}>
             {allMedia.map((item, index) => (
               <div key={`slide-${index}`} className={cn(styles.mobileMediaSlide, index === currentIndex ? styles.visible : styles.hidden)}>
-                <SafeImage 
+                <img
                   src={item.type === 'image' ? item.src : (item as VideoMedia).poster || '/video-fallback.png'}
                   alt={item.type === 'image' ? (item as ImageMedia).alt : (item as VideoMedia).title}
                   className={styles.media}
+                  loading="lazy"
+                  onError={e => { (e.currentTarget as HTMLImageElement).src = '/placeholder-image.jpg'; }}
                 />
+                {item.type === 'image' && item.source && item.source.url && (
+                  <a
+                    href={item.source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.sourceLink}
+                  >
+                    {item.source.title || (item.source.url && item.source.url.replace(/^https?:\/\/(www\.)?/, '').split(/[/?#]/)[0])}
+                  </a>
+                )}
               </div>
             ))}
           </div>
@@ -309,11 +350,23 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = ({ images = [], video
         <div className={styles.desktopGrid}>
           {allMedia.slice(0, 4).map((item, index) => ( // Respects the 4 video limit for the grid
             <button key={`grid-${index}`} className={styles.desktopGridItem} onClick={() => openLightbox(index)}>
-              <SafeImage 
+              <img
                 src={item.type === 'image' ? item.src : (item as VideoMedia).poster || '/video-fallback.png'}
                 alt={item.type === 'image' ? (item as ImageMedia).alt : (item as VideoMedia).title}
                 className={styles.media}
+                loading="lazy"
+                onError={e => { (e.currentTarget as HTMLImageElement).src = '/placeholder-image.jpg'; }}
               />
+              {item.type === 'image' && item.source && item.source.url && (
+                <a
+                  href={item.source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.sourceLink}
+                >
+                  {item.source.title || (item.source.url && item.source.url.replace(/^https?:\/\/(www\.)?/, '').split(/[/?#]/)[0])}
+                </a>
+              )}
               {item.type === 'video' && <div className={styles.playIconOverlay}><PlayIcon /></div>}
             </button>
           ))}
@@ -329,26 +382,26 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = ({ images = [], video
           </header>
           <main className={styles.lightboxContent}>
             <div ref={lightboxCarouselRef} className={styles.lightboxCarousel}>
-  {allMedia.map((item, index) => (
-    <div 
-      key={`lightbox-${index}`} 
-      className={cn(
-        styles.lightboxItemWrapper, 
-        item.type === 'video' ? styles.videoWrapper : ''
-      )}
-    >
-      {item.type === 'image' ? (
-        <SafeImage src={item.src} alt={item.alt} className={styles.lightboxMedia} />
-      ) : (
-        <MediaRenderer
-          media={item as VideoMedia}
-          isPlaying={index === selectedIndex}
-          className={styles.lightboxMedia}
-        />
-      )}
-    </div>
-  ))}
-</div>
+              {allMedia.map((item, index) => (
+                <div
+                  key={`lightbox-${index}`}
+                  className={cn(
+                    styles.lightboxItemWrapper,
+                    item.type === 'video' ? styles.videoWrapper : ''
+                  )}
+                >
+                  {item.type === 'image' ? (
+                    <img src={item.src} alt={item.alt} className={styles.lightboxMedia} loading="lazy" onError={e => { (e.currentTarget as HTMLImageElement).src = '/placeholder-image.jpg'; }} />
+                  ) : (
+                    <MediaRenderer
+                      media={item as VideoMedia}
+                      isPlaying={index === selectedIndex}
+                      className={styles.lightboxMedia}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           </main>
           <footer className={styles.lightboxFooter}>
             <SourceLink source={allMedia[selectedIndex]?.source} />

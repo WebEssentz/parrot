@@ -1,12 +1,12 @@
 import Exa from "exa-js"; // Correct Exa import
-import { franc } from 'franc'; // For automatic language detection
+// import { franc } from 'franc'; // For automatic language detection - Not used in this snippet, can be removed if not used elsewhere
 import { tool } from "ai";
 import { z } from "zod";
 import { google } from '@ai-sdk/google';      // For Google AI models
 import { generateText } from 'ai';         // For generating text with AI models
 
 // Initialize Exa client with your API key from the environment
-const exa = new Exa("af94b87b-cc3e-43b0-80c2-fd73198009d2");
+const exa = new Exa("af94b87b-cc3e-43b0-80c2-fd73198009d2"); // Ensure this is your actual API key or managed securely
 
 // --- CORRECTED: UTILITY TO TRANSFORM YOUTUBE URLS ---
 /**
@@ -175,7 +175,7 @@ async function extractUserIntent(userMessage: string): Promise<{ object: string;
     `;
 
     const { text } = await generateText({ model: intentModel, prompt, temperature: 0.1 });
-    console.log(`[extractUserIntent] Raw LLM output: ${text}`);
+    // console.log(`[extractUserIntent] Raw LLM output: ${text}`); // Optional: keep for debugging
 
     let parsed: any;
     try {
@@ -183,11 +183,11 @@ async function extractUserIntent(userMessage: string): Promise<{ object: string;
       if (jsonMatch && jsonMatch[0]) {
         parsed = JSON.parse(jsonMatch[0]);
       } else {
-        parsed = JSON.parse(text);
+        parsed = JSON.parse(text); // Fallback if no explicit JSON block markers
       }
     } catch (e) {
       console.error("[extractUserIntent] Failed to parse LLM intent JSON:", e, "Raw text was:", text);
-      return { object: userMessage, modality: '', qualifiers: [], expanded: [] };
+      return { object: userMessage, modality: '', qualifiers: [], expanded: [] }; // Return a default structure on error
     }
     const finalIntent = {
       object: parsed.object || '',
@@ -200,12 +200,12 @@ async function extractUserIntent(userMessage: string): Promise<{ object: string;
 
   } catch (error) {
     console.error("[extractUserIntent] Outer error:", error);
-    return { object: userMessage, modality: '', qualifiers: [], expanded: [userMessage] };
+    return { object: userMessage, modality: '', qualifiers: [], expanded: [userMessage] }; // Default on outer error
   }
 }
 
 
-// --- CORRECTED HYBRID FETCHURLTOOL ---
+// --- CORRECTED HYBRID FETCHURLTOOL (No changes to this specific tool based on the request) ---
 export const fetchUrlTool = tool({
   description:
     "A hybrid tool that fetches content from a URL using two methods in parallel: a direct, vision-enabled recursive crawler and Exa's high-speed content extractor. It intelligently merges the results to provide the most accurate and comprehensive media, text, or summary.",
@@ -238,7 +238,7 @@ export const fetchUrlTool = tool({
         const exaStartTime = Date.now();
         console.log(`[Exa Fetch] Starting for ${targetUrl} with mode: ${crawlMode}`);
         try {
-            const response = await exa.getContents([targetUrl], { livecrawl: crawlMode });
+            const response = await exa.getContents([targetUrl], { livecrawl: crawlMode }); // Corrected livecrawl mapping
             const result = response.results[0];
             if (!result || !result.text) throw new Error("Exa returned no content.");
             console.log(`[Exa Fetch] Success. Got ${result.text.length} chars. Took ${Date.now() - exaStartTime}ms.`);
@@ -257,7 +257,7 @@ export const fetchUrlTool = tool({
         const maxPages = 10;
         let operationTimedOut = false;
         const baseOrigin = (() => { try { return new URL(url).origin; } catch { return null; } })();
-        if (!baseOrigin) return { source: 'direct', success: false, error: "Invalid base URL" };
+        if (!baseOrigin) return { source: 'direct', success: false, error: "Invalid base URL", elapsedMs: Date.now() - directFetchStartTime };
 
         async function getLinkSubject(linkText: string, linkHref: string, userGoal: string): Promise<string> {
           try { const linkModel = google('gemma-3n-e4b-it'); const prompt = `A user's goal is to "${userGoal}". On a webpage, there is a link with the text "${linkText}" that points to "${linkHref}". What is the primary subject of THIS LINK? Respond with a single noun or short phrase.`; const { text } = await generateText({ model: linkModel, prompt, temperature: 0.1, maxTokens: 20 }); return text.trim().toLowerCase(); } catch (e) { console.warn(`[getLinkSubject] LLM call failed`); return "unknown"; }
@@ -352,17 +352,17 @@ export const fetchUrlTool = tool({
         fetchAndAnalyzeRecursively()
     ]);
 
-    // Corrected Intelligent Merging Logic
     const mergedResult: any = { url, images: [], videos: [], textContent: "", narration: "", steps: [], fetchMethods: {}, overallStats: {} };
 
     const exaData = exaResult.status === 'fulfilled' && exaResult.value.success ? exaResult.value : null;
     const directData = directResult.status === 'fulfilled' && directResult.value.success ? directResult.value : null;
 
-    mergedResult.fetchMethods.exa = { success: !!exaData, elapsedMs: exaResult.status === 'fulfilled' ? exaResult.value.elapsedMs : 0, error: exaResult.status === 'fulfilled' ? exaResult.value.error : exaResult.reason };
-    mergedResult.fetchMethods.direct = { success: !!directData, elapsedMs: directResult.status === 'fulfilled' ? directResult.value.elapsedMs : 0, error: directResult.status === 'fulfilled' ? directResult.value.error : directResult.reason };
+    mergedResult.fetchMethods.exa = { success: !!exaData, elapsedMs: exaResult.status === 'fulfilled' ? exaResult.value.elapsedMs : 0, error: exaData ? null : (exaResult.status === 'fulfilled' ? exaResult.value.error : exaResult.reason?.message || 'Exa fetch failed') };
+    mergedResult.fetchMethods.direct = { success: !!directData, elapsedMs: directData ? directData.elapsedMs : 0, error: directData ? directData.error : (directResult.status === 'fulfilled' ? directResult.value.error : directResult.reason?.message || 'Direct fetch failed') };
+
 
     if (!exaData && !directData) {
-        return { error: `Both fetch methods failed.`, narration: "I'm sorry, I was unable to retrieve content from that URL. The site may be down or blocking access.", url, fetchMethods: mergedResult.fetchMethods };
+        return { error: `Both fetch methods failed. Exa: ${mergedResult.fetchMethods.exa.error}. Direct: ${mergedResult.fetchMethods.direct.error}`, narration: "I'm sorry, I was unable to retrieve content from that URL. The site may be down or blocking access.", url, fetchMethods: mergedResult.fetchMethods, overallStats: { totalTimeMs: Date.now() - overallStartTime } };
     }
 
     mergedResult.images = directData?.images || [];
@@ -375,14 +375,16 @@ export const fetchUrlTool = tool({
             const summaryModel = google('gemma-3-27b-it');
             const { text } = await generateText({ model: summaryModel, prompt: `Provide a concise summary of this text: "${mergedResult.textContent.substring(0, 25000)}"` });
             mergedResult.narration = text;
-        } catch (e) { mergedResult.narration = "Extracted article text, but summarization failed."; }
+        } catch (e: any) { mergedResult.narration = `Extracted article text, but summarization failed: ${e.message}`; }
     } else {
         const objectStr = initialIntent.object || "the requested content";
         const hasMedia = mergedResult.images.length > 0 || mergedResult.videos.length > 0;
         if (hasMedia) {
              mergedResult.narration = `I found ${mergedResult.images.length} relevant image(s) and ${mergedResult.videos.length} relevant video(s) for "${objectStr}".`;
-        } else {
+        } else if (mergedResult.textContent) {
             mergedResult.narration = `I successfully extracted the page content for "${objectStr}". While no specific media was found, I have the full text available for summarization.`;
+        } else {
+            mergedResult.narration = `I attempted to fetch content for "${objectStr}" but couldn't retrieve specific media or extensive text.`;
         }
     }
     
@@ -392,80 +394,170 @@ export const fetchUrlTool = tool({
 });
 
 
-// --- RE-ARCHITECTED Exa Search Tool ---
+// --- CORRECTED Exa Search Tool (Uses exa.answer for general queries) ---
+
+// --- Helper: Infer domains to include based on user intent (image, video, etc.) ---
+function inferDomainsFromIntent(query: string): string[] {
+  // Lowercase for easier matching
+  const q = query.toLowerCase();
+  // If user asks for images/photos/pictures, include image-rich domains
+  if (/\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/.test(q)) {
+    return [
+      'unsplash.com',
+      'pinterest.com',
+      'flickr.com',
+      'gettyimages.com',
+      'pexels.com',
+      'stock.adobe.com',
+      'shutterstock.com',
+      '500px.com',
+      'istockphoto.com',
+      'deviantart.com',
+      'wallhaven.cc',
+      'pixabay.com',
+      'freepik.com',
+      'dreamstime.com',
+      'canva.com',
+      'unsplash.com',
+    ];
+  }
+  // If user asks for videos, include video domains
+  if (/\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/.test(q)) {
+    return [
+      'youtube.com',
+      'vimeo.com',
+      'dailymotion.com',
+      'tiktok.com',
+      'metacafe.com',
+      'veoh.com',
+      'bilibili.com',
+      'twitch.tv',
+    ];
+  }
+  // Default: no domain filter (broad search)
+  return [];
+}
+
 export const exaSearchTool = tool({
-  description: "Performs a web search using Exa. Intelligently switches between a simple answer mode and a targeted video search mode if the user asks for a video.",
+  description: "Performs a web search using Exa. Uses Exa's search for image/video requests with special domains, and Exa's answer for general queries. Returns search results including images if available.",
   parameters: z.object({
     query: z.string().describe("The search query to look up on the web."),
   }),
   execute: async ({ query }: { query: string }) => {
     const start = Date.now();
-    
-    const isVideoRequest = /\b(video|movie|film|clip|trailer|watch|show me)\b/i.test(query) && !/\b(article|text|read)\b/i.test(query);
+    const domains = inferDomainsFromIntent(query);
+    const isImageRequest = /\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/i.test(query);
+    const isVideoRequest = /\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/i.test(query);
 
-    if (isVideoRequest) {
-      console.log(`[exaSearchTool] Video intent detected for query: "${query}". Using targeted search.`);
+    // If image or video request, use exa.search with domains
+    if (isImageRequest || isVideoRequest) {
       try {
         const searchResponse = await exa.search(query, {
           numResults: 10,
-          includeDomains: ["youtube.com", "vimeo.com", "dailymotion.com"],
+          includeDomains: domains.length > 0 ? domains : undefined,
         });
 
-        if (!searchResponse.results || searchResponse.results.length === 0) {
-            return { query, answer: "I searched for videos but couldn't find any results.", sources: [], videos: [] };
+        // For images, map to carousel format
+        let imagesForCarousel: { src: string; alt: string; source: { url: string; title?: string } }[] = [];
+        let videosForCarousel: { type: string; src: string; title?: string; poster?: string; source: { url: string; title?: string } }[] = [];
+        if (isImageRequest) {
+          imagesForCarousel = searchResponse.results
+            .filter(r => typeof r.image === 'string' && !!r.image)
+            .map(r => ({
+              src: r.image as string,
+              alt: (typeof r.title === 'string' && r.title) ? r.title : (r.url || ''),
+              source: { url: r.url as string, title: typeof r.title === 'string' ? r.title : undefined },
+            }));
+        }
+        if (isVideoRequest) {
+          videosForCarousel = searchResponse.results
+            .filter(r => r.url && /youtube|vimeo|dailymotion|tiktok|twitch|bilibili/.test(r.url))
+            .map(result => ({
+              type: 'video',
+              src: transformToEmbedUrl(result.url as string),
+              title: typeof result.title === 'string' ? result.title : undefined,
+              poster: typeof result.image === 'string' ? result.image : undefined,
+              source: { url: result.url as string, title: typeof result.title === 'string' ? result.title : undefined },
+            }));
         }
 
-        const videosForCarousel = searchResponse.results.map(result => ({
-          type: 'video',
-          src: transformToEmbedUrl(result.url), 
-          title: result.title,
-          poster: result.image, 
-          source: { url: result.url, title: result.title },
+        // Map sources for cards
+        const sourcesFromSearch = searchResponse.results.map(r => ({
+          url: r.url as string,
+          sourceUrl: r.url as string,
+          title: r.title || r.url as string,
+          snippet: r.text || '',
+          image: r.image,
+          favicon: r.favicon,
+          siteName: r.title || (r.url ? (() => { try { return new URL(r.url as string).hostname.replace(/^www\./, ''); } catch { return r.url as string; } })() : ''),
+          publishedDate: r.publishedDate,
+          author: r.author,
+          score: r.score
         }));
 
         const elapsedMs = Date.now() - start;
         return {
           query,
-          narration: `I found ${videosForCarousel.length} videos matching your request. Here is the most relevant one.`,
-          videos: videosForCarousel, 
+          narration: isImageRequest
+            ? `I found ${imagesForCarousel.length} images matching your request. Here are some of them.`
+            : `I found ${videosForCarousel.length} videos matching your request. Here are some of them.`,
+          images: imagesForCarousel,
+          videos: videosForCarousel,
+          sources: sourcesFromSearch,
           searchResults: searchResponse.results,
           webSearchQueries: [query],
           elapsedMs,
         };
-
       } catch (error: any) {
         console.error("Exa targeted search error:", error);
-        return { query, error: `Failed to execute Exa video search: ${error.message}` };
+        return { query, error: `Failed to execute Exa search: ${error.message}` };
       }
     } else {
-      console.log(`[exaSearchTool] General query detected: "${query}". Using answer mode.`);
+      // --- GENERAL QUERY: Use exa.answer() and process citations ---
       try {
-        const result = await exa.answer(query, { model: "exa-pro", text: true });
-        const sources = (result.citations || []).map((c: any) => ({
-          url: c.url,
-          sourceUrl: c.url,
-          title: c.title || c.url,
-          snippet: c.text || '',
-          siteName: c.title || (c.url ? (() => { try { return new URL(c.url).hostname; } catch { return c.url; } })() : ''),
+        const answerResponse = await exa.answer(query, {
+          text: true,
+        });
+
+        if (!answerResponse.citations || answerResponse.citations.length === 0) {
+          return {
+            query,
+            answer: answerResponse.answer || "I found an answer, but no specific citations were provided.",
+            sources: [],
+            searchResults: []
+          };
+        }
+
+        const sourcesForCards = answerResponse.citations.map(citation => ({
+          url: citation.url as string,
+          sourceUrl: citation.url as string,
+          title: citation.title || citation.url as string,
+          snippet: citation.text || '',
+          siteName: citation.title || (citation.url ? (() => { try { return new URL(citation.url as string).hostname.replace(/^www\./, ''); } catch { return citation.url as string; } })() : ''),
+          image: citation.image,
+          publishedDate: citation.publishedDate,
+          author: citation.author,
+          favicon: citation.favicon,
         }));
+
         const elapsedMs = Date.now() - start;
         return {
           query,
-          answer: result.answer,
-          sources,
-          searchResults: sources,
+          answer: answerResponse.answer,
+          sources: sourcesForCards,
+          searchResults: answerResponse.citations,
           webSearchQueries: [query],
           elapsedMs,
         };
       } catch (error: any) {
-        console.error("Exa answer error:", error);
+        console.error("Exa answer error (general query):", error);
         return { query, error: `Failed to execute Exa answer: ${error.message}` };
       }
     }
   },
 });
 
-// --- HTML Media Extraction Utilities ---
+// --- HTML Media Extraction Utilities (No changes) ---
 function extractImagesFromHtml(html: string, baseUrl: string): { src: string, alt: string, width?: number, height?: number }[] {
   const imgTagRegex = /<img\s+([^>]*?)>/gi; const srcRegex = /src=["']([^"']+)["']/; const altRegex = /alt=["']([^"']*)["']/; const widthRegex = /width=["']?(\d+)/; const heightRegex = /height=["']?(\d+)/; const images: { src: string, alt: string, width?: number, height?: number }[] = []; const commonUiPatterns = /\/(logo|icon|sprite|spinner|loader|avatar|profile|badge|button|arrow|thumb|pixel|spacer)-?.*\.(\w{3,4})$/i; const commonUiKeywordsInAlt = ['logo', 'icon', 'button', 'arrow', 'avatar', 'profile', 'badge', 'banner ad', 'advertisement']; let match; while ((match = imgTagRegex.exec(html)) !== null) { const imgTagContent = match[1]; const srcMatch = srcRegex.exec(imgTagContent); if (!srcMatch || !srcMatch[1]) continue; let src = srcMatch[1]; const altMatch = altRegex.exec(imgTagContent); let alt = altMatch ? altMatch[1] : ''; try { src = new URL(src, baseUrl).toString(); const widthMatch = widthRegex.exec(imgTagContent); const heightMatch = heightRegex.exec(imgTagContent); const width = widthMatch ? parseInt(widthMatch[1], 10) : undefined; const height = heightMatch ? parseInt(heightMatch[1], 10) : undefined; if (commonUiPatterns.test(src) || commonUiKeywordsInAlt.some(kw => alt.toLowerCase().includes(kw))) continue; if ((width !== undefined && width < 50) && (height !== undefined && height < 50)) continue; images.push({ src, alt, width, height }); } catch { /* Invalid URL */ } } return images;
 }

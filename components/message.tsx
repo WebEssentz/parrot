@@ -649,11 +649,12 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
   const [sourcesSidebarOpen, setSourcesSidebarOpen] = useState(false);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
-  // Memoize the calculation of sources, media, and text without side effects.
-  const { images, videos, sources, allText } = React.useMemo(() => {
+  // Memoize the calculation of sources, media, text, and searchResults without side effects.
+  const { images, videos, sources, allText, searchResults } = React.useMemo(() => {
     const extractedImages: { src: string; alt?: string; source?: { url: string; title?: string; } }[] = [];
     const extractedVideos: { src: string; poster?: string; title?: string }[] = [];
     let combinedText = "";
+    let foundSearchResults: Array<{ image?: string; imageUrl?: string; title?: string; url?: string }> = [];
 
     if (isAssistant) {
       for (const part of message.parts || []) {
@@ -662,6 +663,13 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
           if (result) {
             if (Array.isArray(result.images)) extractedImages.push(...result.images);
             if (Array.isArray(result.videos)) extractedVideos.push(...result.videos);
+            // Look for Exa/Google searchResults (array of objects with image or imageUrl)
+            if (
+              Array.isArray(result.searchResults) &&
+              result.searchResults.some((r: { image?: string; imageUrl?: string }) => r.image || r.imageUrl)
+            ) {
+              foundSearchResults = result.searchResults;
+            }
           }
         } else if (part.type === "text" && part.text.trim()) {
           combinedText += part.text + "\n\n";
@@ -669,7 +677,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
       }
     }
     const extractedSources = extractSourcesFromText(combinedText);
-    return { images: extractedImages, videos: extractedVideos, sources: extractedSources, allText: combinedText };
+    return { images: extractedImages, videos: extractedVideos, sources: extractedSources, allText: combinedText, searchResults: foundSearchResults };
   }, [message.parts, isAssistant]);
 
   // This new useEffect handles the side effect of prefetching source metadata.
@@ -746,49 +754,64 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
   return (
     <AnimatePresence key={message.id}>
       <motion.div className="w-full mx-auto px-2 sm:px-4 group/message max-w-[97.5%] sm:max-w-[46rem]" initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} key={`message-${message.id}`} data-role={message.role}>
-        {isAssistant && (images.length > 0 || videos.length > 0) && (
-          <div className="mb-4 w-full">
-            <MediaCarousel
-              images={images}
-              videos={videos}
-              maxImages={(() => {
-                const text = allText.toLowerCase();
-                if (/\b(image|images|picture|pictures|photo|photos|pic|pics|img|jpg|jpeg|png|gif|gifs)\b/.test(text)) {
-                  const match = text.match(/(?:show|display|give|see|want|need|find|fetch|render|provide|list|give me|show me|display me|see me|want me|need me|find me|fetch me|render me|provide me|list me)?\s*(\d+)\s*(?:images|pictures|photos|pics|img|jpg|jpeg|png|gifs?)/);
-                  if (match && match[1]) {
-                    const n = parseInt(match[1], 10);
-                    if (!isNaN(n) && n > 0) return n;
+        {/* Render MediaCarousel with images/videos if present, otherwise with searchResults if present */}
+        {isAssistant && (
+          (images.length > 0 || videos.length > 0) ? (
+            <div className="mb-4 w-full">
+              <MediaCarousel
+                images={images}
+                videos={videos}
+                maxImages={(() => {
+                  const text = allText.toLowerCase();
+                  if (/\b(image|images|picture|pictures|photo|photos|pic|pics|img|jpg|jpeg|png|gif|gifs)\b/.test(text)) {
+                    const match = text.match(/(?:show|display|give|see|want|need|find|fetch|render|provide|list|give me|show me|display me|see me|want me|need me|find me|fetch me|render me|provide me|list me)?\s*(\d+)\s*(?:images|pictures|photos|pics|img|jpg|jpeg|png|gifs?)/);
+                    if (match && match[1]) {
+                      const n = parseInt(match[1], 10);
+                      if (!isNaN(n) && n > 0) return n;
+                    }
+                    if (/images|pictures|photos|pics|gifs/.test(text)) return 4;
+                    if (/image|picture|photo|pic|gif/.test(text)) return 1;
+                    return 1;
                   }
-                  if (/images|pictures|photos|pics|gifs/.test(text)) return 4;
-                  if (/image|picture|photo|pic|gif/.test(text)) return 1;
-                  return 1;
-                }
-                if (/\b(video|videos|clip|clips|movie|movies|mp4|webm|mov|avi)\b/.test(text)) {
-                  return 0;
-                }
-                if (images.length > 0) return 4;
-                return 0;
-              })()}
-              maxVideos={(() => {
-                const text = allText.toLowerCase();
-                if (/\b(video|videos|clip|clips|movie|movies|mp4|webm|mov|avi)\b/.test(text)) {
-                  const match = text.match(/(?:show|display|give|see|want|need|find|fetch|render|provide|list|give me|show me|display me|see me|want me|need me|find me|fetch me|render me|provide me|list me)?\s*(\d+)\s*(?:videos|clips|movies|mp4|webm|mov|avi)/);
-                  if (match && match[1]) {
-                    const n = parseInt(match[1], 10);
-                    if (!isNaN(n) && n > 0) return n;
+                  if (/\b(video|videos|clip|clips|movie|movies|mp4|webm|mov|avi)\b/.test(text)) {
+                    return 0;
                   }
-                  if (/videos|clips|movies/.test(text)) return 4;
-                  if (/video|clip|movie/.test(text)) return 1;
-                  return 1;
-                }
-                if (/\b(image|images|picture|pictures|photo|photos|pic|pics|img|jpg|jpeg|png|gif|gifs)\b/.test(text)) {
+                  if (images.length > 0) return 4;
                   return 0;
-                }
-                if (videos.length > 0 && images.length === 0) return 4;
-                return 0;
-              })()}
-            />
-          </div>
+                })()}
+                maxVideos={(() => {
+                  const text = allText.toLowerCase();
+                  if (/\b(video|videos|clip|clips|movie|movies|mp4|webm|mov|avi)\b/.test(text)) {
+                    const match = text.match(/(?:show|display|give|see|want|need|find|fetch|render|provide|list|give me|show me|display me|see me|want me|need me|find me|fetch me|render me|provide me|list me)?\s*(\d+)\s*(?:videos|clips|movies|mp4|webm|mov|avi)/);
+                    if (match && match[1]) {
+                      const n = parseInt(match[1], 10);
+                      if (!isNaN(n) && n > 0) return n;
+                    }
+                    if (/videos|clips|movies/.test(text)) return 4;
+                    if (/video|clip|movie/.test(text)) return 1;
+                    return 1;
+                  }
+                  if (/\b(image|images|picture|pictures|photo|photos|pic|pics|img|jpg|jpeg|png|gif|gifs)\b/.test(text)) {
+                    return 0;
+                  }
+                  if (videos.length > 0 && images.length === 0) return 4;
+                  return 0;
+                })()}
+              />
+            </div>
+          ) : (searchResults.length > 0 && (
+            <div className="mb-4 w-full">
+              <MediaCarousel
+                images={searchResults
+                  .filter((r: any) => r.image || r.imageUrl)
+                  .map((r: any) => ({
+                    src: r.image || r.imageUrl,
+                    alt: r.title || r.snippet || r.text || '',
+                    source: { url: r.url || r.sourceUrl || '', title: r.title || '' }
+                  }))}
+              />
+            </div>
+          ))
         )}
         <div className={cn(isAssistant ? "flex w-full flex-col sm:flex-row items-start" : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit")}>
           {isAssistant ? (
