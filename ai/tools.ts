@@ -81,6 +81,95 @@ export async function filterImagesWithVision(
   };
 }
 
+// --- Vision-based Video Filtering Utility ---
+/**
+ * Filters videos using a vision/multimodal model to ensure relevance to the user's intent.
+ * Skips filtering for subjective queries (e.g., "funny cat video").
+ * @param videos Array of videos ({ src, poster, title, ... })
+ * @param userQuery The user's original query
+ * @param userIntent The extracted intent object (optional, for modality/qualifiers)
+ * @returns { filtered: Video[], all: Video[], filteringApplied: boolean, warning?: string }
+ */
+export async function filterVideosWithVision(
+  videos: Array<{ src: string; poster?: string; title?: string; [key: string]: any }>,
+  userQuery: string,
+  userIntent: { modality?: string } | null = null
+): Promise<{
+  filtered: typeof videos;
+  all: typeof videos;
+  filteringApplied: boolean;
+  warning?: string;
+}> {
+  // Subjectivity detection: skip filtering for subjective queries
+  const subjectiveWords = [
+    'sexy', 'beautiful', 'cute', 'hot', 'gorgeous', 'pretty', 'handsome', 'ugly', 'attractive', 'aesthetic',
+    'cool', 'funny', 'weird', 'strange', 'creepy', 'disturbing', 'artistic', 'stylish', 'awesome', 'amazing',
+    'inspiring', 'breathtaking', 'adorable', 'silly', 'hilarious', 'sad', 'happy', 'emotional', 'moody',
+    'romantic', 'dreamy', 'vintage', 'retro', 'futuristic', 'minimalist', 'maximalist', 'abstract', 'surreal',
+    'impressionist', 'expressionist', 'dramatic', 'epic', 'intense', 'provocative', 'suggestive', 'explicit',
+    'nsfw', 'lewd', 'erotic', 'porn', 'nude', 'naked', 'sensual', 'fetish', 'fetishy', 'fetishistic', 'kinky',
+    'sexy', 'sex', 'sexual', 'provocative', 'suggestive', 'explicit', 'nsfw', 'lewd', 'erotic', 'porn', 'nude', 'naked', 'sensual', 'fetish', 'fetishy', 'fetishistic', 'kinky'
+  ];
+  const q = userQuery.toLowerCase();
+  if (subjectiveWords.some(w => q.includes(w))) {
+    return {
+      filtered: videos,
+      all: videos,
+      filteringApplied: false,
+      warning: 'Vision filtering skipped for subjective queries.'
+    };
+  }
+  // Only apply for objective video queries
+  const isObjective = (userIntent && userIntent.modality === 'video') || /\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/i.test(userQuery);
+  if (!isObjective) {
+    return {
+      filtered: videos,
+      all: videos,
+      filteringApplied: false
+    };
+  }
+  // Strictly exclude channel/profile URLs (e.g., youtube.com/@channelname, youtube.com/channel/, youtube.com/user/)
+  const isChannelOrProfileUrl = (url: string) => {
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtube.com')) {
+        if (/\/(@|channel\/|user\/|c\/)[^/]+/i.test(u.pathname) && !/\/watch\?v=|\/embed\//.test(u.pathname)) return true;
+      }
+      if (u.hostname.includes('tiktok.com') && /\/(@|user\/)[^/]+/i.test(u.pathname) && !/\/video\//.test(u.pathname)) return true;
+      // Add more platforms as needed
+    } catch {}
+    return false;
+  };
+  // Vision model scoring (use poster/thumbnail if available, else video src)
+  const visionModel = google('gemma-3-27b-it');
+  const threshold = 0.85; // Stricter threshold
+  const results = [];
+  for (const vid of videos.slice(0, 10)) {
+    // Exclude channel/profile URLs
+    if (isChannelOrProfileUrl(vid.src)) continue;
+    try {
+      // Prefer poster/thumbnail for vision model, fallback to video src
+      const mediaUrl = vid.poster || vid.src;
+      const prompt = `Does this video (or its thumbnail) clearly show ALL of the following: ${userQuery}? Be strict. Only give high confidence if every element is present and obvious.\nMedia URL: ${mediaUrl}\nRespond as JSON: { \"description\": \"15-word description\", \"confidence\": \"0.0-1.0\" }`;
+      const { text } = await generateText({ model: visionModel, prompt, temperature: 0.2 });
+      const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
+      const confidence = Number(parsed.confidence) || 0;
+      if (confidence >= threshold) {
+        results.push({ ...vid, description: parsed.description || '', confidence });
+      }
+    } catch (e) {
+      // On error, skip video
+    }
+  }
+  // Sort by confidence
+  results.sort((a, b) => b.confidence - a.confidence);
+  return {
+    filtered: results,
+    all: videos,
+    filteringApplied: true
+  };
+}
+
 // --- CORRECTED: UTILITY TO TRANSFORM YOUTUBE URLS ---
 /**
  * Transforms a standard YouTube 'watch' or 'youtu.be' URL into a proper 'embed' URL
@@ -229,52 +318,107 @@ export const weatherTool = tool({
   }),
 });
 
-// --- UPDATED Intent Extraction Utility (No changes) ---
+// --- ENHANCED Intent Extraction Utility: Multi-LLM, More Modifiers ---
+/**
+ * Extracts user intent using multiple LLMs and a richer set of modifiers/qualifiers.
+ * Tries several models and merges results for robustness.
+ */
 async function extractUserIntent(userMessage: string): Promise<{ object: string; modality: string; qualifiers: string[]; expanded: string[] }> {
   console.log(`[extractUserIntent] Starting for: "${userMessage}"`);
-  try {
-    const intentModel = google('gemma-3n-e4b-it');
-    const prompt = `
-      Analyze the following user request and extract the specified components.
-      Return the output strictly as a JSON object with the keys: "object", "modality", "qualifiers", "expanded".
-      - "object": The main subject or entity of interest (e.g., 'cat', 'Eiffel Tower', 'recipe for pasta'). BE SPECIFIC.
-      - "modality": The type of media or information requested (e.g., 'image', 'video', 'article', 'summary', 'data'). If not specified, try to infer or leave empty. For "summarize this article", the modality is "summary".
-      - "qualifiers": Descriptive adjectives or attributes modifying the object or modality (e.g., 'funny', 'high resolution', 'blue', 'quick', 'easy'). List them as an array of strings. If none, provide an empty array [].
-      - "expanded": Provide up to 3 synonyms or closely related terms for the "object" to aid in searching. List them as an array of strings. If none, provide an empty array [].
+  // Expanded list of possible modifiers/qualifiers
+  const extraQualifiers = [
+    'latest', 'official', 'unofficial', 'verified', 'unverified', 'recent', 'oldest', 'top', 'trending', 'viral',
+    'long', 'short', 'full', 'clip', 'teaser', 'trailer', 'episode', 'series', 'live', 'recorded', 'HD', '4K', '8K',
+    'beginner', 'advanced', 'expert', 'tutorial', 'review', 'comparison', 'demo', 'walkthrough', 'explained',
+    'step by step', 'deep dive', 'overview', 'guide', 'how to', 'tips', 'tricks', 'hack', 'strategy', 'insight',
+    'analysis', 'breakdown', 'summary', 'recap', 'reaction', 'opinion', 'commentary', 'discussion', 'debate',
+    'interview', 'Q&A', 'AMA', 'panel', 'presentation', 'talk', 'speech', 'conference', 'webinar', 'workshop',
+    'case study', 'success story', 'fail', 'mistake', 'problem', 'solution', 'fix', 'update', 'patch', 'release',
+    'leak', 'rumor', 'announcement', 'news', 'event', 'launch', 'preview', 'sneak peek', 'exclusive', 'behind the scenes',
+    'official site', 'channel', 'account', 'profile', 'creator', 'author', 'publisher', 'organization', 'company',
+    'AI', 'machine learning', 'coding', 'web', 'frontend', 'backend', 'stack', 'workflow', 'remote', 'onsite', 'hybrid',
+    'salary', 'pay', 'job', 'career', 'opportunity', 'internship', 'freelance', 'contract', 'full time', 'part time',
+    '2025', '2024', '2023', 'today', 'yesterday', 'this week', 'this month', 'this year', 'last year',
+    // Add more as needed
+  ];
 
-      User Request: "${userMessage}"
+  // Try multiple LLMs for robustness
+  const models = [
+    google('gemma-3n-e4b-it'),
+    google('gemma-3-27b-it'),
+    // Add more models here if available, e.g. openai('gpt-4o'),
+  ];
 
-      JSON Output:
-    `;
+  const prompt = `
+    Analyze the following user request and extract the specified components.
+    Return the output strictly as a JSON object with the keys: "object", "modality", "qualifiers", "expanded".
+    - "object": The main subject or entity of interest (e.g., 'cat', 'Eiffel Tower', 'recipe for pasta'). BE SPECIFIC.
+    - "modality": The type of media or information requested (e.g., 'image', 'video', 'article', 'summary', 'data'). If not specified, try to infer or leave empty. For "summarize this article", the modality is "summary".
+    - "qualifiers": Descriptive adjectives or attributes modifying the object or modality (e.g., 'funny', 'high resolution', 'blue', 'quick', 'easy', plus: ${extraQualifiers.join(', ')}). List them as an array of strings. If none, provide an empty array [].
+    - "expanded": Provide up to 3 synonyms or closely related terms for the "object" to aid in searching. List them as an array of strings. If none, provide an empty array [].
 
-    const { text } = await generateText({ model: intentModel, prompt, temperature: 0.1 });
-    // console.log(`[extractUserIntent] Raw LLM output: ${text}`); // Optional: keep for debugging
+    User Request: "${userMessage}"
 
-    let parsed: any;
+    JSON Output:
+  `;
+
+  let best: any = null;
+  let bestScore = 0;
+  let allQualifiers: string[] = [];
+  let allExpanded: string[] = [];
+  let allObjects: string[] = [];
+  let allModalities: string[] = [];
+
+  for (const model of models) {
     try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch && jsonMatch[0]) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        parsed = JSON.parse(text); // Fallback if no explicit JSON block markers
+      const { text } = await generateText({ model, prompt, temperature: 0.1 });
+      let parsed: any;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch && jsonMatch[0]) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          parsed = JSON.parse(text);
+        }
+      } catch (e) {
+        continue;
       }
-    } catch (e) {
-      console.error("[extractUserIntent] Failed to parse LLM intent JSON:", e, "Raw text was:", text);
-      return { object: userMessage, modality: '', qualifiers: [], expanded: [] }; // Return a default structure on error
+      if (parsed) {
+        // Score: more qualifiers and expanded = better
+        const score = (Array.isArray(parsed.qualifiers) ? parsed.qualifiers.length : 0) + (Array.isArray(parsed.expanded) ? parsed.expanded.length : 0);
+        if (score > bestScore) {
+          best = parsed;
+          bestScore = score;
+        }
+        if (Array.isArray(parsed.qualifiers)) allQualifiers.push(...parsed.qualifiers.map((q: any) => String(q).trim()).filter(Boolean));
+        if (Array.isArray(parsed.expanded)) allExpanded.push(...parsed.expanded.map((e: any) => String(e).trim()).filter(Boolean));
+        if (parsed.object) allObjects.push(String(parsed.object).trim());
+        if (parsed.modality) allModalities.push(String(parsed.modality).trim());
+      }
+    } catch (error) {
+      // Ignore model error, try next
     }
-    const finalIntent = {
-      object: parsed.object || '',
-      modality: parsed.modality || '',
-      qualifiers: Array.isArray(parsed.qualifiers) ? parsed.qualifiers.map((q: any) => String(q).trim()).filter(Boolean) : [],
-      expanded: Array.isArray(parsed.expanded) ? parsed.expanded.map((e: any) => String(e).trim()).filter(Boolean) : [],
-    };
-    console.log("[extractUserIntent] Successfully parsed intent:", finalIntent);
-    return finalIntent;
-
-  } catch (error) {
-    console.error("[extractUserIntent] Outer error:", error);
-    return { object: userMessage, modality: '', qualifiers: [], expanded: [userMessage] }; // Default on outer error
   }
+
+  // Fallback if all fail
+  if (!best) {
+    return { object: userMessage, modality: '', qualifiers: [], expanded: [userMessage] };
+  }
+
+  // Merge and dedupe
+  const mergedQualifiers = Array.from(new Set([...(best.qualifiers || []), ...allQualifiers, ...extraQualifiers.filter(q => userMessage.toLowerCase().includes(q.toLowerCase()))])).filter(Boolean);
+  const mergedExpanded = Array.from(new Set([...(best.expanded || []), ...allExpanded])).filter(Boolean);
+  const mergedObject = best.object || allObjects[0] || userMessage;
+  const mergedModality = best.modality || allModalities[0] || '';
+
+  const finalIntent = {
+    object: mergedObject,
+    modality: mergedModality,
+    qualifiers: mergedQualifiers,
+    expanded: mergedExpanded,
+  };
+  console.log("[extractUserIntent] Final merged intent:", finalIntent);
+  return finalIntent;
 }
 
 
