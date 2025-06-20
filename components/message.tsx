@@ -10,7 +10,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { memo, useCallback, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Menu, MenuButton, MenuItem } from '@headlessui/react';
+import { MoreVertical } from 'lucide-react';
 import { toast } from "sonner";
+import { useUser, UserButton } from "@clerk/nextjs";
 import {
   Drawer,
   DrawerContent,
@@ -530,28 +533,39 @@ export function ReasoningMessagePart({ part, isReasoning }: ReasoningMessagePart
     memoizedSetIsExpanded(isReasoning);
   }, [isReasoning, memoizedSetIsExpanded]);
 
-  const { theme } = useTheme ? useTheme() : { theme: undefined };
-
+  // No shimmer, no gradient, just static label for reasoning
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col pb-4">
       {isReasoning ? (
         <div className="flex flex-row items-center gap-1">
-          <span className="font-medium text-sm pl-4 mt-1 relative inline-block" style={{ minWidth: 120 }}>
-            <span key={theme} style={{ background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', willChange: 'background-position', display: 'inline-block', transition: 'background 0.2s, color 0.2s' }} className="!bg-transparent">Reasoning</span>
+          <span className="font-medium text-sm mt-1 relative inline-block" style={{ minWidth: 60 }}>
+            <span className="!bg-transparent">Thinking</span>
           </span>
         </div>
       ) : (
         <div className="flex flex-row gap-2 items-center">
-          <span className="font-medium text-sm pl-4 mt-1 relative inline-block" style={{ minWidth: 120, cursor: 'pointer' }} onClick={() => setIsExpanded((v) => !v)}>Reasoned for a few seconds</span>
-          <button className={cn("cursor-pointer rounded-full dark:hover:bg-zinc-800 hover:bg-zinc-200", { "dark:bg-zinc-800 bg-zinc-200": isExpanded })} onClick={() => setIsExpanded(!isExpanded)}>
-            {isExpanded ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronUpIcon className="h-4 w-4" />}
+          <span className="font-medium text-md mt-1 relative inline-block" style={{ minWidth: 60, cursor: 'pointer' }} onClick={() => setIsExpanded((v) => !v)}>Show thoughts</span>
+          <button
+            className={cn("cursor-pointer rounded-full dark:hover:bg-zinc-800 hover:bg-zinc-200", { "dark:bg-zinc-800 bg-zinc-200": isExpanded })}
+            onClick={() => setIsExpanded(!isExpanded)}
+            style={{ marginLeft: '-2px', marginTop: '9px', display: 'flex', alignItems: 'flex-end' }}
+          >
+            {isExpanded ? (
+              <ChevronUpIcon className="h-4 w-4" style={{ display: 'block' }} />
+            ) : (
+              <ChevronDownIcon className="h-4 w-4" style={{ display: 'block' }} />
+            )}
           </button>
         </div>
       )}
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div key="reasoning" className="text-sm dark:text-zinc-400 text-zinc-600 flex flex-col gap-4 border-l pl-3 dark:border-zinc-800" initial="collapsed" animate="expanded" exit="collapsed" variants={variants} transition={{ duration: 0.2, ease: "easeInOut" }}>
-            {part.details.map((detail, detailIndex) => detail.type === "text" ? <Markdown key={detailIndex}>{detail.text}</Markdown> : "<redacted>")}
+            {part.details.map((detail, detailIndex) =>
+              detail.type === "text"
+                ? <span key={detailIndex} className="italic"><Markdown>{detail.text}</Markdown></span>
+                : "<redacted>"
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -559,13 +573,21 @@ export function ReasoningMessagePart({ part, isReasoning }: ReasoningMessagePart
   );
 }
 
+
 const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMessage: boolean }) => {
+  // Edit icon for short user messages (<80 chars)
+  const EditIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12.1 4.93l2.97 2.97M4 13.06V16h2.94l8.06-8.06a2.1 2.1 0 0 0-2.97-2.97L4 13.06z" />
+    </svg>
+  );
   const [expanded, setExpanded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
   const { theme } = useTheme();
   const isMobileOrTablet = useIsMobileOrTablet();
+  const { isSignedIn } = useUser();
 
   if (!part || part.type !== 'text') return null;
 
@@ -581,34 +603,110 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
 
   const LONG_MESSAGE_CHAR_LIMIT = 400;
   const isLongUserMessage = part.text.length > LONG_MESSAGE_CHAR_LIMIT;
-
+  const isWideUserMessage = part.text.length > 80;
   return (
-    <motion.div initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-start w-full pb-4">
-      <div className="flex flex-col w-full" style={{ background: 'none', border: 'none', boxShadow: 'none', position: 'relative' }}>
-        <div className="group/user-message flex flex-col items-end w-full gap-1 relative justify-center max-w-3xl md:px-4 pb-2">
-          <motion.div
-            className={cn("prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 max-w-[100%] sm:max-w-[90%] rounded-br-lg message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-3xl relative text-left break-words", isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md", isLongUserMessage && "relative")}
-            style={{ lineHeight: '1.5', overflow: isLongUserMessage ? 'hidden' : undefined, WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined, maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined, paddingTop: !isLongUserMessage ? '12px' : undefined }}
-            initial={false}
-            animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}
-            transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <div style={{ paddingRight: isLongUserMessage ? 36 : undefined, position: 'relative' }}>
-              <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
-              {isLongUserMessage && (
-                <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" aria-label={expanded ? "Collapse message" : "Expand message"} className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" onClick={e => { e.stopPropagation(); setExpanded(v => !v); }} tabIndex={0}>
-                        {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">{expanded ? "Collapse message" : "Expand message"}</TooltipContent>
-                  </Tooltip>
-                </div>
+    <motion.div initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-center w-full pb-4">
+      {/* Show avatar if signed in, aligned center with bubble, with spacing */}
+      {isSignedIn && (
+        <div className="flex-shrink-0 flex items-center" style={{ alignSelf: 'flex-start', marginTop: '10px', marginRight: '8px', pointerEvents: 'none' }}>
+          <div style={{ pointerEvents: 'none' }}>
+            <UserButton appearance={{ elements: { userButtonAvatarBox: "w-8 h-8" } }} afterSignOutUrl="/" showName={false} />
+          </div>
+        </div>
+      )}
+      <div className={isSignedIn ? "flex flex-row w-full items-start" : "flex flex-row w-full items-start"} style={{ background: 'none', border: 'none', boxShadow: 'none', position: 'relative' }}>
+        <div className="group/user-message flex flex-col items-start w-full gap-1 relative justify-center pb-2" style={{ flex: '1 1 auto', position: 'relative' }}>
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+            <motion.div
+              className={cn(
+                "group/message-bubble prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-100 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-3xl relative text-left break-words",
+                isLongUserMessage ? "max-w-[90vw]" : "max-w-[70vw]",
+                isLongUserMessage && "relative"
               )}
-            </div>
-          </motion.div>
+              style={{
+                lineHeight: '1.5',
+                overflow: isLongUserMessage ? 'hidden' : undefined,
+                WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                paddingTop: !isLongUserMessage ? '12px' : undefined,
+                background: theme === 'dark' ? '#181818' : undefined,
+              }}
+              initial={false}
+              animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}
+              transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+            >
+              <div style={{ paddingRight: (!isMobileOrTablet && !isWideUserMessage) ? 72 : isLongUserMessage ? 36 : undefined, position: 'relative' }}>
+                <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                {isLongUserMessage && (
+                  <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label={expanded ? "Collapse message" : "Expand message"} className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" onClick={e => { e.stopPropagation(); setExpanded(v => !v); }} tabIndex={0}>
+                          {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">{expanded ? "Collapse message" : "Expand message"}</TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+                {/* Edit and Copy icons absolutely positioned at the right of the bubble for short user messages (<80 chars) on desktop, only on hover */}
+                {!isMobileOrTablet && !isWideUserMessage && (
+                  <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 2 }}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className="edit-icon-short-user-message rounded-full p-1.5 transition-colors"
+                          style={{
+                            cursor: 'pointer',
+                            color: theme === 'dark' ? '#a1a1aa' : '#52525b',
+                            transition: 'opacity 0.18s',
+                            pointerEvents: 'auto',
+                            background: 'transparent',
+                            marginRight: '2px',
+                            marginTop: '1px',
+                          }}
+                          tabIndex={-1}
+                          onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? '#27272a' : '#e4e4e7'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <EditIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b' }} />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" align="center" className="select-none">Edit message</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Copy message"
+                          className="copy-icon-short-user-message rounded-full p-1.5 transition-colors"
+                          style={{
+                            cursor: 'pointer',
+                            color: theme === 'dark' ? '#a1a1aa' : '#52525b',
+                            transition: 'opacity 0.18s',
+                            pointerEvents: 'auto',
+                            background: 'transparent',
+                            marginRight: '0px',
+                            marginTop: '1px',
+                          }}
+                          tabIndex={-1}
+                          onClick={e => { e.stopPropagation(); handleUserMessageCopy(part.text); }}
+                          onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? '#27272a' : '#e4e4e7'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          {copied
+                            ? (<CheckIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b', transition: 'all 0.2s' }} />)
+                            : (<CopyIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b', transition: 'all 0.2s' }} />)
+                          }
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy message"}</TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
           {isMobileOrTablet && (
             <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
               <DrawerTrigger asChild>
@@ -625,8 +723,16 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
               </DrawerContent>
             </Drawer>
           )}
-          {!isMobileOrTablet && (
-            <div className={cn("mt-1 mr-1 flex transition-opacity duration-200", !isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100")}>
+          {/* Icon row for wide messages (>=80 chars) on desktop */}
+          {!isMobileOrTablet && isWideUserMessage && (
+            <div
+              className={cn(
+                "mt-1 flex transition-opacity duration-200",
+                !isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100",
+                "justify-end w-full"
+              )}
+              style={{ marginRight: 0 }}
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" aria-label="Copy message" className={cn("rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700")} onClick={() => handleUserMessageCopy(part.text)}>
@@ -758,7 +864,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
 
   return (
     <AnimatePresence key={message.id}>
-      <motion.div className="w-full mx-auto px-2 sm:px-4 group/message max-w-[97.5%] sm:max-w-[46rem]" initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} key={`message-${message.id}`} data-role={message.role}>
+      <motion.div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[46rem]" initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} key={`message-${message.id}`} data-role={message.role}>
         {/* Render MediaCarousel with images/videos if present, otherwise with searchResults if present */}
         {isAssistant && (
           (images.length > 0 || videos.length > 0) ? (
@@ -820,7 +926,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
             </div>
           ))
         )}
-        <div className={cn(isAssistant ? "flex w-full flex-col sm:flex-row items-start" : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit")}>
+        <div className={cn("flex w-full flex-col items-start")}> 
           {isAssistant ? (
             <div className={cn("group/ai-message-hoverable", isMobileOrTablet ? "w-full pl-10" : "w-fit")} style={{ marginLeft: 0, paddingLeft: 0, marginTop: isMobileOrTablet ? 32 : undefined }}>
               <div className={cn(!isMobileOrTablet && "flex flex-col space-y-4 w-fit", isMobileOrTablet && styles.clearfix)} style={{ alignItems: !isMobileOrTablet ? 'flex-start' : undefined }}>
@@ -1057,11 +1163,11 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                             className="flex items-start gap-3 p-2  rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
                                           >
                                             <SourceFavicon url={src.url} title={src.title} />
-                                            <div className="flex flex-col">
-                                              <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
-                                                style={{ marginTop: '-3px' }}>{src.title}</div>
-                                              <WebpageTitleDisplay source={{ url: src.url }} />
-                                            </div>
+                                              <div className="flex flex-col justify-center" style={{ marginTop: '-2px' }}>
+                                                <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
+                                                  style={{ marginTop: 0 }}>{src.title}</div>
+                                                <WebpageTitleDisplay source={{ url: src.url }} />
+                                              </div>
                                           </a>
                                         ));
                                       }
