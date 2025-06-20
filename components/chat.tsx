@@ -95,6 +95,7 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
 export default function Chat() {
   const { isLoaded, isSignedIn } = useUser();
   const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
+  const latestUserMessageRef = useRef<HTMLDivElement>(null);
   const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModel(!!isSignedIn));
   const titleGeneratedRef = useRef(false);
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
@@ -240,11 +241,40 @@ export default function Chat() {
     });
 
     if (showMobileInfoMessage) setShowMobileInfoMessage(false);
-    setTimeout(() => scrollToBottom(), 200);
-  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom]);
+
+    // Scroll so only the new user message is visible under the header
+    setTimeout(() => {
+      if (latestUserMessageRef.current) {
+        // Instantly jump, then smooth scroll for 'instantly smooth' effect
+        latestUserMessageRef.current.scrollIntoView({ block: 'end', behavior: 'instant' });
+        // Adjust for header height (assume 96px)
+        const headerHeight = 96;
+        const container = containerRef.current;
+        if (container) {
+          // If the message is at the bottom, scroll up by header height
+          container.scrollTop = container.scrollTop - headerHeight;
+        } else {
+          // Fallback: window scroll
+          window.scrollBy({ top: -headerHeight, behavior: 'smooth' });
+        }
+        // Optionally, a short smooth scroll to reinforce the effect
+        setTimeout(() => {
+          latestUserMessageRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        }, 40);
+      }
+    }, 120);
+  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, containerRef]);
 
   const hasSentMessage = messages.length > 0;
-
+  
+  useEffect(() => {
+    if (status === 'streaming' || status === 'submitted') {
+      setTimeout(() => {
+        endRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 80);
+    }
+  }, [status, endRef]);
+  
   useEffect(() => {
     const elementToObserve = inputAreaRef.current;
 
@@ -267,7 +297,7 @@ export default function Chat() {
     // Keep window resize listener if it's meant to trigger remeasurement
     // for reasons beyond the element's own ResizeObserver capabilities.
     window.addEventListener('resize', measureAndUpdateHeight);
-
+    
     return () => {
       observer.unobserve(elementToObserve);
       window.removeEventListener('resize', measureAndUpdateHeight);
@@ -297,7 +327,7 @@ export default function Chat() {
       setShowMobileInfoMessage(false);
     }
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
-
+  
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
   // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
@@ -379,7 +409,6 @@ export default function Chat() {
             endRef={endRef as React.RefObject<HTMLDivElement>}
           />
         )}
-        <div ref={endRef as React.RefObject<HTMLDivElement>} style={{ height: 1 }} />
       </div>
 
       {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (

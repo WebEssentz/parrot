@@ -100,7 +100,7 @@ const components: Partial<Components> = {
 
   li: ({ node, children, ...props }) => (
     // Added line-height to list items
-    <li className="pl-1 leading-relaxed" {...props}>
+    <li className="pl-1 pb-4 leading-relaxed" {...props}>
       {children}
     </li>
   ),

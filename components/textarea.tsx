@@ -1,6 +1,6 @@
 "use client";
 
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, ToolsButton, SEARCH_MODE, } from "@/components/ui/textarea";
+import { Textarea as ShadcnTextarea, AttachButton } from "@/components/ui/textarea";
 import { defaultModel } from "@/ai/providers"; 
 import { ArrowUp, ArrowRight } from "lucide-react";
 import { PauseIcon } from "./icons"; 
@@ -40,8 +40,8 @@ export const Textarea = ({
   const { isSignedIn } = useUser();
   // Use the useMobile hook to detect mobile (not tablet)
   const isMobileOnly = useMobile();
-  const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
-  const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
+  // const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
+  // const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
 
   const [staticPlaceholderAnimatesOut, setStaticPlaceholderAnimatesOut] = React.useState(false);
   const [suggestedPrompts, setSuggestedPrompts] = React.useState<string[]>([]);
@@ -54,7 +54,7 @@ export const Textarea = ({
   const [isPaletteOpen, setIsPaletteOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLTextAreaElement>(null); // NEW: Ref for the textarea
 
-  const REASON_MODEL_ID = "gemini-2.5-flash-preview-05-20"; // Example
+  const REASON_MODEL_ID = isSignedIn ? "gemini-2.5-flash" : "gemini-2.5-flash-lite-preview-06-17";
   // Remove suggested prompts for signed-in users
   const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
 
@@ -164,34 +164,7 @@ export const Textarea = ({
     }
   };
 
-  // NEW: Function to handle the "Tools" button click
-  const handleToolsClick = () => {
-    inputRef.current?.focus();
-    // If input is not already showing palette, set it to '/' to trigger it
-    if (!input.startsWith('/')) {
-        setInput('/');
-    } else {
-        // If it is showing, this can be a toggle (optional)
-        setIsPaletteOpen(!isPaletteOpen);
-    }
-  };
-  
-  const determineEffectiveModel = (currentSearchState: boolean, currentReasonState: boolean): string => {
-    if (currentSearchState) return SEARCH_MODE;
-    if (currentReasonState) return REASON_MODEL_ID;
-    // Assuming defaultModel is a string. If it's an object, use defaultModel.id or similar
-    return typeof defaultModel === 'string' ? defaultModel : (defaultModel as any).id; 
-  };
-
-  const handleSetSearchEnabled = (enabled: boolean) => {
-    setSearchToggleIsOn(enabled);
-    setSelectedModel(determineEffectiveModel(enabled, reasonToggleIsOn));
-  };
-
-  const handleSetReasonEnabled = (enabled: boolean) => {
-    setReasonToggleIsOn(enabled);
-    setSelectedModel(determineEffectiveModel(searchToggleIsOn, enabled));
-  };
+  // REMOVED: Tools, Reason, and Search logic
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
   const shadcnTextareaNativePlaceholder = shouldShowCustomPlaceholderElements ? "" : "Ask Avurna...";
@@ -209,7 +182,7 @@ export const Textarea = ({
   }), []);
 
   return (
-    <div className="relative flex w-full items-end px-3 py-3">
+    <div className="relative flex w-full items-end px-3 py-3 ">
       <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
         {shouldShowCustomPlaceholderElements && (
           <div 
@@ -253,7 +226,7 @@ export const Textarea = ({
 
         <div className="relative">
           <ShadcnTextarea 
-            className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
+            className="resize-none bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
             value={input}
             autoFocus
             placeholder={
@@ -290,14 +263,6 @@ export const Textarea = ({
               style={{ marginLeft: 4, marginRight: 98 }} // Shift left, keep space for send/stop
             >
               <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isSignedIn ? false : isLoading} />
-              {isSignedIn ? (
-                <ToolsButton onClick={handleToolsClick} disabled={false} />
-              ) : (
-                <>
-                  <SearchButton isSearchEnabled={searchToggleIsOn} setIsSearchEnabled={handleSetSearchEnabled} disabled={false} />
-                  <ReasonButton isReasonEnabled={reasonToggleIsOn} setIsReasonEnabled={handleSetReasonEnabled} hideTextOnMobile disabled={false} />
-                </>
-              )}
             </div>
             <div className="absolute end-3 bottom-0 flex items-center gap-2">
               <div className="ms-auto flex items-center gap-1.5">

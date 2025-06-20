@@ -4,8 +4,15 @@ import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, exaSearchTool } from "@/ai/tools";
 
+
 export const maxDuration = 60;
-const REASON_MODEL_ID = "gemini-2.5-flash-preview-05-20";
+
+// Helper to select the reasoning model based on user sign-in status
+function getReasonModelId(user: any) {
+  return user && user.email
+    ? "gemini-2.5-flash"
+    : "gemini-2.5-flash-lite-preview-06-17";
+}
 
 // Define suggested prompts highlighting Avurna capabilities
 const AVURNA_SUGGESTED_PROMPTS = [
@@ -383,6 +390,10 @@ export async function POST(req: Request) {
   const forceInitialGoogleSearch = isFrontendRequestingSearch &&
     googleSearchAttemptsForThisQuery === 0 &&
     messages[messages.length - 1]?.role !== 'function';
+
+
+  // Dynamically select the reasoning model based on user sign-in status
+  const REASON_MODEL_ID = getReasonModelId(user);
 
   let actualModelIdForLLM: modelID;
   if (isFrontendRequestingSearch) {

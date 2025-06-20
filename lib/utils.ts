@@ -208,15 +208,3 @@ export function mapSearchResultsToCarouselImages(
       source: { url: r.url || r.sourceUrl || '', title: r.title || '' },
     }));
 }
-
-// --- Example usage for integrating with MediaCarousel ---
-//
-// import { mapSearchResultsToCarouselImages } from '@/lib/utils';
-// import { MediaCarousel } from '@/components/ui/media-carousel';
-//
-// function SearchResults({ searchResults }) {
-//   const images = mapSearchResultsToCarouselImages(searchResults);
-//   return <MediaCarousel images={images} />;
-// }
-//
-// This ensures all imageUrls from search results are displayed in the carousel, following best practices.

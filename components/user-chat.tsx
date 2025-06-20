@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
 
+
 // GreetingBanner component for personalized greeting
 function GreetingBanner() {
   const { user, isLoaded } = useUser();
@@ -48,6 +49,8 @@ function GreetingBanner() {
     </div>
   );
 }
+
+
 
 // Robust title generation: only set title if backend says message is clear
 async function generateAndSetTitle(firstUserMessageContent: string) {
@@ -102,6 +105,7 @@ function useReconnectToClerk() {
 export default function UserChat() {
   const offlineState = useReconnectToClerk();
   const containerRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>; // For auto-scroll on send
   const { user, isLoaded, isSignedIn } = useUser();
   const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModel(!!isSignedIn));
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
@@ -149,6 +153,10 @@ export default function UserChat() {
     e.preventDefault();
     if (!input.trim()) return;
     originalHandleSubmit(e, { body: { selectedModel } });
+    // Scroll to bottom after sending
+    setTimeout(() => {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
   }, [input, originalHandleSubmit, selectedModel]);
 
   const mergedMessages = [...messages, ...pendingMessages.map(msg => ({ id: msg.id, role: 'user' as const, content: msg.content, pending: true, status: msg.status || 'pending' }))];
@@ -170,9 +178,9 @@ export default function UserChat() {
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-
+  
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
-
+  
   return (
     <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-background">
       <UserChatHeader />
@@ -219,15 +227,18 @@ export default function UserChat() {
             messages={mergedMessages}
             isLoading={uiIsLoading}
             status={status as any}
+            endRef={endRef}
           />
         )}
         <ChatScrollAnchor containerRef={containerRef} />
+        {/* End ref for auto-scroll on send */}
+        <div ref={endRef} />
       </main>
 
       {/* The mobile input form is only rendered here, outside the main content flow */}
       {!isDesktop && !hasSentMessage && (
         <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
-          <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 pointer-events-auto">
+          <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
             <form onSubmit={handleSubmit} className="w-full relative z-10">
               <CustomTextareaWrapper
                 selectedModel={selectedModel}
@@ -250,31 +261,33 @@ export default function UserChat() {
 
       {/* This input form is for when a message has been sent (on all screen sizes) */}
       {hasSentMessage && (
-        <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
-          <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 pointer-events-auto">
-            <form onSubmit={handleSubmit} className="w-full relative z-10">
-              <CustomTextareaWrapper
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                handleInputChange={handleInputChange}
-                setInput={setInput}
-                input={input}
-                isLoading={uiIsLoading}
-                status={status}
-                stop={stop}
-                hasSentMessage={hasSentMessage}
-                isDesktop={!!isDesktop}
-                disabled={offlineState !== 'online'}
-                offlineState={offlineState}
-              />
-            </form>
-            <div className="text-center mt-1">
-              <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
-                Avurna uses AI. Double check response.
-              </span>
+        <>
+          <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
+            <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
+              <form onSubmit={handleSubmit} className="w-full relative z-10">
+                <CustomTextareaWrapper
+                  selectedModel={selectedModel}
+                  setSelectedModel={setSelectedModel}
+                  handleInputChange={handleInputChange}
+                  setInput={setInput}
+                  input={input}
+                  isLoading={uiIsLoading}
+                  status={status}
+                  stop={stop}
+                  hasSentMessage={hasSentMessage}
+                  isDesktop={!!isDesktop}
+                  disabled={offlineState !== 'online'}
+                  offlineState={offlineState}
+                />
+              </form>
             </div>
           </div>
-        </div>
+          <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
+            <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none bg-background/90 dark:bg-background/90 rounded-xl pointer-events-auto">
+              Avurna uses AI. Double check response.
+            </span>
+          </div>
+        </>
       )}
     </div>
   );

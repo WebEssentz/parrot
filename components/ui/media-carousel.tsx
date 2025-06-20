@@ -34,6 +34,7 @@ type MediaItem = ImageMedia | VideoMedia;
 
 import { mapSearchResultsToCarouselImages } from '@/lib/utils';
 
+
 interface VisionFilteringInfo {
   filtered: any[];
   all: any[];
@@ -41,13 +42,15 @@ interface VisionFilteringInfo {
   warning?: string;
 }
 
+
 interface MediaCarouselProps {
   images?: Omit<ImageMedia, 'type'>[];
   videos?: Omit<VideoMedia, 'type'>[];
   maxImages?: number;
   maxVideos?: number;
   searchResults?: Array<{ imageUrl?: string; image?: string; title?: string; url?: string; sourceUrl?: string }>;
-  visionFiltering?: VisionFilteringInfo;
+  visionFiltering?: VisionFilteringInfo; // for images
+  visionFilteringVideos?: VisionFilteringInfo; // for videos
 }
 
 // --- Helper Hook & Components ---
@@ -193,6 +196,7 @@ function MediaRenderer(props: { media: VideoMedia; isPlaying: boolean; className
 }
 
 // --- Main MediaCarousel Component ---
+
 export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
   const {
     images = [],
@@ -200,7 +204,8 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
     maxImages,
     maxVideos,
     searchResults,
-    visionFiltering
+    visionFiltering,
+    visionFilteringVideos
   } = props;
 
   // If searchResults is provided, map them to images (overrides images prop)
@@ -215,32 +220,50 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
       }));
   }
 
-  // Vision filtering integration
-  // Default to filtered for objective queries, unfiltered for subjective
-  const [showFiltered, setShowFiltered] = React.useState(() => {
+
+  // --- Image filtering state ---
+  const [showFilteredImages, setShowFilteredImages] = React.useState(() => {
     if (visionFiltering && visionFiltering.filteringApplied) return true;
     return false;
   });
   let filteredImages = mappedImages;
-  let filteringApplied = false;
-  let filteringWarning = '';
-  let canToggle = false;
-  let isSubjective = false;
+  let filteringAppliedImages = false;
+  let filteringWarningImages = '';
+  let canToggleImages = false;
+  let isSubjectiveImages = false;
   if (visionFiltering) {
-    filteringApplied = visionFiltering.filteringApplied;
-    filteringWarning = visionFiltering.warning || '';
-    isSubjective = !!(visionFiltering.warning && visionFiltering.warning.toLowerCase().includes('subjective'));
-    if (filteringApplied) {
-      // Debug: log filtered and unfiltered arrays
-      console.log('[MediaCarousel] visionFiltering.filtered:', visionFiltering.filtered);
-      console.log('[MediaCarousel] visionFiltering.all:', visionFiltering.all);
-      filteredImages = showFiltered ? visionFiltering.filtered : visionFiltering.all;
-      canToggle = visionFiltering.all && visionFiltering.filtered && visionFiltering.all.length !== visionFiltering.filtered.length && !isSubjective;
+    filteringAppliedImages = visionFiltering.filteringApplied;
+    filteringWarningImages = visionFiltering.warning || '';
+    isSubjectiveImages = !!(visionFiltering.warning && visionFiltering.warning.toLowerCase().includes('subjective'));
+    if (filteringAppliedImages) {
+      filteredImages = showFilteredImages ? visionFiltering.filtered : visionFiltering.all;
+      canToggleImages = visionFiltering.all && visionFiltering.filtered && visionFiltering.all.length !== visionFiltering.filtered.length && !isSubjectiveImages;
+    }
+  }
+
+  // --- Video filtering state ---
+  const [showFilteredVideos, setShowFilteredVideos] = React.useState(() => {
+    if (visionFilteringVideos && visionFilteringVideos.filteringApplied) return true;
+    return false;
+  });
+  let filteredVideos = videos;
+  let filteringAppliedVideos = false;
+  let filteringWarningVideos = '';
+  let canToggleVideos = false;
+  let isSubjectiveVideos = false;
+  if (visionFilteringVideos) {
+    filteringAppliedVideos = visionFilteringVideos.filteringApplied;
+    filteringWarningVideos = visionFilteringVideos.warning || '';
+    isSubjectiveVideos = !!(visionFilteringVideos.warning && visionFilteringVideos.warning.toLowerCase().includes('subjective'));
+    if (filteringAppliedVideos) {
+      filteredVideos = showFilteredVideos ? visionFilteringVideos.filtered : visionFilteringVideos.all;
+      canToggleVideos = visionFilteringVideos.all && visionFilteringVideos.filtered && visionFilteringVideos.all.length !== visionFilteringVideos.filtered.length && !isSubjectiveVideos;
     }
   }
 
   const limitedImages = typeof maxImages === 'number' ? filteredImages.slice(0, maxImages) : filteredImages;
-  const limitedVideos = typeof maxVideos === 'number' ? videos.slice(0, maxVideos) : videos;
+  const limitedVideos = typeof maxVideos === 'number' ? filteredVideos.slice(0, maxVideos) : filteredVideos;
+
 
   const allMedia: MediaItem[] = [
     ...limitedImages.map((img: Omit<ImageMedia, 'type'>) => ({ ...img, type: 'image' as const })),
@@ -338,10 +361,11 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
 
   if (allMedia.length === 0) return null;
 
+
   return (
     <>
-      {/* Filtered by AI badge and toggle */}
-      {filteringApplied && (
+      {/* Filtered by AI badge and toggle for images */}
+      {filteringAppliedImages && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
           <span style={{
             background: 'linear-gradient(90deg, #6366f1 0%, #06b6d4 100%)',
@@ -354,12 +378,12 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
             boxShadow: '0 1px 6px rgba(80,80,180,0.10)',
             display: 'inline-block',
             userSelect: 'none',
-          }}>Filtered by AI</span>
-          {canToggle && (
+          }}>Filtered by AI (Images)</span>
+          {canToggleImages && (
             <>
               <button
                 style={{
-                  background: showFiltered ? '#f3f4f6' : '#e0e7ef',
+                  background: showFilteredImages ? '#f3f4f6' : '#e0e7ef',
                   color: '#374151',
                   border: '1px solid #c7d2fe',
                   borderRadius: 14,
@@ -372,30 +396,82 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
                 }}
                 onClick={e => {
                   e.stopPropagation();
-                  setShowFiltered(f => {
-                    const newVal = !f;
-                    // Feedback logging removed: /api/vision-filter-feedback endpoint does not exist
-                    return newVal;
-                  });
+                  setShowFilteredImages(f => !f);
                 }}
-                title={showFiltered ? 'Show all images' : 'Show only relevant images'}
+                title={showFilteredImages ? 'Show all images' : 'Show only relevant images'}
               >
-                {showFiltered ? 'Show all' : 'Show only relevant'}
+                {showFilteredImages ? 'Show all' : 'Show only relevant'}
               </button>
               <span style={{ color: '#64748b', fontSize: 12, marginLeft: 6 }}>
-                {showFiltered
+                {showFilteredImages
                   ? 'Some images may have been filtered out as less relevant.'
                   : 'Some images may be less relevant.'}
               </span>
             </>
           )}
-          {isSubjective && (
+          {isSubjectiveImages && (
             <span style={{ color: '#f59e42', fontSize: 12, marginLeft: 8 }}>
               Filtering disabled for subjective or sensitive queries.
             </span>
           )}
-          {filteringWarning && !isSubjective && (
-            <span style={{ color: '#f59e42', fontSize: 12, marginLeft: 8 }}>{filteringWarning}</span>
+          {filteringWarningImages && !isSubjectiveImages && (
+            <span style={{ color: '#f59e42', fontSize: 12, marginLeft: 8 }}>{filteringWarningImages}</span>
+          )}
+        </div>
+      )}
+
+      {/* Filtered by AI badge and toggle for videos */}
+      {filteringAppliedVideos && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+          <span style={{
+            background: 'linear-gradient(90deg, #6366f1 0%, #06b6d4 100%)',
+            color: 'white',
+            borderRadius: 16,
+            fontWeight: 600,
+            fontSize: 13,
+            padding: '2px 12px',
+            letterSpacing: 0.2,
+            boxShadow: '0 1px 6px rgba(80,80,180,0.10)',
+            display: 'inline-block',
+            userSelect: 'none',
+          }}>Filtered by AI (Videos)</span>
+          {canToggleVideos && (
+            <>
+              <button
+                style={{
+                  background: showFilteredVideos ? '#f3f4f6' : '#e0e7ef',
+                  color: '#374151',
+                  border: '1px solid #c7d2fe',
+                  borderRadius: 14,
+                  fontSize: 12,
+                  padding: '2px 10px',
+                  marginLeft: 4,
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  transition: 'background 0.2s',
+                }}
+                onClick={e => {
+                  e.stopPropagation();
+                  setShowFilteredVideos(f => !f);
+                }}
+                title={showFilteredVideos ? 'Show all videos' : 'Show only relevant videos'}
+              >
+                {showFilteredVideos ? 'Show all' : 'Show only relevant'}
+              </button>
+              <span style={{ color: '#64748b', fontSize: 12, marginLeft: 6 }}>
+                {showFilteredVideos
+                  ? 'Some videos may have been filtered out as less relevant.'
+                  : 'Some videos may be less relevant.'}
+              </span>
+            </>
+          )}
+          {isSubjectiveVideos && (
+            <span style={{ color: '#f59e42', fontSize: 12, marginLeft: 8 }}>
+              Filtering disabled for subjective or sensitive queries.
+            </span>
+          )}
+          {filteringWarningVideos && !isSubjectiveVideos && (
+            <span style={{ color: '#f59e42', fontSize: 12, marginLeft: 8 }}>{filteringWarningVideos}</span>
           )}
         </div>
       )}
