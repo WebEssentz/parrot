@@ -57,7 +57,7 @@ export const UserChatHeader = () => {
               elements: {
                 userButtonAvatarBox: "w-10 h-10",
                 userButtonPopoverCard: {
-                  backgroundColor: resolvedTheme === 'dark' ? '#2A2B2F' : '#ffffff',
+                  backgroundColor: resolvedTheme === 'dark' ? '#212121' : '#ffffff',
                   border: resolvedTheme === 'dark' ? '1px solid #3f3f46' : '1px solid #e5e5e5',
                   boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
                 },
@@ -72,8 +72,8 @@ export const UserChatHeader = () => {
                 baseTheme: resolvedTheme === 'dark' ? dark : undefined,
                 elements: {
                   card: {
-                    backgroundColor: resolvedTheme === 'dark' ? '#1e1e1e' : '#FFFFFF',
-                    border: `1px solid ${resolvedTheme === 'dark' ? '#3f3f46' : '#e5e5e5'}`,
+                    backgroundColor: resolvedTheme === 'dark' ? '#212121' : '#FFFFFF',
+                    border: `1px solid ${resolvedTheme === 'dark' ? '#212121' : '#e5e5e5'}`,
                     boxShadow: 'none',
                     width: '100%',
                     maxWidth: '56rem',
@@ -85,13 +85,13 @@ export const UserChatHeader = () => {
                     backgroundColor: resolvedTheme === 'dark' ? '#2A2B2F' : '#F9FAFB',
                   },
                   navbarButton__active: {
-                    backgroundColor: resolvedTheme === 'dark' ? '#3f3f46' : '#F3F4F6',
+                    backgroundColor: resolvedTheme === 'dark' ? '#212121' : '#F3F4F6',
                   },
                   rootBox: {
                     color: resolvedTheme === 'dark' ? '#D1D5DB' : '#374151',
                   },
                   formFieldInput: {
-                    backgroundColor: resolvedTheme === 'dark' ? '#2A2B2F' : '#FFFFFF',
+                    backgroundColor: resolvedTheme === 'dark' ? '#212121' : '#FFFFFF',
                   },
                   // THIS IS THE FIX: The correct key is 'profilePage__footer'
                   profilePage__footer: {

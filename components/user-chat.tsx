@@ -192,7 +192,7 @@ export default function UserChat() {
         }`}
         style={{
           paddingTop: '80px',
-          paddingBottom: hasSentMessage ? `calc(${inputAreaHeight}px + 8rem)` : '0px',
+          paddingBottom: hasSentMessage ? `calc(${inputAreaHeight}px + 4rem)` : '0px',
         }}
       >
         {!hasSentMessage ? (
@@ -283,7 +283,7 @@ export default function UserChat() {
             </div>
           </div>
           <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
-            <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none bg-background/90 dark:bg-background/90 rounded-xl pointer-events-auto">
+            <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none rounded-xl pointer-events-auto">
               Avurna uses AI. Double check response.
             </span>
           </div>

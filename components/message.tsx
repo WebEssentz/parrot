@@ -619,7 +619,7 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%' }}>
             <motion.div
               className={cn(
-                "group/message-bubble prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-100 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-3xl relative text-left break-words",
+                "group/message-bubble prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-50 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-xl relative text-left break-words",
                 isLongUserMessage ? "max-w-[90vw]" : "max-w-[70vw]",
                 isLongUserMessage && "relative"
               )}
@@ -629,7 +629,7 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
                 WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
                 maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
                 paddingTop: !isLongUserMessage ? '12px' : undefined,
-                background: theme === 'dark' ? '#181818' : undefined,
+                background: theme === 'dark' ? '#232323' : '#f6f6f7',
               }}
               initial={false}
               animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}

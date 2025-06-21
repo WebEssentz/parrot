@@ -32,9 +32,6 @@ interface VideoMedia {
 
 type MediaItem = ImageMedia | VideoMedia;
 
-import { mapSearchResultsToCarouselImages } from '@/lib/utils';
-
-
 interface VisionFilteringInfo {
   filtered: any[];
   all: any[];
