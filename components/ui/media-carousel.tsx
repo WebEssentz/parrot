@@ -262,9 +262,30 @@ export const MediaCarousel: React.FC<MediaCarouselProps> = (props) => {
   const limitedVideos = typeof maxVideos === 'number' ? filteredVideos.slice(0, maxVideos) : filteredVideos;
 
 
+  // Helper: Get YouTube video ID
+  function getYouTubeId(url: string): string | null {
+    const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/]{{11}})/i);
+    if (match && match[1]) return match[1];
+    return null;
+  }
+
+  // Patch videos: if poster is missing and it's a YouTube link, generate a thumbnail
+  const patchedVideos = limitedVideos.map((vid) => {
+    if (!vid.poster && (vid.src.includes('youtube.com') || vid.src.includes('youtu.be'))) {
+      const id = getYouTubeId(vid.src);
+      if (id) {
+        return {
+          ...vid,
+          poster: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+        };
+      }
+    }
+    return vid;
+  });
+
   const allMedia: MediaItem[] = [
     ...limitedImages.map((img: Omit<ImageMedia, 'type'>) => ({ ...img, type: 'image' as const })),
-    ...limitedVideos.map((vid: Omit<VideoMedia, 'type'>) => ({
+    ...patchedVideos.map((vid: Omit<VideoMedia, 'type'>) => ({
       ...vid,
       type: 'video' as const,
     })),
