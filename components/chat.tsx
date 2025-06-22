@@ -440,7 +440,7 @@ export default function Chat() {
               </form>
               {(hasSentMessage) && (
                 <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none bg-background/90 dark:bg-background/90 rounded-xl pointer-events-auto">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none pointer-events-auto">
                     Avurna uses AI. Double check response.
                   </span>
                 </div>
@@ -470,7 +470,7 @@ export default function Chat() {
               </form>
               {(hasSentMessage) && (
                 <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none bg-background/90 dark:bg-background/90 rounded-xl pointer-events-auto">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none pointer-events-auto">
                     Avurna uses AI. Double check response.
                   </span>
                 </div>

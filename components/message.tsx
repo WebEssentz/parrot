@@ -604,148 +604,176 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   const LONG_MESSAGE_CHAR_LIMIT = 400;
   const isLongUserMessage = part.text.length > LONG_MESSAGE_CHAR_LIMIT;
   const isWideUserMessage = part.text.length > 80;
+
+  // Define the colors for the tail to match the bubble background
+  const bubbleBgColor = theme === 'dark' ? '#232323' : '#f6f6f7';
+  const tailBorderColor = theme === 'dark' ? '#232323' : '#e0e0e3'; // more visible in light mode
+
+
   return (
-    <motion.div initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-center w-full pb-4">
-      {/* Show avatar if signed in, aligned center with bubble, with spacing */}
-      {isSignedIn && (
-        <div className="flex-shrink-0 flex items-center" style={{ alignSelf: 'flex-start', marginTop: '10px', marginRight: '8px', pointerEvents: 'none' }}>
-          <div style={{ pointerEvents: 'none' }}>
-            <UserButton appearance={{ elements: { userButtonAvatarBox: "w-8 h-8" } }} afterSignOutUrl="/" showName={false} />
-          </div>
-        </div>
-      )}
-      <div className={isSignedIn ? "flex flex-row w-full items-start" : "flex flex-row w-full items-start"} style={{ background: 'none', border: 'none', boxShadow: 'none', position: 'relative' }}>
-        <div className="group/user-message flex flex-col items-start w-full gap-1 relative justify-center pb-2" style={{ flex: '1 1 auto', position: 'relative' }}>
-          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-            <motion.div
-              className={cn(
-                "group/message-bubble prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-50 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-xl relative text-left break-words",
-                isLongUserMessage ? "max-w-[90vw]" : "max-w-[70vw]",
-                isLongUserMessage && "relative"
-              )}
-              style={{
-                lineHeight: '1.5',
-                overflow: isLongUserMessage ? 'hidden' : undefined,
-                WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                paddingTop: !isLongUserMessage ? '12px' : undefined,
-                background: theme === 'dark' ? '#232323' : '#f6f6f7',
-              }}
-              initial={false}
-              animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}
-              transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-            >
-              <div style={{ paddingRight: (!isMobileOrTablet && !isWideUserMessage) ? 72 : isLongUserMessage ? 36 : undefined, position: 'relative' }}>
-                <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
-                {isLongUserMessage && (
-                  <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button type="button" aria-label={expanded ? "Collapse message" : "Expand message"} className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" onClick={e => { e.stopPropagation(); setExpanded(v => !v); }} tabIndex={0}>
-                          {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">{expanded ? "Collapse message" : "Expand message"}</TooltipContent>
-                    </Tooltip>
-                  </div>
-                )}
-                {/* Edit and Copy icons absolutely positioned at the right of the bubble for short user messages (<80 chars) on desktop, only on hover */}
-                {!isMobileOrTablet && !isWideUserMessage && (
-                  <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 2 }}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          className="edit-icon-short-user-message rounded-full p-1.5 transition-colors"
-                          style={{
-                            cursor: 'pointer',
-                            color: theme === 'dark' ? '#a1a1aa' : '#52525b',
-                            transition: 'opacity 0.18s',
-                            pointerEvents: 'auto',
-                            background: 'transparent',
-                            marginRight: '2px',
-                            marginTop: '1px',
-                          }}
-                          tabIndex={-1}
-                          onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? '#27272a' : '#e4e4e7'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <EditIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b' }} />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" align="center" className="select-none">Edit message</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Copy message"
-                          className="copy-icon-short-user-message rounded-full p-1.5 transition-colors"
-                          style={{
-                            cursor: 'pointer',
-                            color: theme === 'dark' ? '#a1a1aa' : '#52525b',
-                            transition: 'opacity 0.18s',
-                            pointerEvents: 'auto',
-                            background: 'transparent',
-                            marginRight: '0px',
-                            marginTop: '1px',
-                          }}
-                          tabIndex={-1}
-                          onClick={e => { e.stopPropagation(); handleUserMessageCopy(part.text); }}
-                          onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? '#27272a' : '#e4e4e7'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          {copied
-                            ? (<CheckIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b', transition: 'all 0.2s' }} />)
-                            : (<CopyIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b', transition: 'all 0.2s' }} />)
-                          }
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy message"}</TooltipContent>
-                    </Tooltip>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </div>
-          {isMobileOrTablet && (
-            <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-              <DrawerTrigger asChild>
-                <div className="absolute inset-0 z-10 cursor-pointer" style={{ borderRadius: 24 }} onClick={e => { e.stopPropagation(); setDrawerOpen(true); }} />
-              </DrawerTrigger>
-              <DrawerContent>
-                <DrawerHeader><DrawerTitle className="w-full text-center">Actions</DrawerTitle></DrawerHeader>
-                <div className="flex flex-col gap-2 px-4 py-2">
-                  <button type="button" aria-label="Copy message" className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer" onClick={async () => { handleUserMessageCopy(part.text); await new Promise(res => setTimeout(res, 1000)); setDrawerOpen(false); }}>
-                    {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />)}
-                    <span className="text-base font-medium">{copied ? 'Copied!' : 'Copy'}</span>
-                  </button>
-                </div>
-              </DrawerContent>
-            </Drawer>
-          )}
-          {/* Icon row for wide messages (>=80 chars) on desktop */}
-          {!isMobileOrTablet && isWideUserMessage && (
-            <div
-              className={cn(
-                "mt-1 flex transition-opacity duration-200",
-                !isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100",
-                "justify-end w-full"
-              )}
-              style={{ marginRight: 0 }}
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button type="button" aria-label="Copy message" className={cn("rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700")} onClick={() => handleUserMessageCopy(part.text)}>
-                    {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-              </Tooltip>
+    <>
+      {/* This style block adds the CSS needed for the message bubble tail */}
+      <style jsx global>{`
+  .user-bubble-with-tail {
+    position: relative;
+  }
+  .user-bubble-with-tail::before {
+    content: "";
+    position: absolute;
+    width: 0px;
+    height: 0px;
+    left: -8px;
+    top: 14px;
+    transform: translateY(-50%);
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-right: 8px solid ${bubbleBgColor}; /* Always match the bubble background */
+  }
+`}</style>
+
+      <motion.div initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-center w-full pb-4">
+        {/* Show avatar if signed in, aligned center with bubble, with spacing */}
+        {isSignedIn && (
+          <div className="flex-shrink-0 flex items-center" style={{ alignSelf: 'flex-start', marginTop: '10px', marginRight: '8px', pointerEvents: 'none' }}>
+            <div style={{ pointerEvents: 'none' }}>
+              <UserButton appearance={{ elements: { userButtonAvatarBox: "w-8 h-8" } }} afterSignOutUrl="/" showName={false} />
             </div>
-          )}
+          </div>
+        )}
+        <div className={isSignedIn ? "flex flex-row w-full items-start" : "flex flex-row w-full items-start"} style={{ background: 'none', border: 'none', boxShadow: 'none', position: 'relative' }}>
+          <div className="group/user-message flex flex-col items-start w-full gap-1 relative justify-center pb-2" style={{ flex: '1 1 auto', position: 'relative' }}>
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+              <motion.div
+                className={cn(
+                  "user-bubble-with-tail", // <-- The new class to attach the pseudo-element
+                  "group/message-bubble prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-50 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-xl relative text-left break-words", // <-- Kept rounded-xl for the main shape
+                  isLongUserMessage ? "max-w-[90vw]" : "max-w-[70vw]",
+                  isLongUserMessage && "relative"
+                )}
+                style={{
+                  lineHeight: '1.5',
+                  overflow: isLongUserMessage ? 'hidden' : undefined,
+                  WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                  maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                  paddingTop: !isLongUserMessage ? '12px' : undefined,
+                  background: bubbleBgColor, // Use the variable to ensure colors match
+                }}
+                initial={false}
+                animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}
+                transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+              >
+                <div style={{ paddingRight: (!isMobileOrTablet && !isWideUserMessage) ? 72 : isLongUserMessage ? 36 : undefined, position: 'relative' }}>
+                <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                  {isLongUserMessage && (
+                    <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" aria-label={expanded ? "Collapse message" : "Expand message"} className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" onClick={e => { e.stopPropagation(); setExpanded(v => !v); }} tabIndex={0}>
+                            {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">{expanded ? "Collapse message" : "Expand message"}</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {/* Edit and Copy icons absolutely positioned at the right of the bubble for short user messages (<80 chars) on desktop, only on hover */}
+                  {!isMobileOrTablet && !isWideUserMessage && (
+                    <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 2 }}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className="edit-icon-short-user-message rounded-full p-1.5 transition-colors"
+                            style={{
+                              cursor: 'pointer',
+                              color: theme === 'dark' ? '#a1a1aa' : '#52525b',
+                              transition: 'opacity 0.18s',
+                              pointerEvents: 'auto',
+                              background: 'transparent',
+                              marginRight: '2px',
+                              marginTop: '1px',
+                            }}
+                            tabIndex={-1}
+                            onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? '#27272a' : '#e4e4e7'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            <EditIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b' }} />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="center" className="select-none">Edit message</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Copy message"
+                            className="copy-icon-short-user-message rounded-full p-1.5 transition-colors"
+                            style={{
+                              cursor: 'pointer',
+                              color: theme === 'dark' ? '#a1a1aa' : '#52525b',
+                              transition: 'opacity 0.18s',
+                              pointerEvents: 'auto',
+                              background: 'transparent',
+                              marginRight: '0px',
+                              marginTop: '1px',
+                            }}
+                            tabIndex={-1}
+                            onClick={e => { e.stopPropagation(); handleUserMessageCopy(part.text); }}
+                            onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? '#27272a' : '#e4e4e7'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            {copied
+                              ? (<CheckIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b', transition: 'all 0.2s' }} />)
+                              : (<CopyIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b', transition: 'all 0.2s' }} />)
+                            }
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy message"}</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+            {isMobileOrTablet && (
+              <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <DrawerTrigger asChild>
+                  <div className="absolute inset-0 z-10 cursor-pointer" style={{ borderRadius: 24 }} onClick={e => { e.stopPropagation(); setDrawerOpen(true); }} />
+                </DrawerTrigger>
+                <DrawerContent>
+                  <DrawerHeader><DrawerTitle className="w-full text-center">Actions</DrawerTitle></DrawerHeader>
+                  <div className="flex flex-col gap-2 px-4 py-2">
+                    <button type="button" aria-label="Copy message" className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer" onClick={async () => { handleUserMessageCopy(part.text); await new Promise(res => setTimeout(res, 1000)); setDrawerOpen(false); }}>
+                      {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />)}
+                      <span className="text-base font-medium">{copied ? 'Copied!' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </DrawerContent>
+              </Drawer>
+            )}
+            {/* Icon row for wide messages (>=80 chars) on desktop */}
+            {!isMobileOrTablet && isWideUserMessage && (
+              <div
+                className={cn(
+                  "mt-1 flex transition-opacity duration-200",
+                  !isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100",
+                  "justify-end w-full"
+                )}
+                style={{ marginRight: 0 }}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" aria-label="Copy message" className={cn("rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700")} onClick={() => handleUserMessageCopy(part.text)}>
+                      {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                </Tooltip>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 };
 
