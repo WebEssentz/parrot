@@ -606,8 +606,13 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   const isWideUserMessage = part.text.length > 80;
 
   // Define the colors for the tail to match the bubble background
+<<<<<<< HEAD
   const bubbleBgColor = theme === 'dark' ? '#272727ff' : '#f6f6f7';
   const tailBorderColor = theme === 'dark' ? '#363636ff' : '#efeff3ff'; // more visible in light mode
+=======
+  const bubbleBgColor = theme === 'dark' ? '#232323' : '#f6f6f7';
+  const tailBorderColor = theme === 'dark' ? '#232323' : '#e0e0e3'; // more visible in light mode
+>>>>>>> eda742f8aad3941c70f1b8b5e8ebf1f61b3d0320
 
 
   return (
@@ -627,7 +632,11 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
     transform: translateY(-50%);
     border-top: 6px solid transparent;
     border-bottom: 6px solid transparent;
+<<<<<<< HEAD
     border-right: 8px solid var(--tail-color, #efeff3ff);
+=======
+    border-right: 8px solid ${bubbleBgColor}; /* Always match the bubble background */
+>>>>>>> eda742f8aad3941c70f1b8b5e8ebf1f61b3d0320
   }
 `}</style>
 
@@ -657,8 +666,11 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
                   maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
                   paddingTop: !isLongUserMessage ? '12px' : undefined,
                   background: bubbleBgColor, // Use the variable to ensure colors match
+<<<<<<< HEAD
                   borderColor: tailBorderColor,
                   ['--tail-color' as string]: tailBorderColor,
+=======
+>>>>>>> eda742f8aad3941c70f1b8b5e8ebf1f61b3d0320
                 }}
                 initial={false}
                 animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}
