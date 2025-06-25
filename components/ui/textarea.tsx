@@ -1,17 +1,34 @@
-"use client"; // Ensure this is at the top if it's a client component
+"use client";
 
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import * as React from "react";
 import { useRef, useLayoutEffect, useState } from "react";
 import { motion } from "framer-motion";
-// defaultModel is used in the other file, not directly here.
-// import { defaultModel } from "@/ai/providers";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"; // Assuming this path is correct
-import { cn } from "@/lib/utils"; // Assuming this path is correct
 import { Paperclip } from "lucide-react";
 
-
-
 export const SEARCH_MODE = "__search_mode__"; // Ensure this is consistently defined
+
+// WIP: We want to create a license line in our files like below
+// It should say something about licensed use. ie. Avurna is not a free software to distribute, sell, or purchase, and is tied to the Avocado INC.
+
+/**
+ * 
+ * @license
+ * Copyright 2025 Avocado INC.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 // Custom Search SVG icon
 function SearchIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement>) {
@@ -35,67 +52,6 @@ function SearchIcon({ className = "", ...props }: React.SVGProps<SVGSVGElement>)
   );
 }
 
-export function SearchButton({
-  isSearchEnabled,
-  setIsSearchEnabled,
-  disabled,
-}: {
-  isSearchEnabled: boolean;
-  setIsSearchEnabled: (enabled: boolean) => void;
-  disabled?: boolean;
-}) {
-  const isSearching = isSearchEnabled;
-  const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
-
-  React.useEffect(() => {
-    const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
-  const handleClick = () => {
-    if (disabled) return;
-    setIsSearchEnabled(!isSearching);
-  };
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-pressed={isSearching}
-          onClick={handleClick}
-          disabled={disabled}
-          className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1f2023] font-medium px-2.5", // Adjusted dark bg
-            isSearching && !disabled
-              ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
-              : "hover:bg-zinc-100 dark:hover:bg-zinc-700/70", // Adjusted dark hover bg
-            disabled ? "opacity-50 cursor-not-allowed" : ""
-          )}
-          style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
-          data-testid="composer-button-search"
-          aria-label="Search"
-        >
-          <SearchIcon
-            className={cn(
-              isSearching && !disabled
-                ? "text-[#1e93ff]"
-                : "text-zinc-400" // Kept zinc-400 for consistency, adjust if needed
-            )}
-          />
-          {!isMobileOrTablet && (
-            <span className="ml-1.5 font-medium text-sm">Search</span> // Adjusted margin
-          )}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side={isMobileOrTablet ? "top" : "bottom"} className="select-none">
-        {disabled ? "Processing..." : "Search the web"}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 export function AttachButton({
   onClick,
@@ -120,99 +76,20 @@ export function AttachButton({
           onClick={onClick}
           disabled={disabled}
           className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1f2023] font-medium px-2.5", // Adjusted dark bg and -ml
+            "inline-flex items-center cursor-pointer justify-center h-8 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-transparent font-medium px-2.5", // Adjusted dark bg and -ml
             "hover:bg-zinc-100 dark:hover:bg-zinc-700/70", // Adjusted dark hover bg
             disabled ? "opacity-50 cursor-not-allowed" : ""
           )}
-          style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 40 : 0 }}
           data-testid="composer-button-attach"
           aria-label="Attach file"
         >
           <Paperclip
-            className={cn("h-[18px] w-[18px] text-zinc-400")} // Kept zinc-400 for consistency
+            className={cn("h-5 w-5")}
           />
-          {!isMobileOrTablet && (
-            <span className="ml-1.5 font-medium text-sm">Attach</span> // Adjusted margin
-          )}
         </button>
       </TooltipTrigger>
-      <TooltipContent side={isMobileOrTablet ? "top" : "bottom"} className="select-none">
-        {disabled ? "Processing..." : "Upload files and more"}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-export function ReasonButton({
-  isReasonEnabled,
-  setIsReasonEnabled,
-  hideTextOnMobile,
-  disabled,
-}: {
-  isReasonEnabled: boolean;
-  setIsReasonEnabled: (enabled: boolean) => void;
-  hideTextOnMobile?: boolean;
-  disabled?: boolean;
-}) {
-  const isReasoning = isReasonEnabled;
-  const [isMobileOrTablet, setIsMobileOrTablet] = React.useState(false);
-
-  React.useEffect(() => {
-    const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
-  const handleClick = () => {
-    if (disabled) return;
-    setIsReasonEnabled(!isReasoning);
-  };
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-pressed={isReasoning}
-          onClick={handleClick}
-          disabled={disabled}
-          className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-9 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-[#1f2023] font-medium px-2", // Adjusted dark bg
-            isReasoning && !disabled
-              ? "bg-[#daeeff] text-[#1e93ff] dark:bg-[#2a4a6d] dark:text-[#46a5e7] hover:bg-[#b3d8ff] hover:shadow-[0_2px_8px_0_rgba(30,147,255,0.15)] dark:hover:bg-[#18304a]"
-              : "hover:bg-zinc-100 dark:hover:bg-zinc-700/70", // Adjusted dark hover bg
-            disabled ? "opacity-50 cursor-not-allowed" : ""
-          )}
-          style={{ fontWeight: 500, minWidth: isMobileOrTablet ? 36 : 0 }}
-          data-testid="composer-button-reason"
-          aria-label="Reason"
-        >
-          <svg
-            fill="none"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-            className={cn(
-              "h-[18px] w-[18px]",
-              isReasoning && !disabled
-                ? "fill-[#1e93ff] text-[#1e93ff]"
-                : "fill-none text-zinc-400" // Kept zinc-400 for consistency
-            )}
-          >
-            <path
-              d="m12 3c-3.585 0-6.5 2.9225-6.5 6.5385 0 2.2826 1.162 4.2913 2.9248 5.4615h7.1504c1.7628-1.1702 2.9248-3.1789 2.9248-5.4615 0-3.6159-2.915-6.5385-6.5-6.5385zm2.8653 14h-5.7306v1h5.7306v-1zm-1.1329 3h-3.4648c0.3458 0.5978 0.9921 1 1.7324 1s1.3866-0.4022 1.7324-1zm-5.6064 0c0.44403 1.7252 2.0101 3 3.874 3s3.43-1.2748 3.874-3c0.5483-0.0047 0.9913-0.4506 0.9913-1v-2.4593c2.1969-1.5431 3.6347-4.1045 3.6347-7.0022 0-4.7108-3.8008-8.5385-8.5-8.5385-4.6992 0-8.5 3.8276-8.5 8.5385 0 2.8977 1.4378 5.4591 3.6347 7.0022v2.4593c0 0.5494 0.44301 0.9953 0.99128 1z"
-              clipRule="evenodd"
-              fill={(isReasoning && !disabled) ? "#1e93ff" : "currentColor"}
-              fillRule="evenodd"
-            />
-          </svg>
-          {!isMobileOrTablet && (
-            <span className="ml-1.5 font-medium text-sm">Reason</span>  // Adjusted margin
-          )}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side={isMobileOrTablet ? "top" : "bottom"} className="select-none">
-        {disabled ? "Processing..." : "Think before responding"}
+      <TooltipContent side={"top"} className="select-none">
+        {disabled ? "Processing..." : "Attach files"}
       </TooltipContent>
     </Tooltip>
   );
@@ -226,87 +103,99 @@ function Textarea({
   ...props
 }: React.ComponentProps<"textarea"> & { rows?: number }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fadeRef = useRef<HTMLDivElement>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const initialMinHeight = typeof style?.minHeight === 'number' 
     ? style.minHeight 
     : (rows > 1 ? undefined : 40); 
   const [animatedHeight, setAnimatedHeight] = useState<number | string>(initialMinHeight || 'auto');
 
-
   const value = props.value;
   const minHeightFromStyle = style?.minHeight;
   const maxHeightFromStyle = style?.maxHeight;
+
+  // Detect scroll position for fade effect
+  React.useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const handleScroll = () => {
+      setIsScrolled(textarea.scrollTop > 0);
+    };
+    textarea.addEventListener('scroll', handleScroll);
+    // Initial check
+    setIsScrolled(textarea.scrollTop > 0);
+    return () => textarea.removeEventListener('scroll', handleScroll);
+  }, [textareaRef.current]);
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       const computedStyle = window.getComputedStyle(textarea);
       const computedMinHeight = parseFloat(computedStyle.minHeight); // Use minHeight from style prop if available via computedStyle
-      
       const effectiveMaxHeight = typeof maxHeightFromStyle === 'number' ? maxHeightFromStyle : Infinity;
-
       const prevHeight = textarea.style.height;
       textarea.style.height = 'auto';
       const scrollHeight = textarea.scrollHeight;
-      
       let targetHeight = scrollHeight;
       if (effectiveMaxHeight !== Infinity) {
         targetHeight = Math.min(targetHeight, effectiveMaxHeight);
       }
       // Ensure targetHeight respects the effective minHeight (from style or CSS default)
       targetHeight = Math.max(targetHeight, computedMinHeight);
-
-
       if (animatedHeight !== targetHeight || typeof animatedHeight === 'string') {
         setAnimatedHeight(targetHeight);
       }
-      
       if (textarea.style.height !== `${targetHeight}px`) {
          textarea.style.height = `${targetHeight}px`;
-      } else if (prevHeight !== textarea.style.height && animatedHeight === targetHeight && typeof animatedHeight !== 'string') {
-        // This branch is less likely with current logic but kept for robustness.
-        // It means prevHeight was different, animatedHeight (numeric) == targetHeight,
-        // so we ensure the numeric height is applied if it wasn't already.
-      } else if (animatedHeight === targetHeight && typeof animatedHeight === 'string') {
-        textarea.style.height = `${targetHeight}px`;
       }
     }
-  }, [value, rows, minHeightFromStyle, maxHeightFromStyle, animatedHeight]); // Added animatedHeight to dependencies
+  }, [value, rows, minHeightFromStyle, maxHeightFromStyle, animatedHeight]);
+
+  // Light mode detection
+  const [isLightMode, setIsLightMode] = useState(true);
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const match = window.matchMedia('(prefers-color-scheme: dark)');
+      setIsLightMode(!match.matches);
+      const listener = (e: MediaQueryListEvent) => setIsLightMode(!e.matches);
+      match.addEventListener('change', listener);
+      return () => match.removeEventListener('change', listener);
+    }
+  }, []);
 
   return (
     <motion.div
       animate={{ height: animatedHeight }}
       transition={{ type: "tween", duration: 0.2, ease: "circOut" }}
-      style={{ overflow: "hidden", width: "100%" }}
+      style={{ overflow: "hidden", width: "100%", position: 'relative' }}
     >
       <textarea
         ref={textareaRef}
         data-slot="textarea"
         className={cn(
-          "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-          // Base visual styles that can be overridden by parent:
-          "min-h-10", // Default CSS minimum height
-          // Default background and shadow, expecting parent to override if needed (e.g., to transparent)
-          "bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm bg-opacity-50 dark:bg-opacity-50", 
-          "shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)] dark:shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.35)]",
-          className // Allow overriding classes from parent (e.g., bg-transparent, shadow-none, specific padding)
+          "border-input placeholder:text-muted-foreground focus-visible:border-ring w-full rounded-md border px-3 py-2 text-base transition-colors outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-10",
+          "!shadow-none !backdrop-blur-none", // No shadow or blur
+          isLightMode
+            ? "bg-white bg-opacity-100 border-zinc-200"
+            : "bg-zinc-900/80 dark:bg-zinc-900/80",
+          className
         )}
-        style={{
-          ...style, // Apply styles passed from parent (like maxHeight, specific minHeight)
-          height: typeof animatedHeight === "number" ? `${animatedHeight}px` : "auto",
-          minHeight: 64,
-          overflowY:
-            textareaRef.current &&
-            typeof maxHeightFromStyle === "number" &&
-            typeof animatedHeight === "number" && 
-            animatedHeight >= maxHeightFromStyle && 
-            textareaRef.current.scrollHeight > animatedHeight 
-              ? "auto"
-              : "hidden",
-        }}
-        rows={rows}
-        {...props}
+        style={{ ...style, height: animatedHeight, minHeight: 64, overflowY: (textareaRef.current && typeof maxHeightFromStyle === "number" && typeof animatedHeight === "number" && animatedHeight >= maxHeightFromStyle && textareaRef.current.scrollHeight > animatedHeight) ? "auto" : "hidden", zIndex: 1, position: 'relative' }}
+        rows={rows} {...props}
       />
+      
+      {/* Removed the top fade shadow div entirely */}
+
+      {/* Removed the box-shadow from the focus state */}
+      {isLightMode && (
+        <style>{`
+          textarea[data-slot="textarea"]:focus-visible {
+            box-shadow: none;
+            border-color: #a1a1aa;
+          }
+        `}</style>
+      )}
     </motion.div>
   );
 }

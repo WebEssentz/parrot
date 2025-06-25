@@ -1,6 +1,8 @@
 "use client";
 
-import { UIMessage, StreamData } from 'ai';
+import React from "react";
+import { getDefaultModel } from "@/ai/providers";
+import { useUser } from "@clerk/nextjs";
 import { useMobile } from "../hooks/use-mobile";
 import { defaultModel } from "@/ai/providers";
 import { SEARCH_MODE } from "@/components/ui/textarea";
@@ -12,9 +14,7 @@ import { ProjectOverview } from "./project-overview";
 import { Messages } from "./messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "./header";
-import React from "react";
 import { toast } from "sonner";
-
 import { Github, LinkedInIcon, XIcon } from "./icons";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -51,7 +51,27 @@ function FadeMobileInfo({ show, minHeight }: { show: boolean; minHeight?: number
 }
 
 
+
+// Only call title generation if the message is not vague/unsupported
+function isVagueOrUnsupportedMessage(msg: string) {
+  if (!msg || typeof msg !== 'string') return true;
+  const trimmed = msg.trim();
+  if (trimmed.length < 2) return true;
+  const vagueExact = [
+    'hi', 'hello', 'hey', 'yo', 'sup', 'start', 'begin', 'new chat', 'test', 'ok', 'okay', 'help', 'continue', 'again', 'repeat', 'next', 'more', 'info', 'details', 'expand', 'elaborate', 'explain', 'yes', 'no', 'maybe', 'sure', 'thanks', 'thank you', 'cool', 'nice', 'good', 'great', 'awesome', 'wow', 'hmm', 'huh', 'pls', 'please'
+  ];
+  if (vagueExact.includes(trimmed.toLowerCase())) return true;
+  if (/^\s*$/.test(trimmed) || /^([?.!\s]+)$/.test(trimmed)) return true;
+  if (trimmed.split(/\s+/).length === 1 && !trimmed.endsWith('?')) return true;
+  return false;
+}
+
 async function generateAndSetTitle(firstUserMessageContent: string) {
+  if (isVagueOrUnsupportedMessage(firstUserMessageContent)) {
+    // Do not call the backend at all for vague/unsupported messages
+    // Optionally, could log or show a tooltip here
+    return;
+  }
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -63,7 +83,7 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
     });
     if (!response.ok) throw new Error(`Title generation failed: ${response.statusText}`);
     const data = await response.json();
-    if (data.title) {
+    if (data.title && data.title !== null) {
       document.title = data.title;
     }
   } catch (error) {
@@ -71,39 +91,12 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
   }
 }
 
-// Recursion Prompt UI
-function RecursionPrompt({ prompt, onSubmit }: { prompt: string; onSubmit: (depth: number) => void }) {
-  const [depth, setDepth] = useState(1);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-xl p-6 max-w-md w-full flex flex-col items-center">
-        <div className="text-lg font-semibold mb-2">Recursion Depth Required</div>
-        <div className="mb-4 text-zinc-700 dark:text-zinc-200 whitespace-pre-line">{prompt}</div>
-        <div className="flex items-center gap-2 mb-4">
-          <label htmlFor="recursion-depth" className="font-medium">Depth:</label>
-          <input
-            id="recursion-depth"
-            type="number"
-            min={0}
-            max={5}
-            value={depth}
-            onChange={e => setDepth(Number(e.target.value))}
-            className="border rounded px-2 py-1 w-16 text-center"
-          />
-        </div>
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold"
-          onClick={() => onSubmit(depth)}
-        >
-          Continue
-        </button>
-      </div>
-    </div>
-  );
-}
+
 export default function Chat() {
+  const { isLoaded, isSignedIn } = useUser();
   const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
-  const [selectedModel, setSelectedModel] = useState<string>(defaultModel);
+  const latestUserMessageRef = useRef<HTMLDivElement>(null);
+  const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModel(!!isSignedIn));
   const titleGeneratedRef = useRef(false);
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
   const inputAreaRef = useRef<HTMLDivElement>(null);
@@ -113,8 +106,12 @@ export default function Chat() {
   const [hasShownMobileInfoMessageOnce, setHasShownMobileInfoMessageOnce] = useState(false);
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
-  const modelForCurrentSubmissionRef = useRef<string>(defaultModel);
-  
+  const modelForCurrentSubmissionRef = useRef<string>(getDefaultModel(!!isSignedIn));
+  // Update selectedModel if sign-in state changes
+  useEffect(() => {
+    setSelectedModel(getDefaultModel(!!isSignedIn));
+    modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (!showMobileInfoMessage || isDesktop) return;
@@ -170,9 +167,9 @@ export default function Chat() {
     //   return true;
     // },
     onFinish: (_message, _options) => {
-      setSelectedModel(defaultModel);
+      setSelectedModel(getDefaultModel(!!isSignedIn));
       setIsSubmittingSearch(false);
-      modelForCurrentSubmissionRef.current = defaultModel;
+      modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
     },
     onError: (error) => {
       toast.error(
@@ -181,9 +178,9 @@ export default function Chat() {
           : "An error occurred, please try again later.",
         { position: "top-center", richColors: true },
       );
-      setSelectedModel(defaultModel);
+      setSelectedModel(getDefaultModel(!!isSignedIn));
       setIsSubmittingSearch(false);
-      modelForCurrentSubmissionRef.current = defaultModel;
+      modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
     },
   });
 
@@ -199,29 +196,29 @@ export default function Chat() {
     }
   }, [data]);
 
-  // Handler for submitting recursion depth
-  const handleRecursionDepthSubmit = (depth: number) => {
-    if (!recursionPromptRef.current) return;
-    // Compose a new user message with the specified recursionDepth
-    const { url, userIntent, params } = recursionPromptRef.current;
-    const newMessage = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      role: 'user' as 'user',
-      content: `${userIntent}\nrecursionDepth ${depth}${params.maxPages ? `, maxPages ${params.maxPages}` : ''}${params.timeoutMs ? `, timeoutMs ${params.timeoutMs}` : ''}`,
-    };
-    setRecursionPrompt(null);
-    setMessages([...messages, newMessage]);
-  };
 
+  // Robust title generation: only set title when backend says message is clear
   useEffect(() => {
-    if (messages.length === 1 && messages[0].role === 'user' && !titleGeneratedRef.current) {
+    // Only generate title if it hasn't been generated in this session
+    if (titleGeneratedRef.current) return;
+    if (messages.length === 1 && messages[0].role === 'user') {
       const firstUserMessageContent = messages[0].content;
-      titleGeneratedRef.current = true;
-      generateAndSetTitle(firstUserMessageContent);
-    }
-    if (messages.length === 0 && titleGeneratedRef.current) {
+      if (!isVagueOrUnsupportedMessage(firstUserMessageContent)) {
+        generateAndSetTitle(firstUserMessageContent).then(() => {
+          titleGeneratedRef.current = true;
+        });
+      }
+    } else if (messages.length > 1) {
+      // Find the most recent user message that is not vague/unsupported
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user' && !isVagueOrUnsupportedMessage(m.content));
+      if (lastUserMsg) {
+        generateAndSetTitle(lastUserMsg.content).then(() => {
+          titleGeneratedRef.current = true;
+        });
+      }
+    } else if (messages.length === 0 && titleGeneratedRef.current) {
       titleGeneratedRef.current = false;
-      document.title = "Avurna AI";
+      document.title = "Avocado Avurna";
     }
   }, [messages]);
 
@@ -244,11 +241,40 @@ export default function Chat() {
     });
 
     if (showMobileInfoMessage) setShowMobileInfoMessage(false);
-    setTimeout(() => scrollToBottom(), 200);
-  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, scrollToBottom]);
+
+    // Scroll so only the new user message is visible under the header
+    setTimeout(() => {
+      if (latestUserMessageRef.current) {
+        // Instantly jump, then smooth scroll for 'instantly smooth' effect
+        latestUserMessageRef.current.scrollIntoView({ block: 'end', behavior: 'instant' });
+        // Adjust for header height (assume 96px)
+        const headerHeight = 96;
+        const container = containerRef.current;
+        if (container) {
+          // If the message is at the bottom, scroll up by header height
+          container.scrollTop = container.scrollTop - headerHeight;
+        } else {
+          // Fallback: window scroll
+          window.scrollBy({ top: -headerHeight, behavior: 'smooth' });
+        }
+        // Optionally, a short smooth scroll to reinforce the effect
+        setTimeout(() => {
+          latestUserMessageRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        }, 40);
+      }
+    }, 120);
+  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, containerRef]);
 
   const hasSentMessage = messages.length > 0;
-
+  
+  useEffect(() => {
+    if (status === 'streaming' || status === 'submitted') {
+      setTimeout(() => {
+        endRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 80);
+    }
+  }, [status, endRef]);
+  
   useEffect(() => {
     const elementToObserve = inputAreaRef.current;
 
@@ -267,11 +293,11 @@ export default function Chat() {
 
     const observer = new ResizeObserver(measureAndUpdateHeight);
     observer.observe(elementToObserve);
-    
+
     // Keep window resize listener if it's meant to trigger remeasurement
     // for reasons beyond the element's own ResizeObserver capabilities.
     window.addEventListener('resize', measureAndUpdateHeight);
-
+    
     return () => {
       observer.unobserve(elementToObserve);
       window.removeEventListener('resize', measureAndUpdateHeight);
@@ -301,21 +327,18 @@ export default function Chat() {
       setShowMobileInfoMessage(false);
     }
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
-
+  
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
-  const bufferForInputArea = isMobileOrTabletHook ? 200 : 50;
+  // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
+  // Push chat view down on all devices (more)
+  // Instead of buffer, use a real padding-bottom on the message container
+  const inputAreaPadding = inputAreaHeight + 120;
   const currentYear = new Date().getFullYear();
 
   return (
     <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
       <Header />
-
-      {/* Recursion Prompt Modal */}
-      {recursionPrompt && (
-        <RecursionPrompt prompt={recursionPrompt.prompt} onSubmit={handleRecursionDepthSubmit} />
-      )}
-
       <div
         ref={containerRef}
         className={
@@ -325,17 +348,16 @@ export default function Chat() {
         style={{
           paddingTop:
             typeof isDesktop !== 'undefined' && !isDesktop
-              ? '18px' 
-              : undefined,
-          paddingBottom:
-            typeof isDesktop !== 'undefined' && isDesktop
-              ? `${inputAreaHeight + bufferForInputArea}px`
-              : `${bufferForInputArea}px`,
+              ? '96px'
+              : typeof isDesktop !== 'undefined' && isDesktop
+                ? '96px' // Add extra top padding for desktop
+                : '96px',
+          paddingBottom: `${inputAreaPadding}px`,
         }}
       >
         {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (
           <div className="flex h-full items-center justify-center">
-            <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-4xl">
+            <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-[50rem]">
               <ProjectOverview />
               {isDesktop && (
                 <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto mt-6 ">
@@ -355,7 +377,7 @@ export default function Chat() {
               )}
               {isDesktop && (
                 <>
-                  <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
+                  <div className="fixed left-1/2 -translate-x-1/2 bottom-1 z-30 flex justify-center pointer-events-none">
                     <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
                       By messaging Avurna, you agree to our{' '}
                       <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
@@ -387,7 +409,6 @@ export default function Chat() {
             endRef={endRef as React.RefObject<HTMLDivElement>}
           />
         )}
-        <div ref={endRef as React.RefObject<HTMLDivElement>} style={{ height: 1 }} />
       </div>
 
       {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (
@@ -400,7 +421,7 @@ export default function Chat() {
               id="safearea"
               ref={inputAreaRef}
               className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative"
-              style={{ pointerEvents: 'auto' }}
+              style={{ pointerEvents: 'auto', marginBottom: '12px' }}
             >
               <FadeMobileInfo show={showMobileInfoMessage} />
               <form onSubmit={handleSubmit} className="w-full relative z-10">
@@ -418,8 +439,8 @@ export default function Chat() {
                 />
               </form>
               {(hasSentMessage) && (
-                <div className="text-center mt-1.5">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
+                <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none pointer-events-auto">
                     Avurna uses AI. Double check response.
                   </span>
                 </div>
@@ -429,9 +450,10 @@ export default function Chat() {
         ) : (
           <div
             ref={inputAreaRef}
-            className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
+            className="fixed left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
+            style={{ bottom: '-10px' }}
           >
-            <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative">
+            <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative" style={{ marginBottom: '12px' }}>
               <form onSubmit={handleSubmit} className="w-full relative z-10">
                 <CustomTextareaWrapper
                   selectedModel={selectedModel}
@@ -447,8 +469,8 @@ export default function Chat() {
                 />
               </form>
               {(hasSentMessage) && (
-                <div className="text-center mt-1.5">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none">
+                <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none pointer-events-auto">
                     Avurna uses AI. Double check response.
                   </span>
                 </div>

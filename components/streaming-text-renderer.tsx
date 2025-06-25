@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { Markdown } from "./markdown" // Assuming your Markdown.tsx path
+import { Markdown } from "./markdown"
 
 interface StreamingTextRendererProps {
   fullText: string

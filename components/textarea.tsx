@@ -1,12 +1,12 @@
 "use client";
 
-import { Textarea as ShadcnTextarea, ReasonButton, SearchButton, AttachButton, SEARCH_MODE } from "@/components/ui/textarea"; // Ensure this path is correct
-import { defaultModel } from "@/ai/providers"; // Ensure this path is correct and defaultModel is a string
-import { ArrowUp } from "lucide-react";
-import { PauseIcon } from "./icons"; // Ensure this path is correct
-import React, { useEffect, useState, useRef, useCallback } from "react"; // Added useState, useRef, useCallback
-
+import { Textarea as ShadcnTextarea, AttachButton } from "@/components/ui/textarea";
+import { defaultModel } from "@/ai/providers"; 
+import { ArrowUp, ArrowRight } from "lucide-react";
+import { PauseIcon } from "./icons"; 
+import React from "react";
 import { useMobile } from "../hooks/use-mobile";
+import { useUser } from "@clerk/nextjs";
 
 interface InputProps {
   input: string;
@@ -19,8 +19,9 @@ interface InputProps {
   setSelectedModel: (model: string) => void;
   hasSentMessage: boolean;
   isDesktop: boolean;
+  disabled?: boolean;
+  offlineState?: 'online' | 'reconnecting' | 'offline';
 }
-
 
 export const Textarea = ({
   input,
@@ -33,11 +34,14 @@ export const Textarea = ({
   setSelectedModel,
   hasSentMessage,
   isDesktop,
+  disabled = false,
+  offlineState = 'online',
 }: InputProps) => {
+  const { isSignedIn } = useUser();
   // Use the useMobile hook to detect mobile (not tablet)
   const isMobileOnly = useMobile();
-  const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
-  const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
+  // const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
+  // const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
 
   const [staticPlaceholderAnimatesOut, setStaticPlaceholderAnimatesOut] = React.useState(false);
   const [suggestedPrompts, setSuggestedPrompts] = React.useState<string[]>([]);
@@ -46,9 +50,13 @@ export const Textarea = ({
   const [showAnimatedSuggestions, setShowAnimatedSuggestions] = React.useState(false);
   const [isTabToAcceptEnabled, setIsTabToAcceptEnabled] = React.useState(true);
   const [promptVisible, setPromptVisible] = React.useState(false);
+  // --- NEW: STATE FOR COMMAND PALETTE ---
+  const [isPaletteOpen, setIsPaletteOpen] = React.useState(false);
+  const inputRef = React.useRef<HTMLTextAreaElement>(null); // NEW: Ref for the textarea
 
-  const REASON_MODEL_ID = "qwen-qwq-32b"; // Example
-  const featureActive = isDesktop && !hasSentMessage;
+  const REASON_MODEL_ID = isSignedIn ? "gemini-2.5-flash" : "gemini-2.5-flash-lite-preview-06-17";
+  // Remove suggested prompts for signed-in users
+  const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
 
   React.useEffect(() => {
     if (featureActive) {
@@ -130,7 +138,7 @@ export const Textarea = ({
     return () => clearInterval(promptInterval);
   }, [showAnimatedSuggestions, suggestedPrompts.length, isTabToAcceptEnabled, featureActive, currentPromptIndex]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {  
     if (featureActive && showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && e.key === "Tab") {
       e.preventDefault();
       const currentDynamicPromptText = suggestedPrompts[currentPromptIndex];
@@ -155,23 +163,8 @@ export const Textarea = ({
       }
     }
   };
-  
-  const determineEffectiveModel = (currentSearchState: boolean, currentReasonState: boolean): string => {
-    if (currentSearchState) return SEARCH_MODE;
-    if (currentReasonState) return REASON_MODEL_ID;
-    // Assuming defaultModel is a string. If it's an object, use defaultModel.id or similar
-    return typeof defaultModel === 'string' ? defaultModel : (defaultModel as any).id; 
-  };
 
-  const handleSetSearchEnabled = (enabled: boolean) => {
-    setSearchToggleIsOn(enabled);
-    setSelectedModel(determineEffectiveModel(enabled, reasonToggleIsOn));
-  };
-
-  const handleSetReasonEnabled = (enabled: boolean) => {
-    setReasonToggleIsOn(enabled);
-    setSelectedModel(determineEffectiveModel(searchToggleIsOn, enabled));
-  };
+  // REMOVED: Tools, Reason, and Search logic
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
   const shadcnTextareaNativePlaceholder = shouldShowCustomPlaceholderElements ? "" : "Ask Avurna...";
@@ -184,22 +177,21 @@ export const Textarea = ({
 
   // Memoize textareaStyle to prevent unnecessary re-renders of the child if this component updates.
   const textareaStyle = React.useMemo(() => ({ 
-    minHeight: 40, // Corresponds to min-h-10 if 1rem=16px (2.5rem)
-    maxHeight: 208 // Corresponds to max-h-52 if 1rem=16px (13rem)
+    minHeight: 56, // Increased min-height slightly to better contain buttons
+    maxHeight: 256 // Corresponds to max-h-64
   }), []);
 
   return (
-    <div className="relative flex w-full items-end px-3 py-3">
-      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-3xl border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
-        
+    <div className="relative flex w-full items-end px-3 py-3 ">
+      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
         {shouldShowCustomPlaceholderElements && (
           <div 
-              className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-3 z-10 overflow-hidden"
+              className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
               style={{ height: '40px' }} // Matches minHeight of textarea
           >
               <div
                   className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
-                      staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
+                    staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
                   }`}
               >
                   Ask Avurna...
@@ -212,9 +204,9 @@ export const Textarea = ({
                             ? 'opacity-100 translate-y-0' 
                             : (previousPromptIndex !== null 
                                 ? 'opacity-0 -translate-y-3' // Animate out upwards
-                                : 'opacity-0 translate-y-3') // Initial animate in from downwards
+                                : 'opacity-0 -translate-y-3') // Initial animate in from upwards
                       }`}
-                      style={{ marginLeft: '15px' }} // Adjust as needed
+                      style={{ marginLeft: '12px' }}
                     >
                       <span className="truncate">
                           {activePromptText}
@@ -222,9 +214,9 @@ export const Textarea = ({
                       {showTabBadge && (
                         <span 
                           className="ml-1.5 flex-shrink-0 text-[10px] leading-tight text-zinc-400 dark:text-zinc-500 border border-zinc-300 dark:border-zinc-600 rounded-sm px-1 py-[1px] bg-transparent"
-                          style={{ marginRight: '32px' }} // Space from the edge
+                          style={{ marginRight: '29px' }} // Space from the edge
                         >
-                            TAB
+                          TAB
                         </span>
                       )}
                    </div>
@@ -232,67 +224,76 @@ export const Textarea = ({
           </div>
         )}
 
-        <ShadcnTextarea 
-          className="resize-none bg-transparent dark:bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
-          value={input}
-          autoFocus
-          placeholder={shadcnTextareaNativePlaceholder}
-          style={textareaStyle}
-          onChange={(e) => {
-            handleInputChange(e);
-            if (e.target.value) {
-                setIsTabToAcceptEnabled(false);
-                setPromptVisible(false);
-            } else {
-                if (featureActive) setIsTabToAcceptEnabled(true); 
+        <div className="relative">
+          <ShadcnTextarea 
+            className="resize-none bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
+            value={input}
+            autoFocus
+            placeholder={
+              offlineState === 'offline'
+                ? "You’re offline. Please reconnect to continue."
+                : offlineState === 'reconnecting'
+                  ? "Reconnecting..."
+                  : shadcnTextareaNativePlaceholder
             }
-          }}
-          disabled={isMobileOnly && (status === 'streaming' || status === 'submitted')}
-          onKeyDown={handleKeyDown}
-        />
+            disabled={disabled}
+            style={textareaStyle}
+            onChange={(e) => {
+              handleInputChange(e);
+              if (e.target.value) {
+                  setIsTabToAcceptEnabled(false);
+                  setPromptVisible(false);
+              } else {
+                  if (featureActive) setIsTabToAcceptEnabled(true);
+              }
+            }}
+            onKeyDown={handleKeyDown}
+            {...(disabled && offlineState !== 'online' ? { 'aria-disabled': true } : {})}
+          />
+        </div>
+
         {/* This div acts as a spacer for the absolutely positioned buttons */}
-        <div style={{paddingBottom: '48px'}} /> 
-        
-        <div className="bg-primary-surface-primary absolute start-3 end-0 bottom-3 z-20 flex items-center">
+        <div style={{paddingBottom: '44px'}} /> 
+
+        <div className="bg-primary-surface-primary absolute start-0 end-0 bottom-3 z-20 flex items-center">
           <div className="w-full">
             <div
               data-testid="composer-footer-actions"
               className="flex items-center max-xs:gap-1 gap-2 overflow-x-auto [scrollbar-width:none]"
-              style={{ marginRight: 98 }} // Space for the send/stop button
+              style={{ marginLeft: 4, marginRight: 98 }} // Shift left, keep space for send/stop
             >
-              <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isLoading} />
-              <SearchButton isSearchEnabled={searchToggleIsOn} setIsSearchEnabled={handleSetSearchEnabled} disabled={isLoading} />
-              <ReasonButton isReasonEnabled={reasonToggleIsOn} setIsReasonEnabled={handleSetReasonEnabled} hideTextOnMobile disabled={isLoading} />
+              <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isSignedIn ? false : isLoading} />
             </div>
             <div className="absolute end-3 bottom-0 flex items-center gap-2">
               <div className="ms-auto flex items-center gap-1.5">
                 {status !== "streaming" && status !== "submitted" && (
                   <button
                     type="submit"
-                    disabled={isLoading || !input.trim()} 
-                    className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
-                      isLoading || !input.trim()
+                    disabled={isLoading || !input.trim() || disabled} 
+                    className={`rounded-3xl flex items-center justify-center transition-colors duration-300 ${
+                      isLoading || !input.trim() || disabled
                         ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-                        : 'dark:bg-white dark:text-black bg-black hover:bg-zinc-800 text-white cursor-pointer'
+                        : 'dark:bg-white bg-black hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
                     }`}
                     aria-label="Send" data-testid="composer-button-send" style={{ minWidth: 36, minHeight: 36, padding: 0 }}
                   >
-                    <ArrowUp className="h-5 w-5 transition-colors duration-300 mx-auto my-auto" />
+                    {!hasSentMessage ? (
+                      <ArrowRight className="h-5 w-5 transition-colors duration-300 mx-auto my-auto text-white dark:text-black" />
+                    ) : (
+                      <ArrowUp className="h-5 w-5 transition-colors duration-300 mx-auto my-auto text-white dark:text-black" />
+                    )}
                   </button>
                 )}
                 {(status === "streaming" || status === "submitted") && (
                   <button
                     type="button"
-                    onClick={status === "streaming" ? stop : undefined} // Only allow stop if actually streaming
-                    disabled={status === "submitted"} // Disable if submitted but not yet streaming, or if isLoading general
-                    className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
-                      status === "submitted" // More specific disabled style
-                      ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-                      : 'bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
-                    }`}
-                    title={status === "streaming" ? "Stop generating" : "Processing..."} style={{ minWidth: 40, minHeight: 40 }}
+                    onClick={stop}
+                    disabled={false}
+                    className={`rounded-3xl flex items-center justify-center transition-colors duration-300 bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer`}
+                    title={status === "streaming" ? "Stop generating" : "Processing..."}
+                    style={{ minWidth: 40, minHeight: 40, cursor: 'pointer' }}
                   >
-                    <PauseIcon size={28} className={`h-6 w-6 transition-colors duration-300 ${ status === "submitted" ? 'text-zinc-400 dark:text-zinc-500' : 'text-white dark:text-black' }`} />
+                    <PauseIcon size={28} className="h-6 w-6 transition-colors duration-300 text-white dark:text-black" />
                   </button>
                 )}
               </div>

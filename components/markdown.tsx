@@ -76,8 +76,8 @@ const components: Partial<Components> = {
 
   // --- Paragraph Styling ---
   p: ({ node, children, ...props }) => (
-    // Increased bottom margin and added line-height
-    <p className="mb-4 leading-relaxed" {...props}>
+    // Increased bottom margin, added line-height, and set font size to 16px
+    <p className="mb-2 leading-relaxed" style={{ fontSize: "16px" }} {...props}>
       {children}
     </p>
   ),
@@ -100,7 +100,7 @@ const components: Partial<Components> = {
 
   li: ({ node, children, ...props }) => (
     // Added line-height to list items
-    <li className="pl-1 leading-relaxed" {...props}>
+    <li className="pl-1 pb-4 leading-relaxed" {...props}>
       {children}
     </li>
   ),
@@ -110,16 +110,23 @@ const components: Partial<Components> = {
       {children}
     </span>
   ),
+
   em: ({ node, children, ...props }) => (
-    <span className="italic" {...props}>
+    <em className="italic" {...props}>
       {children}
-    </span>
+    </em>
   ),
+
   a: ({ node, children, ...props }) => (
     // @ts-expect-error
     <Link className="text-blue-600 hover:underline dark:text-blue-400" target="_blank" rel="noreferrer" {...props}>
       {children}
     </Link>
+  ),
+
+  // --- Video tag support for markdown rendering ---
+  video: ({ node, ...props }) => (
+    <video controls style={{ maxWidth: "100%" }} {...props} />
   ),
 
   h1: ({ node, children, ...props }) => {
@@ -165,34 +172,57 @@ const components: Partial<Components> = {
       </h6>
     )
   },
-  table: ({ node, children, ...props }) => (
-    <table className="my-4 w-full text-sm border-collapse" {...props}>
-      {children}
-    </table>
-  ),
-  thead: ({ node, children, ...props }) => (
-    <thead {...props}>{children}</thead>
-  ),
-  tbody: ({ node, children, ...props }) => <tbody {...props}>{children}</tbody>,
-  tr: ({ node, children, ...props }) => (
-    <tr className="border-b border-zinc-200 dark:border-zinc-700" {...props}>
-      {children}
-    </tr>
-  ),
-  th: ({ node, children, ...props }) => (
-    <th className="py-2 pr-8 text-left font-normal" {...props}>
-      {children}
-    </th>
-  ),
-  td: ({ node, children, ...props }) => (
-    <td className="py-2 pr-8 align-top" {...props}>
-      {children}
-    </td>
-  ),
+  table: ({ node, children, ...props }) => {
+    // Defensive: ensure children are valid
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return (
+      <table className="my-4 w-full text-sm border-collapse" {...props}>
+        {safeChildren}
+      </table>
+    );
+  },
+
+  thead: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return <thead {...props}>{safeChildren}</thead>;
+  },
+  
+  tbody: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return <tbody {...props}>{safeChildren}</tbody>;
+  },
+  
+  tr: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return (
+      <tr className="border-b border-zinc-200 dark:border-zinc-700" {...props}>
+        {safeChildren}
+      </tr>
+    );
+  },
+  
+  th: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return (
+      <th className="py-2 pr-8 text-left font-normal" {...props}>
+        {safeChildren}
+      </th>
+    );
+  },
+  
+  td: ({ node, children, ...props }) => {
+    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
+    return (
+      <td className="py-2 pr-8 align-top" {...props}>
+        {safeChildren}
+      </td>
+    );
+  },
 }
 
 const remarkPlugins = [remarkGfm]
 
+// --Helper: Render Sources Block in Markdown
 function stripSourcesBlock(markdown: string): string {
   const start = markdown.indexOf("<!-- AVURNA_SOURCES_START -->")
   const end = markdown.indexOf("<!-- AVURNA_SOURCES_END -->")

@@ -1,22 +1,40 @@
 "use client";
-import { Modal } from "./ui/modal";
+
+import React from "react";
+import { useEffect, useState } from "react";
+import { saveDescriptionToIDB, getDescriptionFromIDB } from "../lib/desc-idb";
+import { saveMediaToIDB } from "@/lib/media-idb";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
-import { memo, useCallback, useEffect, useState, useRef } from "react";
+import { memo, useCallback, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Menu, MenuButton, MenuItem } from '@headlessui/react';
+import { MoreVertical } from 'lucide-react';
+import { toast } from "sonner";
+import { useUser, UserButton } from "@clerk/nextjs";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import equal from "fast-deep-equal";
-
 import { Markdown } from "./markdown";
 import { cn } from "@/lib/utils";
 import {
-  CheckCircle,
   ChevronDownIcon,
   ChevronUpIcon,
 } from "lucide-react";
 import { StreamingTextRenderer } from "./streaming-text-renderer";
+import styles from "@/components/ui/image-slider.module.css";
+import { MediaCarousel } from "./ui/media-carousel";
 
-// Copy icon SVG as a React component
+// --- Helper Components & Hooks ---
+
+
 const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-[2] size-4" {...props}>
     <rect x="3" y="8" width="13" height="13" rx="4" stroke="currentColor"></rect>
@@ -30,33 +48,428 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-// SpinnerIcon: simple loader for tool invocation UI
-function SpinnerIcon() {
+// --- Prefetch webpage name and description for sources ---
+async function prefetchSourceMeta(sources: { url: string; title?: string }[]) {
+  for (const src of sources) {
+    // Prefetch webpage name
+    extractWebpageName(src.url).then(name => {
+      // Optionally, cache the name somewhere if needed
+    });
+    // Prefetch AI description and store in IDB
+    getDescriptionFromIDB(src.url).then(async (desc) => {
+      if (!desc) {
+        const newDesc = await fetchWebpageDescription(src.url);
+        if (newDesc) {
+          await saveDescriptionToIDB(src.url, newDesc);
+        }
+      }
+    });
+  }
+}
+
+/**
+ * Extracts a display name from a resolved URL using an open API for semantic extraction.
+ * Falls back to domain extraction if the API is unavailable.
+ * @param resolvedUrl The fully resolved URL string
+ */
+export async function extractWebpageName(resolvedUrl: string): Promise<string> {
+  if (!resolvedUrl) return '';
+  try {
+    // Use microlink.io public API (no key required)
+    const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(resolvedUrl)}`;
+    const response = await fetch(apiUrl);
+    if (response.ok) {
+      const data = await response.json();
+      // Try to get the best name: site, publisher, title, url
+      if (data && data.data) {
+        if (typeof data.data.site === 'string' && data.data.site.trim()) {
+          return data.data.site.trim();
+        }
+        if (typeof data.data.publisher === 'string' && data.data.publisher.trim()) {
+          return data.data.publisher.trim();
+        }
+        if (typeof data.data.title === 'string' && data.data.title.trim()) {
+          return data.data.title.trim();
+        }
+      }
+    }
+  } catch { }
+  // Fallback: extract domain
+  try {
+    const u = new URL(resolvedUrl);
+    if (u.hostname === 'vertexaisearch.cloud.google.com' && u.pathname.startsWith('/grounding-api-redirect/')) {
+      return 'Unknown Source';
+    }
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return resolvedUrl;
+  }
+}
+
+// --- WebpageTitleDisplay expects a { title, url, snippet } object ---
+// Now uses useWebpageTitle to fetch the actual webpage title from microlink.io
+function useWebpageTitle(url: string) {
+  const [title, setTitle] = useState<string>("");
+  useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    async function fetchTitle() {
+      try {
+        const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(url)}`;
+        const resp = await fetch(apiUrl);
+        const data = await resp.json();
+        if (!cancelled && data.status === 'success' && data.data && data.data.title) {
+          setTitle(data.data.title);
+        }
+      } catch {
+        // fallback: show nothing
+      }
+    }
+    fetchTitle();
+    return () => { cancelled = true; };
+  }, [url]);
+  return title;
+}
+
+async function fetchWebpageDescription(url: string): Promise<string> {
+  try {
+    const resp = await fetch(`/api/extract-description?url=${encodeURIComponent(url)}`);
+    if (!resp.ok) return "";
+    const data = await resp.json();
+    return data.description || "";
+  } catch {
+    return "";
+  }
+}
+
+// --- Description cache (persists across sheet/drawer open/close) ---
+const descriptionCache: Record<string, string> = {};
+
+function WebpageTitleDisplay({ source }: { source?: { title?: string; url: string; snippet?: string } }) {
+  // Always use the actual webpage title from microlink.io
+  const title = useWebpageTitle(source?.url || "");
+  const [description, setDescription] = useState<string>("");
+  const [hasFetched, setHasFetched] = useState(false);
+  // Offline/online state
+  const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !navigator.onLine : false);
+
+  // On mount, try to load description from IDB if offline or if not in memory
+  useEffect(() => {
+    let cancelled = false;
+    if (!source?.url) return;
+    (async () => {
+      // Try IDB first
+      const idbDesc = await getDescriptionFromIDB(source.url);
+      if (!cancelled && idbDesc) {
+        setDescription(idbDesc);
+        setHasFetched(true);
+        return;
+      }
+      // Fallback to in-memory cache
+      if (!cancelled && Object.prototype.hasOwnProperty.call(descriptionCache, source.url)) {
+        setDescription(descriptionCache[source.url]);
+        setHasFetched(true);
+        return;
+      }
+      // Otherwise, mark as not fetched so fetch effect can run
+      if (!cancelled) {
+        setHasFetched(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [source?.url]);
+
+  // Fetch and cache description if not already fetched
+  useEffect(() => {
+    let cancelled = false;
+    if (!source?.url || hasFetched) return;
+    // If already in cache (even if empty string), do not fetch
+    if (Object.prototype.hasOwnProperty.call(descriptionCache, source.url)) {
+      setDescription(descriptionCache[source.url]);
+      setHasFetched(true);
+      return;
+    }
+    (async () => {
+      const desc = await fetchWebpageDescription(source.url);
+      if (!cancelled) {
+        setDescription(desc);
+        descriptionCache[source.url] = desc;
+        // If offline, store in IDB
+        if (isOffline && desc) {
+          await saveDescriptionToIDB(source.url, desc);
+        }
+        setHasFetched(true); // Always set to true, even if desc is empty, to prevent infinite fetches
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [source?.url, hasFetched, isOffline]);
+
+  // Listen for online/offline events and persist state
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    setIsOffline(!navigator.onLine);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  // When going offline, move in-memory cache to IDB
+  useEffect(() => {
+    if (!isOffline || !source?.url) return;
+    if (descriptionCache[source.url]) {
+      saveDescriptionToIDB(source.url, descriptionCache[source.url]);
+    }
+  }, [isOffline, source?.url]);
+
+  if (!source || !source.url) return null;
+  // If the title starts with "AUZI", render "Unknown Source"
+  const displayTitle = (title && title.trim().toUpperCase().startsWith("AUZI"))
+    ? "Unknown Source"
+    : (title || source.title || source.url);
   return (
-    <svg className="h-4 w-4 text-zinc-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-    </svg>
+    <>
+      <div className="font-semibold text-sm mt-1 text-zinc-800 dark:text-zinc-100">
+        {displayTitle}
+      </div>
+      {description && (
+        <div className="text-xs mt-1 text-zinc-500 dark:text-zinc-400 italic max-w-xs line-clamp-2">
+          <Markdown>{description}</Markdown>
+        </div>
+      )}
+      {source.snippet && !description && (
+        <div className="text-xs mt-1 text-zinc-500 dark:text-zinc-400 italic max-w-xs line-clamp-2">
+          <Markdown>{source.snippet}</Markdown>
+        </div>
+      )}
+    </>
   );
 }
 
-// Show AI action icons on hover of any part of the AI message (desktop only).
-// The `data-ai-action` elements (which include the copy icon) are only rendered for AI messages on desktop.
+// --- SourceFavicon Component ---
+// Skeleton shimmer for favicon loading, matching tool invocation UI
+function FaviconSkeleton() {
+  const { theme } = useTheme ? useTheme() : { theme: "light" };
+  return (
+    <span
+      className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 -ml-1 first:ml-0 inline-block align-middle shadow-sm"
+      style={{
+        background: theme === 'dark'
+          ? 'linear-gradient(90deg, #3f3f46 0%, #52525b 40%, #3f3f46 60%, #3f3f46 100%)'
+          : 'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 40%, #e5e7eb 60%, #e5e7eb 100%)',
+        backgroundSize: '200% 100%',
+        animation: 'avurna-shimmer-favicon 1.3s linear infinite',
+        zIndex: 1,
+      }}
+      key={theme}
+    >
+      <style>{`@keyframes avurna-shimmer-favicon { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+    </span>
+  );
+}
+
+// --- Favicon cache (persists across sheet/drawer open/close) ---
+const faviconCache: Record<string, string> = {};
+
+function SourceFavicon({ url, title }: { url: string; title: string }) {
+  const [favicon, setFavicon] = React.useState<string | null>(url ? faviconCache[url] || null : null);
+  const [loading, setLoading] = React.useState(!favicon);
+  const [errored, setErrored] = React.useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (faviconCache[url]) {
+      setFavicon(faviconCache[url]);
+      setLoading(false);
+      setErrored(false);
+      return;
+    }
+    setLoading(true);
+    setErrored(false);
+    (async () => {
+      let urlToUse = url;
+      if (url.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/")) {
+        urlToUse = await resolveRedirectUrl(url);
+      }
+      try {
+        const u = new URL(urlToUse);
+        if (u.protocol === "file:") {
+          faviconCache[url] = "/file.svg";
+          setFavicon("/file.svg");
+          setLoading(false);
+          return;
+        } else if (u.protocol === "window:") {
+          faviconCache[url] = "/window.svg";
+          setFavicon("/window.svg");
+          setLoading(false);
+          return;
+        } else {
+          const favUrl = getFaviconUrl(urlToUse);
+          setFavicon(favUrl);
+        }
+      } catch {
+        faviconCache[url] = "/globe.svg";
+        setFavicon("/globe.svg");
+        setLoading(false);
+        return;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  // When favicon changes, try to load it, then store in cache and IndexedDB after successful load
+  useEffect(() => {
+    if (!favicon) return;
+    if (faviconCache[url] === favicon) {
+      setLoading(false);
+      setErrored(false);
+      return;
+    }
+    setLoading(true);
+    setErrored(false);
+    const img = new window.Image();
+    img.src = favicon;
+    img.onload = async () => {
+      faviconCache[url] = favicon;
+      setLoading(false);
+      setErrored(false);
+      // Only cache in IDB if not a local fallback
+      if (favicon.startsWith('http') || favicon.startsWith('https')) {
+        try {
+          const resp = await fetch(favicon);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            if (blob.size > 0) {
+              try {
+                const u = new URL(url);
+                const dbKey = `favicon:${u.hostname}`;
+                saveMediaToIDB(dbKey, blob, {
+                  key: dbKey,
+                  type: 'image',
+                  mimeType: blob.type,
+                  size: blob.size,
+                  title: title,
+                  sourceUrl: url,
+                });
+              } catch { }
+            }
+          }
+        } catch { }
+      }
+    };
+    img.onerror = () => {
+      setErrored(true);
+      setLoading(false);
+    };
+  }, [favicon, url, title]);
+
+  if (loading) {
+    return <FaviconSkeleton />;
+  }
+
+  if (errored) {
+    return (
+      <img
+        src="/globe.svg"
+        alt={title}
+        className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
+        style={{ display: 'inline-block', verticalAlign: 'middle', zIndex: 1, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
+      />
+    );
+  }
+  return (
+    <img
+      src={favicon || "/globe.svg"}
+      alt={title}
+      className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
+      style={{ display: 'inline-block', verticalAlign: 'middle', zIndex: 1, boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
+      onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = '/globe.svg'; }}
+    />
+  );
+}
+
+
+// Caches resolved URLs for the session
+const resolvedUrlCache: Record<string, Promise<string>> = {};
+
+/**
+ * Resolves a redirect URL (e.g., vertexaisearch.cloud.google.com/grounding-api-redirect/...) to its final destination.
+ * Returns the resolved URL, or the original if not a redirect or on error.
+ */
+// Batch resolve function
+export async function resolveRedirectUrls(sites: string[]): Promise<Record<string, string>> {
+  // Only process URLs that need redirect resolving
+  const toResolve = sites.filter(siteUrl => siteUrl.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/"));
+  const alreadyCached: Record<string, string> = {};
+  // Only use resolved values from cache
+  for (const url of toResolve) {
+    if (Object.prototype.hasOwnProperty.call(resolvedUrlCache, url)) {
+      // Only use if the promise has resolved
+      const cached = resolvedUrlCache[url];
+      if (cached && typeof cached.then === 'function') {
+        // This is a Promise, but we can't synchronously get its value, so skip for now
+        // Optionally, you could await all cached promises here, but for now, skip
+      }
+    }
+  }
+  const needToFetch = toResolve.filter(url => !alreadyCached[url]);
+  let resolvedMap: Record<string, string> = {};
+  if (needToFetch.length > 0) {
+    const promise = fetch("/api/resolve-redirect/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: needToFetch }),
+    })
+      .then(res => res.json())
+      .then(data => data.resolved || {})
+      .catch(() => ({}));
+    const result = await promise;
+    // Store in cache as Promise<string>
+    Object.entries(result).forEach(([k, v]) => {
+      resolvedUrlCache[k] = Promise.resolve(String(v));
+    });
+    resolvedMap = { ...alreadyCached, ...result };
+  } else {
+    resolvedMap = alreadyCached;
+  }
+  // For URLs that don't need resolving, just return as-is
+  sites.forEach(url => {
+    if (!url.includes("vertexaisearch.cloud.google.com/grounding-api-redirect/")) {
+      resolvedMap[url] = url;
+    }
+  });
+  return resolvedMap;
+}
+
+// Single URL fallback for compatibility
+export async function resolveRedirectUrl(siteUrl: string): Promise<string> {
+  const result = await resolveRedirectUrls([siteUrl]);
+  return result[siteUrl] || siteUrl;
+}
+
+export function getFaviconUrl(siteUrl: string): string {
+  try {
+    const url = new URL(siteUrl);
+    // Use Google's favicon service for robustness
+    return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=32`;
+  } catch {
+    return "/globe.svg";
+  }
+}
+
 if (typeof window !== 'undefined') {
   const styleId = 'ai-message-hover-style';
   if (!document.getElementById(styleId)) {
     const style = document.createElement('style');
     style.id = styleId;
-    style.innerHTML = `
-      .group\\/ai-message-hoverable:hover [data-ai-action] { /* Ensure opacity for elements with data-ai-action on hover of parent group */
-        opacity: 1 !important;
-      }
-    `;
+    style.innerHTML = `.group\\/ai-message-hoverable:hover [data-ai-action] { opacity: 1 !important; };`;
     document.head.appendChild(style);
   }
 }
 
-// Utility to detect mobile or tablet (width < 1024)
 function useIsMobileOrTablet() {
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
   useEffect(() => {
@@ -68,12 +481,10 @@ function useIsMobileOrTablet() {
   return isMobileOrTablet;
 }
 
-// Utility to copy text to clipboard
 function copyToClipboard(text: string) {
   if (navigator.clipboard) {
     navigator.clipboard.writeText(text);
   } else {
-    // fallback
     const textarea = document.createElement('textarea');
     textarea.value = text;
     document.body.appendChild(textarea);
@@ -83,25 +494,23 @@ function copyToClipboard(text: string) {
   }
 }
 
-interface ReasoningPart {
+interface ReasoningPartData {
   type: "reasoning";
   reasoning: string;
-  details: Array<{ type: "text"; text: string }>;
+  details: Array<{ type: "text"; text: string; signature?: string } | { type: "redacted"; data: string }>;
 }
 
 interface ReasoningMessagePartProps {
-  part: ReasoningPart;
+  part: ReasoningPartData;
   isReasoning: boolean;
 }
 
-// Utility: Extract sources from markdown string (between <!-- AVURNA_SOURCES_START --> and <!-- AVURNA_SOURCES_END -->)
 export function extractSourcesFromText(text: string): { title: string; url: string }[] {
   const sources: { title: string; url: string }[] = [];
   const start = text.indexOf("<!-- AVURNA_SOURCES_START -->");
   const end = text.indexOf("<!-- AVURNA_SOURCES_END -->");
   if (start === -1 || end === -1 || end < start) return sources;
   const block = text.slice(start, end);
-  // Match - [Title](URL)
   const regex = /- \[(.*?)\]\((.*?)\)/g;
   let match;
   while ((match = regex.exec(block))) {
@@ -110,27 +519,12 @@ export function extractSourcesFromText(text: string): { title: string; url: stri
   return sources;
 }
 
-export function ReasoningMessagePart({
-  part,
-  isReasoning,
-}: ReasoningMessagePartProps) {
+export function ReasoningMessagePart({ part, isReasoning }: ReasoningMessagePartProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-
   const variants = {
-    collapsed: {
-      height: 0,
-      opacity: 0,
-      marginTop: 0,
-      marginBottom: 0,
-    },
-    expanded: {
-      height: "auto",
-      opacity: 1,
-      marginTop: "1rem",
-      marginBottom: 0,
-    },
+    collapsed: { height: 0, opacity: 0, marginTop: 0, marginBottom: 0 },
+    expanded: { height: "auto", opacity: 1, marginTop: "1rem", marginBottom: 0 },
   };
-
   const memoizedSetIsExpanded = useCallback((value: boolean) => {
     setIsExpanded(value);
   }, []);
@@ -139,93 +533,38 @@ export function ReasoningMessagePart({
     memoizedSetIsExpanded(isReasoning);
   }, [isReasoning, memoizedSetIsExpanded]);
 
-  // No flash effect needed for finished message
-
-  const { theme } = useTheme ? useTheme() : { theme: undefined };
-  // No flash effect needed for finished message
-
+  // No shimmer, no gradient, just static label for reasoning
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col pb-4">
       {isReasoning ? (
         <div className="flex flex-row items-center gap-1">
-          <span className="font-medium text-sm pl-4 mt-1 relative inline-block" style={{ minWidth: 120 }}>
-            <span
-              key={theme}
-              style={{
-                background: theme === 'dark'
-                  ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
-                  : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)',
-                backgroundSize: '200% 100%',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                // animation: 'Avurna-shimmer-text 1.3s linear infinite',
-                // animationTimingFunction: 'linear',
-                willChange: 'background-position',
-                display: 'inline-block',
-                transition: 'background 0.2s, color 0.2s',
-              }}
-              className="!bg-transparent"
-            >
-              Reasoning
-            </span>
-            {/* <style>{`
-              @keyframes Avurna-shimmer-text {
-                0% { background-position: -100% 0; }
-                50% { background-position: 100% 0; }
-                100% { background-position: -100% 0; }
-              }
-            `}</style> */}
+          <span className="font-medium text-sm mt-1 relative inline-block" style={{ minWidth: 60 }}>
+            <span className="!bg-transparent">Thinking</span>
           </span>
-          <span className="animate-spin ml-1"><SpinnerIcon /></span>
         </div>
       ) : (
         <div className="flex flex-row gap-2 items-center">
-          {/* Click on text expands/collapses reasoning parts */}
-          <span
-            className="font-medium text-sm pl-4 mt-1 relative inline-block"
-            style={{ minWidth: 120, cursor: 'pointer' }}
-            onClick={() => setIsExpanded((v) => !v)}
-          >
-            Reasoned for a few seconds
-          </span>
+          <span className="font-medium text-md mt-1 relative inline-block" style={{ minWidth: 60, cursor: 'pointer' }} onClick={() => setIsExpanded((v) => !v)}>Show thoughts</span>
           <button
-            className={cn(
-              "cursor-pointer rounded-full dark:hover:bg-zinc-800 hover:bg-zinc-200",
-              {
-                "dark:bg-zinc-800 bg-zinc-200": isExpanded,
-              },
-            )}
-            onClick={() => {
-              setIsExpanded(!isExpanded);
-            }}
+            className={cn("cursor-pointer rounded-full dark:hover:bg-zinc-800 hover:bg-zinc-200", { "dark:bg-zinc-800 bg-zinc-200": isExpanded })}
+            onClick={() => setIsExpanded(!isExpanded)}
+            style={{ marginLeft: '-2px', marginTop: '9px', display: 'flex', alignItems: 'flex-end' }}
           >
             {isExpanded ? (
-              <ChevronDownIcon className="h-4 w-4" />
+              <ChevronUpIcon className="h-4 w-4" style={{ display: 'block' }} />
             ) : (
-              <ChevronUpIcon className="h-4 w-4" />
+              <ChevronDownIcon className="h-4 w-4" style={{ display: 'block' }} />
             )}
           </button>
         </div>
       )}
-
       <AnimatePresence initial={false}>
         {isExpanded && (
-          <motion.div
-            key="reasoning"
-            className="text-sm dark:text-zinc-400 text-zinc-600 flex flex-col gap-4 border-l pl-3 dark:border-zinc-800"
-            initial="collapsed"
-            animate="expanded"
-            exit="collapsed"
-            variants={variants}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-          >
+          <motion.div key="reasoning" className="text-sm dark:text-zinc-400 text-zinc-600 flex flex-col gap-4 border-l pl-3 dark:border-zinc-800" initial="collapsed" animate="expanded" exit="collapsed" variants={variants} transition={{ duration: 0.2, ease: "easeInOut" }}>
             {part.details.map((detail, detailIndex) =>
-              detail.type === "text" ? (
-                <Markdown key={detailIndex}>{detail.text}</Markdown>
-              ) : (
-                "<redacted>"
-              ),
+              detail.type === "text"
+                ? <span key={detailIndex} className="italic"><Markdown>{detail.text}</Markdown></span>
+                : "<redacted>"
             )}
           </motion.div>
         )}
@@ -234,609 +573,654 @@ export function ReasoningMessagePart({
   );
 }
 
-const PurePreviewMessage = ({
-  message,
-  isLatestMessage,
-  status,
-}: {
-  message: TMessage;
-  isLoading: boolean;
-  status: "error" | "submitted" | "streaming" | "ready";
-  isLatestMessage: boolean;
-}) => {
-  // Move useTheme to the top to ensure consistent hook order
+
+const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMessage: boolean }) => {
+  // Edit icon for short user messages (<80 chars)
+  const EditIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12.1 4.93l2.97 2.97M4 13.06V16h2.94l8.06-8.06a2.1 2.1 0 0 0-2.97-2.97L4 13.06z" />
+    </svg>
+  );
+  const [expanded, setExpanded] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyTimeout = useRef<NodeJS.Timeout | null>(null);
+  const { theme } = useTheme();
+  const isMobileOrTablet = useIsMobileOrTablet();
+  const { isSignedIn } = useUser();
+
+  if (!part || part.type !== 'text') return null;
+
+  const handleUserMessageCopy = (textToCopy: string) => {
+    copyToClipboard(textToCopy);
+    setCopied(true);
+    if (isMobileOrTablet) toast("Copied to Clipboard");
+    if (copyTimeout.current) clearTimeout(copyTimeout.current);
+    copyTimeout.current = setTimeout(() => setCopied(false), 1000);
+  };
+
+  useEffect(() => () => { if (copyTimeout.current) clearTimeout(copyTimeout.current); }, []);
+
+  const LONG_MESSAGE_CHAR_LIMIT = 400;
+  const isLongUserMessage = part.text.length > LONG_MESSAGE_CHAR_LIMIT;
+  const isWideUserMessage = part.text.length > 80;
+
+  // Define the colors for the tail to match the bubble background
+  const bubbleBgColor = theme === 'dark' ? '#272727ff' : '#f6f6f7';
+  const tailBorderColor = theme === 'dark' ? '#363636ff' : '#efeff3ff'; // more visible in light mode
+
+
+  return (
+    <>
+      {/* This style block adds the CSS needed for the message bubble tail */}
+      <style jsx global>{`
+  .user-bubble-with-tail {
+    position: relative;
+  }
+  .user-bubble-with-tail::before {
+    content: "";
+    position: absolute;
+    width: 0px;
+    height: 0px;
+    left: -8px;
+    top: 14px;
+    transform: translateY(-50%);
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-right: 8px solid var(--tail-color, #efeff3ff);
+  }
+`}</style>
+
+      <motion.div initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-center w-full pb-4">
+        {/* Show avatar if signed in, aligned center with bubble, with spacing */}
+        {isSignedIn && (
+          <div className="flex-shrink-0 flex items-center" style={{ alignSelf: 'flex-start', marginTop: '10px', marginRight: '8px', pointerEvents: 'none' }}>
+            <div style={{ pointerEvents: 'none' }}>
+              <UserButton appearance={{ elements: { userButtonAvatarBox: "w-8 h-8" } }} afterSignOutUrl="/" showName={false} />
+            </div>
+          </div>
+        )}
+        <div className={isSignedIn ? "flex flex-row w-full items-start" : "flex flex-row w-full items-start"} style={{ background: 'none', border: 'none', boxShadow: 'none', position: 'relative' }}>
+          <div className="group/user-message flex flex-col items-start w-full gap-1 relative justify-center pb-2" style={{ flex: '1 1 auto', position: 'relative' }}>
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+              <motion.div
+                className={cn(
+                  "user-bubble-with-tail", // <-- The new class to attach the pseudo-element
+                  "group/message-bubble prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-50 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-xl relative text-left break-words", // <-- Kept rounded-xl for the main shape
+                  isLongUserMessage ? "max-w-[90vw]" : "max-w-[70vw]",
+                  isLongUserMessage && "relative"
+                )}
+                style={{
+                  lineHeight: '1.5',
+                  overflow: isLongUserMessage ? 'hidden' : undefined,
+                  WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                  maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                  paddingTop: !isLongUserMessage ? '12px' : undefined,
+                  background: bubbleBgColor, // Use the variable to ensure colors match
+                  borderColor: tailBorderColor,
+                  ['--tail-color' as string]: tailBorderColor,
+                }}
+                initial={false}
+                animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}
+                transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+              >
+                <div style={{ paddingRight: (!isMobileOrTablet && !isWideUserMessage) ? 72 : isLongUserMessage ? 36 : undefined, position: 'relative' }}>
+                <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                  {isLongUserMessage && (
+                    <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" aria-label={expanded ? "Collapse message" : "Expand message"} className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" onClick={e => { e.stopPropagation(); setExpanded(v => !v); }} tabIndex={0}>
+                            {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">{expanded ? "Collapse message" : "Expand message"}</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
+                  {/* Edit and Copy icons absolutely positioned at the right of the bubble for short user messages (<80 chars) on desktop, only on hover */}
+                  {!isMobileOrTablet && !isWideUserMessage && (
+                    <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 2 }}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className="edit-icon-short-user-message rounded-full p-1.5 transition-colors"
+                            style={{
+                              cursor: 'pointer',
+                              color: theme === 'dark' ? '#a1a1aa' : '#52525b',
+                              transition: 'opacity 0.18s',
+                              pointerEvents: 'auto',
+                              background: 'transparent',
+                              marginRight: '2px',
+                              marginTop: '1px',
+                            }}
+                            tabIndex={-1}
+                            onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? '#27272a' : '#e4e4e7'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            <EditIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b' }} />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="center" className="select-none">Edit message</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Copy message"
+                            className="copy-icon-short-user-message rounded-full p-1.5 transition-colors"
+                            style={{
+                              cursor: 'pointer',
+                              color: theme === 'dark' ? '#a1a1aa' : '#52525b',
+                              transition: 'opacity 0.18s',
+                              pointerEvents: 'auto',
+                              background: 'transparent',
+                              marginRight: '0px',
+                              marginTop: '1px',
+                            }}
+                            tabIndex={-1}
+                            onClick={e => { e.stopPropagation(); handleUserMessageCopy(part.text); }}
+                            onMouseEnter={e => { e.currentTarget.style.background = theme === 'dark' ? '#27272a' : '#e4e4e7'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            {copied
+                              ? (<CheckIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b', transition: 'all 0.2s' }} />)
+                              : (<CopyIcon style={{ color: theme === 'dark' ? '#a1a1aa' : '#52525b', transition: 'all 0.2s' }} />)
+                            }
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy message"}</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+            {isMobileOrTablet && (
+              <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <DrawerTrigger asChild>
+                  <div className="absolute inset-0 z-10 cursor-pointer" style={{ borderRadius: 24 }} onClick={e => { e.stopPropagation(); setDrawerOpen(true); }} />
+                </DrawerTrigger>
+                <DrawerContent>
+                  <DrawerHeader><DrawerTitle className="w-full text-center">Actions</DrawerTitle></DrawerHeader>
+                  <div className="flex flex-col gap-2 px-4 py-2">
+                    <button type="button" aria-label="Copy message" className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer" onClick={async () => { handleUserMessageCopy(part.text); await new Promise(res => setTimeout(res, 1000)); setDrawerOpen(false); }}>
+                      {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s', width: 22, height: 22 }} />)}
+                      <span className="text-base font-medium">{copied ? 'Copied!' : 'Copy'}</span>
+                    </button>
+                  </div>
+                </DrawerContent>
+              </Drawer>
+            )}
+            {/* Icon row for wide messages (>=80 chars) on desktop */}
+            {!isMobileOrTablet && isWideUserMessage && (
+              <div
+                className={cn(
+                  "mt-1 flex transition-opacity duration-200",
+                  !isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100",
+                  "justify-end w-full"
+                )}
+                style={{ marginRight: 0 }}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" aria-label="Copy message" className={cn("rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none bg- hover:bg-zinc-200 dark:hover:bg-zinc-700")} onClick={() => handleUserMessageCopy(part.text)}>
+                      {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                </Tooltip>
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+};
+
+const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMessage; isLoading: boolean; status: "error" | "submitted" | "streaming" | "ready"; isLatestMessage: boolean; }) => {
   const { theme } = useTheme ? useTheme() : { theme: undefined };
-  // Extract sources from all text parts
-  const allText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
-  const sources = extractSourcesFromText(allText);
-  const [showSources, setShowSources] = useState(false);
   const isAssistant = message.role === "assistant";
+  const [sourcesSidebarOpen, setSourcesSidebarOpen] = useState(false);
+  const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
+
+  // Memoize the calculation of sources, media, text, and searchResults without side effects.
+  const { images, videos, sources, allText, searchResults, visionFiltering } = React.useMemo(() => {
+    const extractedImages: { src: string; alt?: string; source?: { url: string; title?: string; } }[] = [];
+    const extractedVideos: { src: string; poster?: string; title?: string }[] = [];
+    let combinedText = "";
+    let foundSearchResults: Array<{ image?: string; imageUrl?: string; title?: string; url?: string }> = [];
+    let foundVisionFiltering: any = undefined;
+
+    if (isAssistant) {
+      for (const part of message.parts || []) {
+        if (part.type === "tool-invocation" && (part.toolInvocation as any)?.result) {
+          const result = (part.toolInvocation as any).result;
+          if (result) {
+            if (Array.isArray(result.images)) extractedImages.push(...result.images);
+            if (Array.isArray(result.videos)) extractedVideos.push(...result.videos);
+            // Look for Exa/Google searchResults (array of objects with image or imageUrl)
+            if (
+              Array.isArray(result.searchResults) &&
+              result.searchResults.some((r: { image?: string; imageUrl?: string }) => r.image || r.imageUrl)
+            ) {
+              foundSearchResults = result.searchResults;
+            }
+            // Look for visionFiltering in result
+            if (result.visionFiltering) {
+              foundVisionFiltering = result.visionFiltering;
+            }
+          }
+        } else if (part.type === "text" && part.text.trim()) {
+          combinedText += part.text + "\n\n";
+        }
+      }
+    }
+    const extractedSources = extractSourcesFromText(combinedText);
+    return { images: extractedImages, videos: extractedVideos, sources: extractedSources, allText: combinedText, searchResults: foundSearchResults, visionFiltering: foundVisionFiltering };
+  }, [message.parts, isAssistant]);
+
+  // This new useEffect handles the side effect of prefetching source metadata.
+  // It runs ONLY when the `sources` array changes, not on every render.
+  useEffect(() => {
+    if (sources.length > 0) {
+      prefetchSourceMeta(sources);
+    }
+  }, [sources]);
+
   const isMobileOrTablet = useIsMobileOrTablet();
   const [copied, setCopied] = useState(false);
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [searchedSitesByPart, setSearchedSitesByPart] = useState<Record<number, string[]>>({});
 
-  // Get the full AI message text (all text parts, sources block stripped)
-  const aiMessageText = message.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n\n") || "";
+  // This useEffect is now fixed to prevent the infinite loop by removing its own state from the dependency array.
+  useEffect(() => {
+    if (!message.parts) return;
+    const currentUpdates: Record<number, string[]> = {};
+    message.parts.forEach((part, i) => {
+      if (part.type !== "tool-invocation") return;
+      const { toolName, state, args } = part.toolInvocation;
+      const result = (part.toolInvocation as any)?.result;
+      let sitesForThisPart: string[] = [];
+      if (state === "call" && isLatestMessage && status !== "ready") {
+        if (toolName === "fetchUrl" && args && typeof args === "object" && args.url) {
+          const url = args.url as string;
+          if (url) sitesForThisPart.push(url);
+        }
+      } else if (state === "result") {
+        if (toolName === "googleSearch" && result && result.sources && Array.isArray(result.sources)) {
+          const sourceUrls = result.sources.map((s: any) => s.sourceUrl || s.url).filter(Boolean);
+          sitesForThisPart.push(...sourceUrls);
+        }
+      }
+      const uniqueSites = Array.from(new Set(sitesForThisPart));
+      if (uniqueSites.length > 0) {
+        currentUpdates[i] = uniqueSites;
+      }
+    });
+
+    if (Object.keys(currentUpdates).length > 0) {
+      setSearchedSitesByPart(prev => {
+        const newState = { ...prev };
+        let changed = false;
+        for (const partIdxStr in currentUpdates) {
+          const partIdx = parseInt(partIdxStr, 10);
+          if (!equal(newState[partIdx], currentUpdates[partIdx])) {
+            newState[partIdx] = currentUpdates[partIdx];
+            changed = true;
+          }
+        }
+        return changed ? newState : prev;
+      });
+    }
+  }, [message.parts, isLatestMessage, status]);
+
+  const stripSourcesBlock = (text: string) => text.replace(/<!-- AVURNA_SOURCES_START -->[\s\S]*?<!-- AVURNA_SOURCES_END -->/g, "").trim();
+  const aiMessageText = stripSourcesBlock(allText);
 
   const handleCopy = () => {
-    copyToClipboard(aiMessageText); // For AI messages
+    copyToClipboard(aiMessageText);
     setCopied(true);
+    if (isMobileOrTablet) toast("Copied to Clipboard");
     if (copyTimeout.current) clearTimeout(copyTimeout.current);
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
-  
-  const handleUserMessageCopy = (textToCopy: string) => {
-    copyToClipboard(textToCopy);
-    setCopied(true); // This state is shared, might be fine or might need separate states if interactions overlap
-    if (copyTimeout.current) clearTimeout(copyTimeout.current);
-    copyTimeout.current = setTimeout(() => setCopied(false), 1000);
-  };
-
 
   useEffect(() => () => { if (copyTimeout.current) clearTimeout(copyTimeout.current); }, []);
-  // --- Fix: Per-part state for user message copy icon row ---
-  // Only relevant for user messages, so we only create state if needed
-  const userMessageParts = message.role === "user" ? message.parts?.filter((p: any) => p.type === "text") : [];
-  // For each user message part, track showIcons state (for mobile copy row)
-  const [userShowIcons, setUserShowIcons] = useState(() =>
-    userMessageParts ? userMessageParts.map((_, i) => isLatestMessage && i === userMessageParts.length - 1) : []
-  );
 
-  // Keep showIcons in sync if message count or latest changes
-  useEffect(() => {
-    if (!userMessageParts) return;
-    setUserShowIcons(userMessageParts.map((_, i) => isMobileOrTablet && isLatestMessage && i === userMessageParts.length - 1));
-  }, [isMobileOrTablet, isLatestMessage, userMessageParts?.length]);
-
-  // Handler for toggling icons row on tap (mobile, previous messages)
-  const handleUserBubbleTap = (partIdx: number, e: React.MouseEvent) => {
-    if (!isMobileOrTablet || (isLatestMessage && userMessageParts && partIdx === userMessageParts.length - 1)) return;
-    e.stopPropagation();
-    setUserShowIcons((prev) => prev.map((v, i) => (i === partIdx ? !v : v)));
-  };
+  const hasContent = isAssistant ? (message.parts ?? []).some(p => p.type !== 'tool-invocation' || (p.toolInvocation as any)?.result) : (message.parts ?? []).length > 0;
+  if (!hasContent && status === 'ready') return null;
 
   return (
     <AnimatePresence key={message.id}>
-      <motion.div
-        className="w-full mx-auto px-2 sm:px-4 group/message max-w-[97.5%] sm:max-w-[52rem]"
-        initial={{ y: 5, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        key={`message-${message.id}`}
-        data-role={message.role}
-      >
-        {/* Sources Button */}
-        {isAssistant && sources.length > 0 && (
-          <div className="flex justify-end mb-1">
-            <button
-              className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded bg-zinc-100 dark:bg-zinc-800 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 shadow-sm"
-              onClick={() => setShowSources(true)}
-              type="button"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.333A6.667 6.667 0 1 0 8 14.667 6.667 6.667 0 0 0 8 1.333Zm0 12A5.333 5.333 0 1 1 8 2.667a5.333 5.333 0 0 1 0 10.666Zm.667-8H7.333v3.334l2.834 1.7.666-1.1-2.166-1.3V5.333Z" fill="currentColor" /></svg>
-              {sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})
-            </button>
-          </div>
-        )}
-
-        {/* Sources Modal */}
-        <Modal open={showSources} onClose={() => setShowSources(false)}>
-          <div className="p-4 max-h-[70vh] w-full min-w-[260px] flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-semibold text-lg">Sources</div>
-              <button onClick={() => setShowSources(false)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white p-1 rounded transition-colors" aria-label="Close sources modal">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-              </button>
-            </div>
-            <div className="overflow-y-auto max-h-[55vh] pr-1">
-              {sources.map((src, i) => {
-                let icon = <img src="/globe.svg" alt="site" className="cursor-pointer w-5 h-5 mr-2 inline-block align-middle" />;
-                try {
-                  const u = new URL(src.url);
-                  if (u.protocol === "file:") icon = <img src="/file.svg" alt="file" className="w-5 h-5 mr-2 inline-block align-middle" />;
-                  else if (u.protocol === "window:") icon = <img src="/window.svg" alt="window" className="w-5 h-5 mr-2 inline-block align-middle" />;
-                } catch { }
-                return (
-                  <a
-                    key={src.url + i}
-                    href={src.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-2 py-2 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-1"
-                  >
-                    {icon}
-                    <span className="font-medium text-zinc-800 dark:text-zinc-100 truncate max-w-[180px]">{src.title}</span>
-                    <span className="text-xs text-zinc-500 truncate max-w-[120px]">{src.url}</span>
-                  </a>
-                );
-              })}
-              {sources.length === 0 && <div className="text-zinc-500 text-sm">No sources found.</div>}
-            </div>
-          </div>
-        </Modal>
-        {/* Mobile: assistant icon above message bubble, left-aligned */}
-        <div
-          className={cn(
-            isAssistant
-              ? "flex w-full flex-col sm:flex-row items-start"
-              : "flex flex-row gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit",
-          )}
-        >
-          {/* Desktop: Copy icon at the bottom of the AI message bubble */}
-          {/* AI icon remains at the top left, copy icon moves to bottom of bubble on desktop */}
-          {/* AI icon */}
-          {/* AI icon: show only on desktop, comment out on mobile/tablet */}
-          {/*
-          {isAssistant && !isMobileOrTablet && (
-            <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
-              <div>
-                <SparklesIcon size={14} />
-              </div>
-            </div>
-          )}
-          */}
-          {/*
-          {isAssistant && isMobileOrTablet && (
-            <div className="mb-1 sm:mb-0 size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background" style={{ alignSelf: 'flex-start' }}>
-              <div>
-                <SparklesIcon size={14} />
-              </div>
-            </div>
-          )}
-          */}
-          {/* On mobile/tablet, add left margin to AI message to align with where the icon would be */}
-
-          {isAssistant ? (
-            <div
-              className={cn(
-                "group/ai-message-hoverable",
-                isMobileOrTablet ? "w-full pl-10" : "w-fit"
-              )}
-              style={{
-                marginLeft: 0,
-                paddingLeft: 0,
-                // Add extra top margin on mobile/tablet if previous message is from user
-                marginTop: isMobileOrTablet ? 32 : undefined // 32px = 2rem, adjust as needed
-              }}
-            >
-              <div className={isMobileOrTablet ? "flex flex-col space-y-4" : "flex flex-col space-y-4 w-fit"} style={{ alignItems: 'flex-start' }}>
-                {message.parts?.map((part, i) => {
-                  switch (part.type) {
-                    // Inside PurePreviewMessage, when rendering a 'text' part:
-                    case "text":
-                      const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-                      // status here is the per-message status passed correctly
-                      const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
-
-                      return (
-                        <motion.div
-                          initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }}
-                          animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }}
-                          // exit={{ opacity: 0 }} // Keep if needed
-                          transition={{ duration: 0.2 }}
-                          key={`message-${message.id}-part-${i}`}
-                          className="flex flex-row items-start w-full pb-4"
-                        >
-                          <div
-                            className="flex flex-col gap-4"
-                            style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}
-                          >
-                            <Markdown>{part.text}</Markdown> {/* Investigate this component's performance */}
-                          </div>
-                        </motion.div>
-                      );
-                    case "tool-invocation":
-                      return (
-                        <ToolInvocationMessagePart
-                          key={`message-${message.id}-part-${i}`}
-                          part={part}
-                          isLatestMessage={isLatestMessage}
-                          status={status}
-                        />
-                      );
-                      // ToolInvocationMessagePart: Reusable, extensible tool invocation UI
-                      function getToolStatusLabel(toolName: string, state: string) {
-                        // Add more tools here as needed
-                        switch (toolName) {
-                          case "googleSearch":
-                            return state === "call" ? "Searching the Web" : "Search Completed";
-                          case "fetchUrl":
-                            return state === "call" ? "Fetching Url data" : "Fetch Completed";
-                          case "getWeatherdata":
-                          case "weatherTool":
-                            return "Getting weather data";
-                          default:
-                            // Fallback for unknown tools
-                            if (state === "call") return `Running ${toolName}`;
-                            return `Finished ${toolName}`;
-                        }
-                      }
-
-
-                      function ToolInvocationMessagePart({ part, isLatestMessage, status }: {
-                        part: any;
-                        isLatestMessage: boolean;
-                        status: "error" | "submitted" | "streaming" | "ready";
-                      }) {
-                        const { toolName, state } = part.toolInvocation;
-                        const label = getToolStatusLabel(toolName, state);
-                        const isRunning = state === "call" && isLatestMessage && status !== "ready";
-                        const isDone = state === "result";
-                        const { theme } = useTheme ? useTheme() : { theme: undefined };
-                        return (
-                          <div className="flex flex-col">
-                            <div
-                              className="flex flex-row items-center gap-1"
-                              style={
-                                !isMobileOrTablet
-                                  ? { marginLeft: '-16px', marginRight: '12px' }
-                                  : { marginLeft: '-16px', marginRight: '12px' }
-                              }
-                            >
-                              <span className="font-medium text-sm pl-4 mt-1 relative inline-block" style={{ minWidth: 120 }}>
-                                {isRunning ? (
-                                  <span style={{ position: 'relative', display: 'inline-block' }}>
-                                    <span style={{
-                                      background: theme === 'dark'
-                                        ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)'
-                                        : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)',
-                                      backgroundSize: '200% 100%',
-                                      WebkitBackgroundClip: 'text',
-                                      WebkitTextFillColor: 'transparent',
-                                      backgroundClip: 'text',
-                                      animation: 'avurna-shimmer-text 1.3s linear infinite',
-                                      animationTimingFunction: 'linear',
-                                      willChange: 'background-position',
-                                      display: 'inline-block',
-                                    }}
-                                      // Force re-render on theme change to reset background
-                                      key={theme}
-                                    >
-                                      {label}
-                                    </span>
-                                    <style>
-                                      {`
-                                      @keyframes avurna-shimmer-text {
-                                        0% { background-position: -100% 0; }
-                                        100% { background-position: 100% 0; }
-                                      }
-                                      `}
-                                    </style>
-                                  </span>
-                                ) : label}
-                              </span>
-                              {isRunning && (
-                                <span className="animate-spin ml-1"><SpinnerIcon /></span>
-                              )}
-                              {isDone && (
-                                <span className="text-green-600 ml-1" style={{ marginLeft: 4, verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center' }}><CheckCircle size={16} /></span>
-                              )}
-                            </div>
-                            {/* Details/params could be shown here if needed in the future */}
-                          </div>
-                        );
-                      }
-                    case "reasoning":
-                      return (
-                        <ReasoningMessagePart
-                          key={`message-${message.id}-${i}`}
-                          // @ts-expect-error part
-                          part={part}
-                          isReasoning={
-                            (message.parts &&
-                              status === "streaming" &&
-                              i === message.parts.length - 1) ??
-                            false
-                          }
-                        />
-                      );
-                    default:
-                      return null;
+      <motion.div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[46rem]" initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} key={`message-${message.id}`} data-role={message.role}>
+        {/* Render MediaCarousel with images/videos if present, otherwise with searchResults if present */}
+        {isAssistant && (
+          (images.length > 0 || videos.length > 0) ? (
+            <div className="mb-4 w-full">
+              <MediaCarousel
+                images={images}
+                videos={videos}
+                maxImages={(() => {
+                  const text = allText.toLowerCase();
+                  if (/\b(image|images|picture|pictures|photo|photos|pic|pics|img|jpg|jpeg|png|gif|gifs)\b/.test(text)) {
+                    const match = text.match(/(?:show|display|give|see|want|need|find|fetch|render|provide|list|give me|show me|display me|see me|want me|need me|find me|fetch me|render me|provide me|list me)?\s*(\d+)\s*(?:images|pictures|photos|pics|img|jpg|jpeg|png|gifs?)/);
+                    if (match && match[1]) {
+                      const n = parseInt(match[1], 10);
+                      if (!isNaN(n) && n > 0) return n;
+                    }
+                    if (/images|pictures|photos|pics|gifs/.test(text)) return 4;
+                    if (/image|picture|photo|pic|gif/.test(text)) return 1;
+                    return 1;
                   }
+                  if (/\b(video|videos|clip|clips|movie|movies|mp4|webm|mov|avi)\b/.test(text)) {
+                    return 0;
+                  }
+                  if (images.length > 0) return 4;
+                  return 0;
+                })()}
+                maxVideos={(() => {
+                  const text = allText.toLowerCase();
+                  if (/\b(video|videos|clip|clips|movie|movies|mp4|webm|mov|avi)\b/.test(text)) {
+                    const match = text.match(/(?:show|display|give|see|want|need|find|fetch|render|provide|list|give me|show me|display me|see me|want me|need me|find me|fetch me|render me|provide me|list me)?\s*(\d+)\s*(?:videos|clips|movies|mp4|webm|mov|avi)/);
+                    if (match && match[1]) {
+                      const n = parseInt(match[1], 10);
+                      if (!isNaN(n) && n > 0) return n;
+                    }
+                    if (/videos|clips|movies/.test(text)) return 4;
+                    if (/video|clip|movie/.test(text)) return 1;
+                    return 1;
+                  }
+                  if (/\b(image|images|picture|pictures|photo|photos|pic|pics|img|jpg|jpeg|png|gif|gifs)\b/.test(text)) {
+                    return 0;
+                  }
+                  if (videos.length > 0 && images.length === 0) return 4;
+                  return 0;
+                })()}
+                visionFiltering={visionFiltering}
+              />
+            </div>
+          ) : (searchResults.length > 0 && (
+            <div className="mb-4 w-full">
+              <MediaCarousel
+                images={searchResults
+                  .filter((r: any) => r.image || r.imageUrl)
+                  .map((r: any) => ({
+                    src: r.image || r.imageUrl,
+                    alt: r.title || r.snippet || r.text || '',
+                    source: { url: r.url || r.sourceUrl || '', title: r.title || '' }
+                  }))}
+                visionFiltering={visionFiltering}
+              />
+            </div>
+          ))
+        )}
+        <div className={cn("flex w-full flex-col items-start")}> 
+          {isAssistant ? (
+            <div className={cn("group/ai-message-hoverable", isMobileOrTablet ? "w-full pl-10" : "w-fit")} style={{ marginLeft: 0, paddingLeft: 0, marginTop: isMobileOrTablet ? 32 : undefined }}>
+              <div className={cn(!isMobileOrTablet && "flex flex-col space-y-4 w-fit", isMobileOrTablet && styles.clearfix)} style={{ alignItems: !isMobileOrTablet ? 'flex-start' : undefined }}>
+                {message.parts?.map((part, i) => {
+                  if (part.type === "text") {
+                    const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
+                    const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
+                    return (
+                      <motion.div key={`message-${message.id}-part-${i}`} initial={isActivelyStreamingText ? false : { y: 5, opacity: 0 }} animate={isActivelyStreamingText ? {} : { y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-start w-full pb-4">
+                        <div className="flex flex-col gap-4" style={{ marginLeft: 0, alignItems: 'flex-start', background: 'none', border: 'none', boxShadow: 'none' }}>
+                          <Markdown>{part.text}</Markdown>
+                        </div>
+                      </motion.div>
+                    );
+                  }
+                  if (part.type === "tool-invocation") {
+                    if (part.toolInvocation.state === "result") {
+                      return <motion.div key={`message-${message.id}-part-${i}`} initial={{ opacity: 1, height: 'auto' }} animate={{ opacity: 0, height: 0, margin: 0, padding: 0 }} transition={{ duration: 0.35, ease: 'easeInOut' }} style={{ overflow: 'hidden' }} />;
+                    }
+                    const { toolName, state } = part.toolInvocation;
+                    const label = (toolName === "googleSearch" && state === "call") ? "Searching the Web" : (toolName === "fetchUrl" && state === "call") ? "Analyzing Url data" : (toolName === "getWeatherdata" || toolName === "weatherTool") ? "Getting weather data" : (state === "call") ? `Running ${toolName}` : "";
+                    const searchedSites = searchedSitesByPart[i] || [];
+                    return (
+                      <div className="flex flex-col" key={`message-${message.id}-part-${i}`}>
+                        <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
+                          <div className="flex flex-row items-center gap-1">
+                            <AnimatePresence initial={false}>
+                              {searchedSites.map((url, idx) => (
+                                <motion.img
+                                  key={url}
+                                  src={getFaviconUrl(url)}
+                                  alt="site favicon"
+                                  className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
+                                  initial={{ x: -20, opacity: 0 }}
+                                  animate={{ x: 0, opacity: 1 }}
+                                  exit={{ x: 20, opacity: 0 }}
+                                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}
+                                />
+                              ))}
+                            </AnimatePresence>
+                          </div>
+                          <span className="font-medium pl-4 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
+                            {state === "call" && label ? (
+                              <span style={{ position: 'relative', display: 'inline-block' }}>
+                                <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
+                                <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                              </span>
+                            ) : null}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (part.type === "reasoning") {
+                    return (
+                      <ReasoningMessagePart key={`message-${message.id}-${i}`} part={part as ReasoningPartData} isReasoning={(message.parts && status === "streaming" && i === message.parts.length - 1) ?? false} />
+                    );
+                  }
+                  return null;
                 })}
               </div>
-              {/* Desktop: Action icons (copy, etc) at the left start of the AI message bubble, matching mobile layout */}
-              {/* Show copy icon row on desktop: always visible for latest assistant message, hover for previous */}
-              {/* Desktop: Copy icon row is always left-aligned under the AI message bubble, but moved up closer to the bubble and shifted left with margin-right */}
-              {/*
-                To avoid "Rendered more hooks than during the previous render" error,
-                move the stateful logic for the icon row outside of the conditional rendering block.
-                This ensures hooks are always called in the same order.
-              */}
-              {(() => {
-                // Only used for desktop, assistant, and status === "ready"
-                // But always call the hook to preserve order
-                const [showIconRow, setShowIconRow] = useState(isLatestMessage ? false : true);
-                // Only run the effect for desktop, assistant, and status === "ready"
-                useEffect(() => {
-                  if (!isMobileOrTablet && isAssistant && status === "ready") {
-                    if (isLatestMessage) {
-                      const timer = setTimeout(() => setShowIconRow(true), 450);
-                      return () => clearTimeout(timer);
-                    } else {
-                      setShowIconRow(true);
-                    }
-                  }
-                  // eslint-disable-next-line
-                }, [isMobileOrTablet, isAssistant, status, isLatestMessage]);
-                if (!isMobileOrTablet && isAssistant && status === "ready") {
-                  const { theme } = useTheme();
-                  return (
-                    <div className="flex flex-row" style={{ marginTop: '-28px' }}>
-                      <motion.div
-                        className={cn(
-                          "flex items-center gap-1 p-1 select-none pointer-events-auto",
-                          !isLatestMessage ? "group/ai-icon-row" : ""
-                        )}
-                        data-ai-action
-                        style={{ marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' }}
-                        initial={isLatestMessage ? { opacity: 0 } : { opacity: 0 }}
-                        animate={
-                          isLatestMessage
-                            ? (showIconRow ? { opacity: 1 } : { opacity: 0 })
-                            : { opacity: 0 }
-                        }
-                        whileHover={
-                          !isLatestMessage
-                            ? { opacity: 1, transition: { duration: 0.2 } }
-                            : undefined
-                        }
-                        transition={{
-                          opacity: { duration: 0.2, delay: isLatestMessage && showIconRow ? 0.15 : 0 }
-                        }}
-                      >
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label="Copy message"
-                              className="rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                              style={{
-                                color: theme === 'dark' ? '#fff' : '#828282',
-                                background: 'transparent',
-                              }}
-                              onClick={handleCopy}
-                            >
-                              {copied ? (
-                                <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                              ) : (
-                                <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                              )}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                        </Tooltip>
-                        {/* Future action icons can be added here */}
-                      </motion.div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-              {/* Mobile: Copy icon always at the bottom, after the message bubble */}
-              {isMobileOrTablet && isAssistant && status === "ready" && (
-                <div className="relative w-full">
-                  <div className="flex absolute left-0 right-0 justify-start z-10">
-                    <div
-                      className="flex items-center gap-1 py-1 sm:mr-6 select-none pointer-events-auto"
-                      style={{ marginTop: '-28px', marginLeft: '-8px', marginRight: '10px' }}
-                    >
-                      <button
-                        type="button"
-                        aria-label="Copy message"
-                        className="text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center"
-                        style={{ color: '#828282', background: 'transparent' }}
-                        onClick={handleCopy}
-                      >
-                        {copied ? <CheckIcon style={{ color: 'white', transition: 'all 0.2s' }} /> : <CopyIcon style={{ color: 'white', transition: 'all 0.2s' }} />}
-                      </button>
-                      {/* Future action buttons can be added here as more icons */}
-                    </div>
-                  </div>
+              {isAssistant && status === "ready" && (
+                <div className={cn(!isMobileOrTablet ? "flex flex-row mb-8" : "relative w-full mt-8")} style={!isMobileOrTablet ? { marginTop: '-20px' } : { marginTop: '-16px' }}>
+                  <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto group/ai-icon-row")}
+                    data-ai-action
+                    style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' } : { position: 'absolute', left: 0, right: 0, marginLeft: '-16px', marginRight: '10px', zIndex: 10, justifyContent: 'start' }}
+                    initial={{ opacity: 1 }} animate={{ opacity: 1 }}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="Copy message" className={cn(!isMobileOrTablet ? "rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800" : "text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center")}
+                          style={{ color: theme === 'dark' ? '#fff' : '#828282', background: 'transparent' }} onClick={handleCopy}>
+                          {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
+                    </Tooltip>
+                    {sources.length > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          {isMobileOrTablet ? (
+                            <>
+                              <button
+                                className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1"
+                                type="button"
+                                onClick={() => setSourcesDrawerOpen(true)}
+                              >
+                                {sources.slice(0, 3).map((src, idx) => (
+                                  <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
+                                    <SourceFavicon url={src.url} title={src.title} />
+                                  </span>
+                                ))}
+                                <span style={{ verticalAlign: 'middle', position: 'relative', marginTop: '-2px' }}>{sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})</span>
+                              </button>
+                              <Drawer open={sourcesDrawerOpen} onOpenChange={setSourcesDrawerOpen}>
+                                <DrawerContent>
+                                  <DrawerHeader>
+                                    <DrawerTitle>Sources</DrawerTitle>
+                                  </DrawerHeader>
+                                  <div className="p-4 max-h-[70vh] w-full min-w-[260px] flex flex-col">
+                                    <div className="overflow-y-auto max-h-[55vh] pr-1">
+                                      {(() => {
+                                        const googleSearchPart = (message.parts || []).find(
+                                          (part: any) =>
+                                            part.type === 'tool-invocation' &&
+                                            'toolInvocation' in part &&
+                                            part.toolInvocation?.toolName === 'googleSearch' &&
+                                            Array.isArray(part.toolInvocation?.result?.searchResults)
+                                        );
+                                        const searchResults =
+                                          googleSearchPart && 'toolInvocation' in googleSearchPart &&
+                                            (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                            ? (googleSearchPart.toolInvocation as any).result.searchResults
+                                            : [];
+                                        if (searchResults.length > 0) {
+                                          return searchResults.map((result: any, i: number) => (
+                                            <a
+                                              key={i}
+                                              href={result.url || result.sourceUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                            >
+                                              <SourceFavicon url={result.url || result.sourceUrl} title={result.title || result.siteName || ''} />
+                                              <div className="flex flex-col">
+                                                <WebpageTitleDisplay source={{
+                                                  title: result.title || result.siteName || '',
+                                                  url: result.url || result.sourceUrl,
+                                                  snippet: result.snippet || result.description || ''
+                                                }} />
+                                              </div>
+                                            </a>
+                                          ));
+                                        }
+                                        const markdownSources = extractSourcesFromText(allText);
+                                        if (markdownSources.length > 0) {
+                                          const isValidTitle = (title: string) => {
+                                            if (!title || title.length > 70 || title.includes('/') || !title.includes(' ')) {
+                                              return false;
+                                            }
+                                            return true;
+                                          };
+                                          return markdownSources.map((src, i) => (
+                                            <a
+                                              key={i}
+                                              href={src.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                            >
+                                              <SourceFavicon url={src.url} title={src.title} />
+                                              <div className="flex flex-col">
+                                                <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                                                  {isValidTitle(src.title) ? src.title : (() => { try { return new URL(src.url).hostname; } catch { return src.url; } })()}
+                                                </div>
+                                                <WebpageTitleDisplay source={{ url: src.url }} />
+                                              </div>
+                                            </a>
+                                          ));
+                                        }
+                                        return <div className="text-sm text-zinc-500 dark:text-zinc-400">No sources found.</div>;
+                                      })()}
+                                    </div>
+                                  </div>
+                                </DrawerContent>
+                              </Drawer>
+                            </>
+                          ) : (
+                            <Sheet open={sourcesSidebarOpen} onOpenChange={setSourcesSidebarOpen}>
+                              <SheetTrigger asChild>
+                                <button
+                                  className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1"
+                                  type="button"
+                                  onClick={() => setSourcesSidebarOpen(true)}
+                                >
+                                  {sources.slice(0, 3).map((src, idx) => (
+                                    <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
+                                      <SourceFavicon url={src.url} title={src.title} />
+                                    </span>
+                                  ))}
+                                  <span style={{ verticalAlign: 'middle', position: 'relative', marginTop: '-2px' }}>{sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})</span>
+                                </button>
+                              </SheetTrigger>
+                              <SheetContent side="right" className="p-0 max-w-md w-full flex flex-col">
+                                <div className="flex flex-col h-full w-full">
+                                  <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+                                    <div className="font-semibold text-lg">Sources</div>
+                                    <button onClick={() => setSourcesSidebarOpen(false)} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-white p-1 rounded transition-colors cursor-pointer" aria-label="Close sources sidebar">
+                                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M6 14L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                    </button>
+                                  </div>
+                                  <div className="flex-1 overflow-y-auto px-6 py-4">
+                                    {(() => {
+                                      const googleSearchPart = (message.parts || []).find(
+                                        (part: any) =>
+                                          part.type === 'tool-invocation' &&
+                                          'toolInvocation' in part &&
+                                          part.toolInvocation?.toolName === 'googleSearch' &&
+                                          Array.isArray(part.toolInvocation?.result?.searchResults)
+                                      );
+                                      const searchResults =
+                                        googleSearchPart && 'toolInvocation' in googleSearchPart &&
+                                          (googleSearchPart.toolInvocation as any)?.result?.searchResults
+                                          ? (googleSearchPart.toolInvocation as any).result.searchResults
+                                          : [];
+                                      if (searchResults.length > 0) {
+                                        return searchResults.map((result: any, i: number) => (
+                                          <a
+                                            key={i}
+                                            href={result.url || result.sourceUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                          >
+                                            <SourceFavicon url={result.url || result.sourceUrl} title={result.title || result.siteName || ''} />
+                                            <div className="flex flex-col">
+                                              <WebpageTitleDisplay source={{
+                                                title: result.title || result.siteName || '',
+                                                url: result.url || result.sourceUrl,
+                                                snippet: result.snippet || result.description || ''
+                                              }} />
+                                            </div>
+                                          </a>
+                                        ));
+                                      }
+                                      const markdownSources = extractSourcesFromText(allText);
+                                      if (markdownSources.length > 0) {
+                                        return markdownSources.map((src, i) => (
+                                          <a
+                                            key={i}
+                                            href={src.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-start gap-3 p-2  rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
+                                          >
+                                            <SourceFavicon url={src.url} title={src.title} />
+                                              <div className="flex flex-col justify-center" style={{ marginTop: '-2px' }}>
+                                                <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
+                                                  style={{ marginTop: 0 }}>{src.title}</div>
+                                                <WebpageTitleDisplay source={{ url: src.url }} />
+                                              </div>
+                                          </a>
+                                        ));
+                                      }
+                                      return <div className="text-sm text-zinc-500 dark:text-zinc-400">No sources found.</div>;
+                                    })()}
+                                  </div>
+                                </div>
+                              </SheetContent>
+                            </Sheet>
+                          )}
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="select-none">{sources.length === 1 ? 'Show source' : 'Show sources'}</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </motion.div>
                 </div>
               )}
             </div>
           ) : (
-            // User messages
             <div className="flex flex-col w-full space-y-4">
-              {message.parts?.map((part, i) => {
-                // Add extra bottom margin after the last part of a user message on mobile/tablet only
-                const isLastPart = i === (message.parts?.length || 0) - 1;
-                switch (part.type) {
-                  case "text":
-                    const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
-                    const isLatestActivelyStreamingTextPart =
-                      isAssistant && // This will always be false here, as we are in the !isAssistant branch
-                      status === "streaming" &&
-                      isLatestMessage &&
-                      isEffectivelyLastPart;
-
-                    const LONG_MESSAGE_CHAR_LIMIT = 400;
-                    const isUserMessage = message.role === "user"; // Always true here
-                    const isLongUserMessage = isUserMessage && part.text.length > LONG_MESSAGE_CHAR_LIMIT;
-                    // Expand/collapse state for long user messages (per part)
-                    const [expanded, setExpanded] = useState(false);
-                    const shouldCollapse = false;
-                    const isCollapsed = false;
-
-                    // Copy icon row visibility (per part)
-                    const showIcons = userShowIcons[i];
-                    // Desktop: show on hover (using group-hover), always for latest
-                    // Mobile: controlled by showIcons state
-                    const iconsRowVisible = isMobileOrTablet ? showIcons : isLatestMessage;
-
-                    return (
-                      <motion.div
-                        initial={isLatestActivelyStreamingTextPart ? false : { y: 5, opacity: 0 }}
-                        animate={isLatestActivelyStreamingTextPart ? {} : { y: 0, opacity: 1 }}
-                        transition={{ duration: 0.2 }}
-                        key={`message-${message.id}-part-${i}`}
-                        className={
-                          typeof window !== 'undefined' && window.innerWidth < 640
-                            ? "flex flex-row items-start w-full pb-4 mt-6 px-0 sm:px-0"
-                            : isMobileOrTablet && isLastPart
-                              ? "flex flex-row items-start w-full pb-4 mt-6"
-                              : "flex flex-row items-start w-full pb-4"
-                        }
-                      >
-                        <div
-                          className="flex flex-col w-full"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            boxShadow: 'none',
-                            position: 'relative',
-                          }}
-                        >
-                          {isLatestActivelyStreamingTextPart ? (
-                            <StreamingTextRenderer
-                              animationStyle="typewriter"
-                              fullText={part.text}
-                              wordSpeed={20}
-                            />
-                          ) : (
-                            <div className="group/user-message flex flex-col items-end w-full gap-1 relative justify-center max-w-3xl md:px-4 pb-2">
-                              {/* User Message Bubble */}
-                              <motion.div
-                                className={cn(
-                                  "prose-p:opacity-95",
-                                  "prose-strong:opacity-100",
-                                  "border",
-                                  "border-border-l1",
-                                  "max-w-[100%]",
-                                  "sm:max-w-[90%]",
-                                  "rounded-br-lg",
-                                  "message-bubble",
-                                  "prose",
-                                  "min-h-7",
-                                  "text-primary",
-                                  "dark:prose-invert",
-                                  "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100",
-                                  "px-5 py-2.5",
-                                  "rounded-3xl",
-                                  "relative",
-                                  isLongUserMessage ? "max-w-[90vw] md:max-w-3xl" : "max-w-[70vw] md:max-w-md",
-                                  "text-left",
-                                  "break-words",
-                                  isLongUserMessage ? "relative" : "",
-                                  isCollapsed ? "cursor-pointer" : ""
-                                )}
-                                style={{
-                                  lineHeight: '1.5',
-                                  overflow: isLongUserMessage ? 'hidden' : undefined,
-                                  cursor: isCollapsed ? 'pointer' : undefined,
-                                  WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                  maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                                  paddingTop: !isLongUserMessage ? '12px' : undefined,
-                                }}
-                                initial={false}
-                                animate={{
-                                  maxHeight: isLongUserMessage
-                                    ? expanded
-                                      ? 1000
-                                      : 120
-                                    : 'none',
-                                }}
-                                transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-                                onClick={isCollapsed ? () => setExpanded(true) : undefined}
-                              >
-                                <div style={{ paddingRight: isLongUserMessage ? 36 : undefined, position: 'relative' }}>
-                                  <Markdown>
-                                    {isLongUserMessage && !expanded
-                                      ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...'
-                                      : part.text}
-                                  </Markdown>
-                                  {/* Expand/collapse chevron for long user messages */}
-                                  {!shouldCollapse && isLongUserMessage && (
-                                    <div
-                                      style={{
-                                        position: 'absolute',
-                                        top: 32,
-                                        right: 8,
-                                        zIndex: 10,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                      }}
-                                    >
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button
-                                            type="button"
-                                            aria-label={expanded ? "Collapse message" : "Expand message"}
-                                            className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-                                            onClick={e => {
-                                              e.stopPropagation();
-                                              setExpanded(v => !v);
-                                            }}
-                                            tabIndex={0}
-                                          >
-                                            {expanded ? (
-                                              <ChevronUpIcon className="h-4 w-4" />
-                                            ) : (
-                                              <ChevronDownIcon className="h-4 w-4" />
-                                            )}
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">
-                                          {expanded ? "Collapse message" : "Expand message"}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </div>
-                                  )}
-                                </div>
-                              </motion.div>
-                              {/* Overlay for previous messages on mobile to toggle icons row */}
-                              {isMobileOrTablet && !(isLatestMessage && i === (userMessageParts?.length ?? 0) - 1) && (
-                                <div
-                                  className="absolute inset-0 z-10 cursor-pointer"
-                                  style={{ borderRadius: 24 }}
-                                  onClick={e => handleUserBubbleTap(i, e)}
-                                />
-                              )}
-                              <div
-                                className={cn(
-                                  "mt-1 mr-1 flex transition-opacity duration-200",
-                                  isMobileOrTablet
-                                    ? (iconsRowVisible ? "opacity-100" : "opacity-0 pointer-events-none")
-                                    : (!isLatestMessage ? "opacity-0 group-hover/user-message:opacity-100" : "opacity-100")
-                                )}
-                                style={
-                                  isMobileOrTablet
-                                    ? { justifyContent: 'flex-start', marginLeft: '-8px', marginRight: '10px' }
-                                    : undefined
-                                }
-                              >
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      aria-label="Copy message"
-                                      className={cn(
-                                        "rounded-md p-1.5 flex items-center justify-center select-none cursor-pointer focus:outline-none",
-                                        isMobileOrTablet
-                                          ? "bg-transparent text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                          : "bg- hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                      )}
-                                      onClick={() => handleUserMessageCopy(part.text)}
-                                    >
-                                      {copied ? (
-                                        <CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                      ) : (
-                                        <CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />
-                                      )}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" align="center" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  default:
-                    return null;
-                }
-              })}
+              {(message.parts ?? []).map((part, i) => (
+                <UserTextMessagePart key={`user-message-${message.id}-part-${i}`} part={part} isLatestMessage={isLatestMessage} />
+              ))}
             </div>
           )}
         </div>
@@ -845,13 +1229,11 @@ const PurePreviewMessage = ({
   );
 };
 
-// Message.tsx (memo comparison)
 export const Message = memo(PurePreviewMessage, (prevProps, nextProps) => {
   if (prevProps.status !== nextProps.status) return false;
-  if (prevProps.isLoading !== nextProps.isLoading) return false; 
-  if (prevProps.isLatestMessage !== nextProps.isLatestMessage) return false; 
+  if (prevProps.isLoading !== nextProps.isLoading) return false;
+  if (prevProps.isLatestMessage !== nextProps.isLatestMessage) return false;
   if (prevProps.message.annotations !== nextProps.message.annotations) return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
-  // if (prevProps.message.id !== nextProps.message.id) return false; // Key change handles this
   return true;
 });

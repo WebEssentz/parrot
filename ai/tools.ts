@@ -1,14 +1,204 @@
-// tools.ts (Agent X integration scaffold)
-// import { agentXWebAgent, AgentXInstruction } from "./agent-x/agentXWebAgent";
-import { franc } from 'franc'; // For automatic language detection
+import Exa from "exa-js"; // Correct Exa import
+// import { franc } from 'franc'; // For automatic language detection - Not used in this snippet, can be removed if not used elsewhere
 import { tool } from "ai";
 import { z } from "zod";
-import { google } from '@ai-sdk/google';      // For Gemini vision model
-import { generateText } from 'ai';         // For calling the Gemini model
-// import { agentXWebAgent } from './agent-x/agentXWebAgent';
+import { google } from '@ai-sdk/google';      // For Google AI models
+import { generateText } from 'ai';         // For generating text with AI models
 
-// --- Simple Markdown Bar Chart Generator ---
-// ... (generateMarkdownBarChart function as provided)
+// Initialize Exa client with your API key from the environment
+const exa = new Exa("af94b87b-cc3e-43b0-80c2-fd73198009d2"); // Ensure this is your actual API key or managed securely
+
+// --- Vision-based Image Filtering Utility ---
+/**
+ * Filters images using a vision model to ensure relevance to the user's intent.
+ * Skips filtering for subjective queries (e.g., "sexy car").
+ * @param images Array of images ({ src, alt, ... })
+ * @param userQuery The user's original query
+ * @param userIntent The extracted intent object (optional, for modality/qualifiers)
+ * @returns { filtered: Image[], all: Image[], filteringApplied: boolean, warning?: string }
+ */
+export async function filterImagesWithVision(
+  images: Array<{ src: string; alt?: string; [key: string]: any }>,
+  userQuery: string,
+  userIntent: { modality?: string } | null = null
+): Promise<{
+  filtered: typeof images;
+  all: typeof images;
+  filteringApplied: boolean;
+  warning?: string;
+}> {
+  // Subjectivity detection: skip filtering for subjective queries
+  const subjectiveWords = [
+    'sexy', 'beautiful', 'cute', 'hot', 'gorgeous', 'pretty', 'handsome', 'ugly', 'attractive', 'aesthetic',
+    'cool', 'funny', 'weird', 'strange', 'creepy', 'disturbing', 'artistic', 'stylish', 'awesome', 'amazing',
+    'inspiring', 'breathtaking', 'adorable', 'silly', 'hilarious', 'sad', 'happy', 'emotional', 'moody',
+    'romantic', 'dreamy', 'vintage', 'retro', 'futuristic', 'minimalist', 'maximalist', 'abstract', 'surreal',
+    'impressionist', 'expressionist', 'dramatic', 'epic', 'intense', 'provocative', 'suggestive', 'explicit',
+    'nsfw', 'lewd', 'erotic', 'porn', 'nude', 'naked', 'sensual', 'fetish', 'fetishy', 'fetishistic', 'kinky',
+    'sexy', 'sex', 'sexual', 'provocative', 'suggestive', 'explicit', 'nsfw', 'lewd', 'erotic', 'porn', 'nude', 'naked', 'sensual', 'fetish', 'fetishy', 'fetishistic', 'kinky'
+  ];
+  const q = userQuery.toLowerCase();
+  if (subjectiveWords.some(w => q.includes(w))) {
+    return {
+      filtered: images,
+      all: images,
+      filteringApplied: false,
+      warning: 'Vision filtering skipped for subjective queries.'
+    };
+  }
+  // Only apply for objective image queries
+  const isObjective = (userIntent && userIntent.modality === 'image') || /\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/i.test(userQuery);
+  if (!isObjective) {
+    return {
+      filtered: images,
+      all: images,
+      filteringApplied: false
+    };
+  }
+  // Vision model scoring
+  const visionModel = google('gemma-3-27b-it');
+  const threshold = 0.85; // Stricter threshold
+  const results = [];
+  for (const img of images.slice(0, 10)) {
+    try {
+      const prompt = `Does this image clearly show ALL of the following: ${userQuery}? Be strict. Only give high confidence if every element is present and obvious.\nImage URL: ${img.src}\nRespond as JSON: { \"description\": \"15-word description\", \"confidence\": \"0.0-1.0\" }`;
+      const { text } = await generateText({ model: visionModel, prompt, temperature: 0.2 });
+      const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
+      const confidence = Number(parsed.confidence) || 0;
+      if (confidence >= threshold) {
+        results.push({ ...img, description: parsed.description || '', confidence });
+      }
+    } catch (e) {
+      // On error, skip image
+    }
+  }
+  // Sort by confidence
+  results.sort((a, b) => b.confidence - a.confidence);
+  return {
+    filtered: results,
+    all: images,
+    filteringApplied: true
+  };
+}
+
+// --- Vision-based Video Filtering Utility ---
+/**
+ * Filters videos using a vision/multimodal model to ensure relevance to the user's intent.
+ * Skips filtering for subjective queries (e.g., "funny cat video").
+ * @param videos Array of videos ({ src, poster, title, ... })
+ * @param userQuery The user's original query
+ * @param userIntent The extracted intent object (optional, for modality/qualifiers)
+ * @returns { filtered: Video[], all: Video[], filteringApplied: boolean, warning?: string }
+ */
+export async function filterVideosWithVision(
+  videos: Array<{ src: string; poster?: string; title?: string; [key: string]: any }>,
+  userQuery: string,
+  userIntent: { modality?: string } | null = null
+): Promise<{
+  filtered: typeof videos;
+  all: typeof videos;
+  filteringApplied: boolean;
+  warning?: string;
+}> {
+  // Subjectivity detection: skip filtering for subjective queries
+  const subjectiveWords = [
+    'sexy', 'beautiful', 'cute', 'hot', 'gorgeous', 'pretty', 'handsome', 'ugly', 'attractive', 'aesthetic',
+    'cool', 'funny', 'weird', 'strange', 'creepy', 'disturbing', 'artistic', 'stylish', 'awesome', 'amazing',
+    'inspiring', 'breathtaking', 'adorable', 'silly', 'hilarious', 'sad', 'happy', 'emotional', 'moody',
+    'romantic', 'dreamy', 'vintage', 'retro', 'futuristic', 'minimalist', 'maximalist', 'abstract', 'surreal',
+    'impressionist', 'expressionist', 'dramatic', 'epic', 'intense', 'provocative', 'suggestive', 'explicit',
+    'nsfw', 'lewd', 'erotic', 'porn', 'nude', 'naked', 'sensual', 'fetish', 'fetishy', 'fetishistic', 'kinky',
+    'sexy', 'sex', 'sexual', 'provocative', 'suggestive', 'explicit', 'nsfw', 'lewd', 'erotic', 'porn', 'nude', 'naked', 'sensual', 'fetish', 'fetishy', 'fetishistic', 'kinky'
+  ];
+  const q = userQuery.toLowerCase();
+  if (subjectiveWords.some(w => q.includes(w))) {
+    return {
+      filtered: videos,
+      all: videos,
+      filteringApplied: false,
+      warning: 'Vision filtering skipped for subjective queries.'
+    };
+  }
+  // Only apply for objective video queries
+  const isObjective = (userIntent && userIntent.modality === 'video') || /\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/i.test(userQuery);
+  if (!isObjective) {
+    return {
+      filtered: videos,
+      all: videos,
+      filteringApplied: false
+    };
+  }
+  // Strictly exclude channel/profile URLs (e.g., youtube.com/@channelname, youtube.com/channel/, youtube.com/user/)
+  const isChannelOrProfileUrl = (url: string) => {
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtube.com')) {
+        if (/\/(@|channel\/|user\/|c\/)[^/]+/i.test(u.pathname) && !/\/watch\?v=|\/embed\//.test(u.pathname)) return true;
+      }
+      if (u.hostname.includes('tiktok.com') && /\/(@|user\/)[^/]+/i.test(u.pathname) && !/\/video\//.test(u.pathname)) return true;
+      // Add more platforms as needed
+    } catch {}
+    return false;
+  };
+  // Vision model scoring (use poster/thumbnail if available, else video src)
+  const visionModel = google('gemma-3-27b-it');
+  const threshold = 0.85; // Stricter threshold
+  const results = [];
+  for (const vid of videos.slice(0, 10)) {
+    // Exclude channel/profile URLs
+    if (isChannelOrProfileUrl(vid.src)) continue;
+    try {
+      // Prefer poster/thumbnail for vision model, fallback to video src
+      const mediaUrl = vid.poster || vid.src;
+      const prompt = `Does this video (or its thumbnail) clearly show ALL of the following: ${userQuery}? Be strict. Only give high confidence if every element is present and obvious.\nMedia URL: ${mediaUrl}\nRespond as JSON: { \"description\": \"15-word description\", \"confidence\": \"0.0-1.0\" }`;
+      const { text } = await generateText({ model: visionModel, prompt, temperature: 0.2 });
+      const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
+      const confidence = Number(parsed.confidence) || 0;
+      if (confidence >= threshold) {
+        results.push({ ...vid, description: parsed.description || '', confidence });
+      }
+    } catch (e) {
+      // On error, skip video
+    }
+  }
+  // Sort by confidence
+  results.sort((a, b) => b.confidence - a.confidence);
+  return {
+    filtered: results,
+    all: videos,
+    filteringApplied: true
+  };
+}
+
+// --- CORRECTED: UTILITY TO TRANSFORM YOUTUBE URLS ---
+/**
+ * Transforms a standard YouTube 'watch' or 'youtu.be' URL into a proper 'embed' URL
+ * that can be used in an iframe.
+ * @param url The original YouTube URL.
+ * @returns The transformed embed URL, or the original URL if it's not a recognized YouTube link.
+ */
+function transformToEmbedUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    let videoId = null;
+
+    if (urlObj.hostname === "www.youtube.com" || urlObj.hostname === "youtube.com") {
+      videoId = urlObj.searchParams.get("v");
+    } else if (urlObj.hostname === "youtu.be") {
+      videoId = urlObj.pathname.slice(1);
+    }
+
+    if (videoId) {
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+  } catch (error) {
+    console.error(`[transformToEmbedUrl] Failed to parse URL: ${url}`, error);
+    return url; // Return original URL on parsing failure
+  }
+  return url;
+}
+
+// --- Simple Markdown Bar Chart Generator (No changes) ---
 function generateMarkdownBarChart(
   table: { headers: string[]; rows: Record<string, string>[] },
   column: string,
@@ -36,55 +226,11 @@ function generateMarkdownBarChart(
   return chart;
 }
 
-
-// Utility: Use LLM to parse user intent into AgentXInstruction (placeholder)
-// async function parseInstructionWithLLM(userMessage: string): Promise<AgentXInstruction> {
-//   // If Agent X is enabled, use Gemini LLM to parse the user intent dynamically
-//   // This function is only called when agentX is true
-//   try {
-//     const geminiModel = google('gemini-2.5-flash-preview-04-17');
-//     const prompt = `You are an expert web automation agent. Given the following user instruction, extract the user's goal (e.g., \"search video\", \"search product\", \"browse\", \"compare prices\", etc.), the main website to use (e.g., \"youtube.com\", \"amazon.com\", \"twitter.com\", etc.), and the query or keywords (if any) to use for the action.\n\nReturn a JSON object with keys: goal, site, query.\n\nUser instruction: \"${userMessage}\"`;
-//     const { text } = await generateText({
-//       model: geminiModel,
-//       prompt,
-//     });
-//     // Try to parse the LLM output as JSON
-//     let parsed: any = {};
-//     try {
-//       parsed = JSON.parse(text);
-//     } catch {
-//       // Fallback: try to extract with regex if not valid JSON
-//       const goal = text.match(/goal\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || "browse";
-//       const site = text.match(/site\s*[:=]\s*["']?([\w.-]+)["']?/i)?.[1] || "";
-//       const query = text.match(/query\s*[:=]\s*["']?([\w\s-]+)["']?/i)?.[1] || userMessage;
-//       parsed = { goal, site, query };
-//     }
-//     // Ensure all fields are present
-//     return {
-//       goal: parsed.goal || "browse",
-//       site: parsed.site || "",
-//       query: parsed.query || userMessage,
-//     };
-//   } catch (e) {
-//     // On error, fallback to simple rules
-//     if (/youtube/i.test(userMessage)) {
-//       return { goal: "search video", site: "youtube.com", query: userMessage.replace(/.*youtube/i, '').trim() || "" };
-//     }
-//     if (/amazon/i.test(userMessage)) {
-//       return { goal: "search product", site: "amazon.com", query: userMessage.replace(/.*amazon/i, '').trim() || "" };
-//     }
-//     // Add more site rules as needed
-//     return { goal: "browse", site: "", query: userMessage };
-//   }
-// }
-
-// Utility: Format a value as inline code (ChatGPT style)
-// ... (formatInlineCode function as provided)
+// --- Utility: Format a value as inline code (No changes) ---
 export function formatInlineCode(value: string): string {
   return `\`${value.replace(/`/g, '\u0060')}\``;
 }
-// --- Helper Function for Basic Table Parsing (Simplified Regex Approach) ---
-// ... (parseHtmlTables function as provided)
+// --- Helper Function for Basic Table Parsing (No changes) ---
 function parseHtmlTables(html: string): { headers: string[], rows: Record<string, string>[] }[] {
     const tables = [];
     const tableRegex = /<table[\s\S]*?>(.*?)<\/table>/gi;
@@ -134,8 +280,6 @@ function parseHtmlTables(html: string): { headers: string[], rows: Record<string
              if (cells.length > 0 && (headers.length === 0 || cells.length === headers.length)) {
                 rows.push(cells);
                 rowsProcessed++;
-            } else if (cells.length > 0 && headers.length > 0 && cells.length !== headers.length) {
-                // console.log(`Skipping row with ${cells.length} cells, expected ${headers.length}`);
             }
         }
 
@@ -147,18 +291,21 @@ function parseHtmlTables(html: string): { headers: string[], rows: Record<string
                 });
                 return rowObj;
              });
-            tables.push({ headers, data: tableData });
-        } else if (rows.length > 0) {
-             tables.push({ headers: [], data: rows });
+            tables.push({ headers, rows: tableData });
+        } else if (headers.length === 0 && rows.length > 0) {
+             const tableData = rows.map(row => {
+                const rowObj: Record<string, string> = {};
+                row.forEach((cell, index) => {
+                    rowObj[`Column ${index + 1}`] = cell ?? '';
+                });
+                return rowObj;
+             });
+            tables.push({ headers: rows[0] ? Object.keys(tableData[0]) : [], rows: tableData });
         }
     }
-    return tables.map(t => ({
-        headers: t.headers,
-        rows: Array.isArray(t.data[0])
-            ? (t.data as string[][]).map(row => Object.fromEntries(row.map((cell, i) => [`Column ${i + 1}`, cell])))
-            : t.data as Record<string, string>[]
-    }));
+    return tables;
 }
+
 
 export const weatherTool = tool({
   description: "Get the weather in a location",
@@ -171,340 +318,478 @@ export const weatherTool = tool({
   }),
 });
 
-// ### 2. Content Summarization with Abstractive Summarization 📝
+// --- ENHANCED Intent Extraction Utility: Multi-LLM, More Modifiers ---
+/**
+ * Extracts user intent using multiple LLMs and a richer set of modifiers/qualifiers.
+ * Tries several models and merges results for robustness.
+ */
+async function extractUserIntent(userMessage: string): Promise<{ object: string; modality: string; qualifiers: string[]; expanded: string[] }> {
+  console.log(`[extractUserIntent] Starting for: "${userMessage}"`);
+  // Expanded list of possible modifiers/qualifiers
+  const extraQualifiers = [
+    'latest', 'official', 'unofficial', 'verified', 'unverified', 'recent', 'oldest', 'top', 'trending', 'viral',
+    'long', 'short', 'full', 'clip', 'teaser', 'trailer', 'episode', 'series', 'live', 'recorded', 'HD', '4K', '8K',
+    'beginner', 'advanced', 'expert', 'tutorial', 'review', 'comparison', 'demo', 'walkthrough', 'explained',
+    'step by step', 'deep dive', 'overview', 'guide', 'how to', 'tips', 'tricks', 'hack', 'strategy', 'insight',
+    'analysis', 'breakdown', 'summary', 'recap', 'reaction', 'opinion', 'commentary', 'discussion', 'debate',
+    'interview', 'Q&A', 'AMA', 'panel', 'presentation', 'talk', 'speech', 'conference', 'webinar', 'workshop',
+    'case study', 'success story', 'fail', 'mistake', 'problem', 'solution', 'fix', 'update', 'patch', 'release',
+    'leak', 'rumor', 'announcement', 'news', 'event', 'launch', 'preview', 'sneak peek', 'exclusive', 'behind the scenes',
+    'official site', 'channel', 'account', 'profile', 'creator', 'author', 'publisher', 'organization', 'company',
+    'AI', 'machine learning', 'coding', 'web', 'frontend', 'backend', 'stack', 'workflow', 'remote', 'onsite', 'hybrid',
+    'salary', 'pay', 'job', 'career', 'opportunity', 'internship', 'freelance', 'contract', 'full time', 'part time',
+    '2025', '2024', '2023', 'today', 'yesterday', 'this week', 'this month', 'this year', 'last year',
+    // Add more as needed
+  ];
 
-// Instead of just grabbing snippets of text from a web page (like the `summary` field currently does), abstractive summarization aims to generate a *new*, concise, and coherent summary that captures the main points of the content.
+  // Try multiple LLMs for robustness
+  const models = [
+    google('gemma-3n-e4b-it'),
+    google('gemma-3-27b-it'),
+    // Add more models here if available, e.g. openai('gpt-4o'),
+  ];
 
-// *   **The Idea:** Use a machine learning model to understand the meaning of the text and then re-write it in a shorter form, using different words and sentence structures.
-// *   **Why it's SUPER:**
-//     *   **More Readable Summaries:** Abstractive summaries are typically more fluent and easier to understand than extractive summaries (which just pull out existing sentences).
-//     *   **Better at Capturing the Essence:** The model can identify the most important information and discard irrelevant details.
-//     *   **Handles Complex Text:** Can summarize text that is difficult to summarize using simple techniques.
-// *   **The Code (Conceptual):**
+  const prompt = `
+    Analyze the following user request and extract the specified components.
+    Return the output strictly as a JSON object with the keys: "object", "modality", "qualifiers", "expanded".
+    - "object": The main subject or entity of interest (e.g., 'cat', 'Eiffel Tower', 'recipe for pasta'). BE SPECIFIC.
+    - "modality": The type of media or information requested (e.g., 'image', 'video', 'article', 'summary', 'data'). If not specified, try to infer or leave empty. For "summarize this article", the modality is "summary".
+    - "qualifiers": Descriptive adjectives or attributes modifying the object or modality (e.g., 'funny', 'high resolution', 'blue', 'quick', 'easy', plus: ${extraQualifiers.join(', ')}). List them as an array of strings. If none, provide an empty array [].
+    - "expanded": Provide up to 3 synonyms or closely related terms for the "object" to aid in searching. List them as an array of strings. If none, provide an empty array [].
 
-//     ```typescript
-//     import { pipeline } from '@xenova/transformers';
+    User Request: "${userMessage}"
 
-//     let summarizer = null;
+    JSON Output:
+  `;
 
-//     async function initializeSummarizer() {
-//         summarizer = await pipeline('summarization', 'Xenova/distilbart-cnn-12-6');
-//     }
+  let best: any = null;
+  let bestScore = 0;
+  let allQualifiers: string[] = [];
+  let allExpanded: string[] = [];
+  let allObjects: string[] = [];
+  let allModalities: string[] = [];
 
-//     async function generateAbstractiveSummary(text: string) {
-//         if (!summarizer) {
-//             await initializeSummarizer();
-//         }
-//         const output = await summarizer(text, {
-//             max_length: 130,
-//             min_length: 30,
-//             do_sample: false
-//         });
-//         return output[0].summary_text;
-//     }
+  for (const model of models) {
+    try {
+      const { text } = await generateText({ model, prompt, temperature: 0.1 });
+      let parsed: any;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch && jsonMatch[0]) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          parsed = JSON.parse(text);
+        }
+      } catch (e) {
+        continue;
+      }
+      if (parsed) {
+        // Score: more qualifiers and expanded = better
+        const score = (Array.isArray(parsed.qualifiers) ? parsed.qualifiers.length : 0) + (Array.isArray(parsed.expanded) ? parsed.expanded.length : 0);
+        if (score > bestScore) {
+          best = parsed;
+          bestScore = score;
+        }
+        if (Array.isArray(parsed.qualifiers)) allQualifiers.push(...parsed.qualifiers.map((q: any) => String(q).trim()).filter(Boolean));
+        if (Array.isArray(parsed.expanded)) allExpanded.push(...parsed.expanded.map((e: any) => String(e).trim()).filter(Boolean));
+        if (parsed.object) allObjects.push(String(parsed.object).trim());
+        if (parsed.modality) allModalities.push(String(parsed.modality).trim());
+      }
+    } catch (error) {
+      // Ignore model error, try next
+    }
+  }
 
-//     async function fetchUrlToolExecute({ url }: { url: string }) {
-//         // ...
-//         const html = await res.text();
-//         const mainText = extractMainText(html); // Function to extract the main content
-//         const abstractiveSummary = await generateAbstractiveSummary(mainText);
+  // Fallback if all fail
+  if (!best) {
+    return { object: userMessage, modality: '', qualifiers: [], expanded: [userMessage] };
+  }
 
-//         return {
-//             // ...
-//             summary: abstractiveSummary // Replace the old summary with the new one
-//         };
-//     }
-//     ```
+  // Merge and dedupe
+  const mergedQualifiers = Array.from(new Set([...(best.qualifiers || []), ...allQualifiers, ...extraQualifiers.filter(q => userMessage.toLowerCase().includes(q.toLowerCase()))])).filter(Boolean);
+  const mergedExpanded = Array.from(new Set([...(best.expanded || []), ...allExpanded])).filter(Boolean);
+  const mergedObject = best.object || allObjects[0] || userMessage;
+  const mergedModality = best.modality || allModalities[0] || '';
 
-//     *   **Note:** This example uses the `transformers` library (specifically, the `@xenova/transformers` version for browser/serverless environments) and a pre-trained summarization model. You'll need to install the library (`npm install @xenova/transformers`).
-// *   **Example:**
+  const finalIntent = {
+    object: mergedObject,
+    modality: mergedModality,
+    qualifiers: mergedQualifiers,
+    expanded: mergedExpanded,
+  };
+  console.log("[extractUserIntent] Final merged intent:", finalIntent);
+  return finalIntent;
+}
 
-//     > Original Text: "The quick brown rabbit jumps over the lazy frogs with no effort. The frogs are tired and sleepy. The rabbit is very fast."
-//     >
-//     > Abstractive Summary: "A fast rabbit effortlessly jumps over tired, sleepy frogs."
 
+// --- CORRECTED HYBRID FETCHURLTOOL (No changes to this specific tool based on the request) ---
 export const fetchUrlTool = tool({
   description:
-    "Enterprise-grade: Deeply fetch and analyze a URL. Extracts product cards, prices, features, navigation, HTML tables, FAQs, news/blogs, and classifies site type. Supports multi-step reasoning and interactive data analysis on extracted tables. If the URL is an image, it will be previewed and an AI will analyze and describe its content. Returns structured data, reasoning steps, and rich summaries. Now supports Agent X for dynamic site interaction (Amazon, YouTube, more). Now supports recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking).",
+    "A hybrid tool that fetches content from a URL using two methods in parallel: a direct, vision-enabled recursive crawler and Exa's high-speed content extractor. It intelligently merges the results to provide the most accurate and comprehensive media, text, or summary.",
   parameters: z.object({
-    url: z.string().describe("The URL to fetch and analyze"),
-    referer: z.string().optional().describe("The referring page, for multi-step navigation"),
-    userIntent: z.string().optional().describe("The user's question or intent, for focused extraction, including data analysis requests like 'analyze the table'."),
-    agentX: z.boolean().optional().describe("If true, use Agent X for dynamic web interaction (Amazon, YouTube, etc.)"),
-    recursionDepth: z.number().optional().describe("How many levels of links to follow recursively (0 = just this page, 1 = follow links on this page, etc.)"),
-    maxPages: z.number().optional().describe("Maximum total number of pages to fetch (default 10)"),
-    timeoutMs: z.number().optional().describe("Timeout in milliseconds for the entire operation (default 20000 ms)"),
+    url: z.string().describe("The starting URL to fetch and analyze."),
+    userIntent: z.string().describe("The user's goal or question (e.g., 'image of an iPhone', 'summarize this article about macOS')."),
+    recursionDepth: z.number().optional().describe("How many levels of links to follow (0 = current page only, default 1). Max 2."),
+    liveCrawlMode: z.enum(["preferred", "always", "never"]).optional().describe("Exa LiveCrawl mode: 'preferred' (default) balances freshness and reliability; 'always' forces a live check; 'never' uses cache."),
   }),
   execute: async (params) => {
-    // --- Recursive Link Following Implementation ---
     const {
       url,
-      referer,
       userIntent,
-      agentX,
-      recursionDepth = 0,
-      maxPages = 10,
-      timeoutMs = 20000,
+      recursionDepth = 1,
+      liveCrawlMode = "preferred",
     } = params;
-    const visited = new Set<string>();
-    const origin = (() => { try { return new URL(url).origin; } catch { return null; } })();
-    let pagesFetched = 0;
-    let timedOut = false;
-    const startTime = Date.now();
+    
+    const timeoutMs = 45000;
+    const overallStartTime = Date.now();
+    
+    console.log(`[Hybrid Fetch] Starting. URL: ${url}, Intent: "${userIntent}", Depth: ${recursionDepth}, Exa Mode: ${liveCrawlMode}`);
 
-    async function fetchAndAnalyze({ url, referer, userIntent, agentX, depth }: { url: string, referer?: string, userIntent?: string, agentX?: boolean, depth: number }): Promise<any> {
-      if (timedOut) return { error: 'Timeout reached', url };
-      if (pagesFetched >= maxPages) return { error: 'Max pages limit reached', url };
-      if (visited.has(url)) return { error: 'Already visited', url };
-      if (origin && !(url.startsWith(origin))) return { error: 'Out of domain', url };
-      if (Date.now() - startTime > timeoutMs) { timedOut = true; return { error: 'Timeout reached', url }; }
-      visited.add(url);
-      pagesFetched++;
-      // Call the original fetch/analyze logic (non-recursive)
-      // Use the original tool logic, but skip recursion params
-      const result = await (async () => {
-        // --- BEGIN: Original fetch/analyze logic ---
-        // if (agentX) {
-        //   const instruction = userIntent
-        //     ? await parseInstructionWithLLM(userIntent)
-        //     : { goal: "browse", site: url, query: "" };
-        //   const siteUrl = instruction.site || url;
-        //   const result = await agentXWebAgent({ instruction, url: siteUrl });
-        //   return result;
-        // }
-        const steps: string[] = [];
-        steps.push(`Step 1: Fetching ${url}`);
-        const headers: Record<string, string> = {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        };
-        if (referer) headers['Referer'] = referer;
-        const res = await fetch(url, { method: 'GET', headers });
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.startsWith('image/')) {
-          steps.push('Step 2: Detected image file. Previewing and initiating AI analysis.');
-          const imageType = contentType.split('/')[1] || 'image';
-          let imageName = 'image';
-          try { imageName = new URL(url).pathname.split('/').pop() || 'image'; } catch {}
-          const markdownPreview = `![Preview of ${imageName}](${url})`;
-          let analysis = "Image analysis could not be performed at this time.";
-          let analysisError = null;
-          try {
-            steps.push('Step 2a: Sending image to Gemini for analysis.');
-            const geminiModel = google('gemini-2.0-flash');
-            const analysisResult = await generateText({
-              model: geminiModel,
-              messages: [
-                { role: 'user', content: [
-                  { type: 'text', text: 'Describe this image in detail. What is depicted (objects, beings, scene)? What are the key visual elements (colors, composition, style)? If there are actions or a story, briefly describe it. Provide a comprehensive and objective description.' },
-                  { type: 'image', image: new URL(url) },
-                ] },
-              ],
-            });
-            analysis = analysisResult.text;
-            steps.push('Step 2b: Image analysis received from Gemini.');
-          } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : String(e);
-            steps.push(`Step 2b: Error during Gemini image analysis: ${msg}`);
-            analysisError = `AI analysis failed: ${msg}`;
-            analysis = `AI-powered analysis of the image failed. Details: ${msg}`;
-          }
-          return {
-            type: 'image_analyzed', url, markdown: markdownPreview, analysis, description: `The URL points to an image (${imageType.toUpperCase()}). Markdown Preview: ${markdownPreview}. AI-generated analysis: ${analysis}`,
-            ...(analysisError && { analysisErrorDetail: analysisError }), steps, elapsed: Date.now() - startTime,
-          };
-        } else if (contentType.includes('application/pdf')) {
-          steps.push('Step 2: Detected PDF document.');
-          return { type: 'document', url, description: 'PDF document. Content analysis and table extraction are not supported by this tool for PDFs.', steps, elapsed: Date.now() - startTime };
-        } else if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml') && !contentType.includes('application/xml')) {
-          steps.push('Step 2: Detected non-HTML, non-image, non-PDF file. Attempting to extract plain text preview.');
-          let textPreview = "Content is not plain text or could not be previewed.";
-          if (contentType.startsWith('text/')) {
-            try { const text = await res.text(); textPreview = text.slice(0, 500) + (text.length > 500 ? '...' : ''); } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); steps.push(`Step 2c: Error reading text content: ${msg}`); textPreview = "Error reading text content."; }
-          }
-          return { type: 'file', url, preview: textPreview, contentType, description: `File (${contentType}). Preview: ${textPreview}`, steps, elapsed: Date.now() - startTime };
-        }
-        // --- Process HTML ---
-        steps.push('Step 2: Processing HTML content.');
-        const html = await res.text();
-        const metaDescription = (html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-        const ogTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-        const ogDescription = (html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["'][^>]*>/i) || [])[1] || '';
-        const headings = Array.from(html.matchAll(/<(h[1-3])[^>]*>(.*?)<\/\1>/gi)).map(m => ({ tag: m[1], text: m[2].replace(/<[^>]+>/g, '').trim() })).slice(0, 10);
-        const navLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi))
-          .map(m => { try { return { href: new URL(m[1], url).toString(), text: m[2].replace(/<[^>]+>/g, '').trim() }; } catch { return null; } })
-          .filter(l => l && l.text && l.href && l.href.length < 256 && l.href.startsWith('https'))
-          .slice(0, 20);
-        const productCards = Array.from(html.matchAll(/<div[^>]*class=["'][^"']*(product|card|item|listing)[^"']*["'][^>]*>([\s\S]*?)(<\/div>)/gi))
-          .map(m => { const block = m[2]; const name = (block.match(/<h[1-4][^>]*>(.*?)<\/h[1-4]>/i) || [])[1]?.replace(/<[^>]+>/g, '').trim() || ''; const price = (block.match(/\$[0-9,.]+/) || [])[0] || ''; const features = Array.from(block.matchAll(/<li[^>]*>(.*?)<\/li>/gi)).map(x => x[1].replace(/<[^>]+>/g, '').trim()); const img = (block.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || ''; return { name, price, features, img }; }).filter(card => card.name || card.price || card.features.length > 0).slice(0, 10);
-        const faqs = Array.from(html.matchAll(/<details[\s\S]*?<\/details>/gi)).map(f => f[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
-        const newsSections = Array.from(html.matchAll(/<(section|div)[^>]+(news|blog|update)[^>]*>[\s\S]*?<\/(section|div)>/gi)).map(s => s[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 400));
-        steps.push('Step 3: Extracting table data.');
-        const extractedTables = parseHtmlTables(html);
-        let chartMarkdown = null;
-        if (userIntent && /chart|visualize|plot|bar chart|graph/i.test(userIntent) && extractedTables.length > 0) {
-          let col;
-          const match = userIntent.match(/(?:of|for)\s+([\w\s]+)/i);
-          if (match && match[1]) {
-            const guess = match[1].trim().toLowerCase();
-            col = extractedTables[0].headers.find(h => h.toLowerCase().includes(guess));
-          }
-          if (!col && extractedTables[0].headers.length > 0) {
-            for (const h of extractedTables[0].headers) {
-              const vals = extractedTables[0].rows.map(r => r[h].replace(/[$,%]/g, '').replace(/,/g, ''));
-              if (vals.some(v => !isNaN(parseFloat(v)))) { col = h; break; }
-            }
-          }
-          if (col) { chartMarkdown = generateMarkdownBarChart(extractedTables[0], col); }
-        }
-        steps.push(`Step 4: Found ${extractedTables.length} potential table(s).`);
-        const mainText = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<head[\s\S]*?<\/head>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
+    const initialIntent = await extractUserIntent(userIntent);
+    if (!initialIntent.object && !url.match(/\.(jpeg|jpg|png|gif|webp)$/i)) { // Allow direct image links to proceed without intent
+        return { error: "Could not understand the main object of your request.", url, narration: "I'm sorry, I had trouble understanding what you're looking for. Could you rephrase?", overallStats: { totalTimeMs: Date.now() - overallStartTime }};
+    }
 
-        // --- Automatic Language Detection ---
-        let language = 'und';
+    // --- Method 1: Exa Content Extraction (Fast Path for Text) ---
+    async function fetchWithExa(targetUrl: string, crawlMode: "preferred" | "always" | "never") {
+        const exaStartTime = Date.now();
+        console.log(`[Exa Fetch] Starting for ${targetUrl} with mode: ${crawlMode}`);
         try {
-          if (mainText && mainText.length > 20) {
-            language = franc(mainText, { minLength: 3 }) || 'und';
-          }
-        } catch (e) {
-          language = 'und';
+            const response = await exa.getContents([targetUrl], { livecrawl: crawlMode }); // Corrected livecrawl mapping
+            const result = response.results[0];
+            if (!result || !result.text) throw new Error("Exa returned no content.");
+            console.log(`[Exa Fetch] Success. Got ${result.text.length} chars. Took ${Date.now() - exaStartTime}ms.`);
+            return { source: 'exa', success: true, textContent: result.text, elapsedMs: Date.now() - exaStartTime };
+        } catch (error: any) {
+            console.error(`[Exa Fetch] Failed for ${targetUrl}:`, error.message);
+            return { source: 'exa', success: false, error: error.message, elapsedMs: Date.now() - exaStartTime };
         }
-        let siteType = 'general';
-        if (productCards.length > 2) siteType = 'e-commerce';
-        else if (newsSections.length > 0 || /news|blog|article/i.test(html)) siteType = 'news/blog';
-        else if (faqs.length > 0) siteType = 'docs/faq';
-        else if (extractedTables.length > 0) siteType = 'data/table';
-        steps.push('Step 5: Analyzing content and intent.');
-        let suggestedLinks: { href: string; text: string }[] = [];
-        if (userIntent && !userIntent.toLowerCase().includes('analyze')) {
-          const lowerIntent = userIntent.toLowerCase();
-          suggestedLinks = navLinks
-            .filter((l) => !!l)
-            .filter((l): l is { href: string; text: string } => !!l)
-            .filter(l => {
-              const linkTextLower = l.text.toLowerCase();
-              return lowerIntent.split(' ').some((word: string) => word.length > 3 && linkTextLower.includes(word)) || linkTextLower.includes(lowerIntent);
-            });
-          if (suggestedLinks.length > 0) {
-            steps.push(`Step 6: Based on intent '${userIntent}', suggesting navigation to: ${suggestedLinks.map(l => `[${l.text}](${l.href})`).join(', ')}`);
-          } else {
-            steps.push(`Step 6: No direct navigation links found matching intent '${userIntent}'.`);
-          }
-        } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length === 0) {
-          steps.push(`Step 6: User asked to analyze data, but no tables were extracted.`);
-        } else if (userIntent?.toLowerCase().includes('analyze') && extractedTables.length > 0) {
-          steps.push(`Step 6: User asked to analyze data. Found ${extractedTables.length} table(s). Passing data to AI.`);
+    }
+    
+    // --- Method 2: The FULL, ORIGINAL Vision-Enabled Recursive Fetch ---
+    async function fetchAndAnalyzeRecursively() {
+        const directFetchStartTime = Date.now();
+        const visited = new Set<string>();
+        let pagesFetchedCount = 0;
+        const maxPages = 10;
+        let operationTimedOut = false;
+        const baseOrigin = (() => { try { return new URL(url).origin; } catch { return null; } })();
+        if (!baseOrigin) return { source: 'direct', success: false, error: "Invalid base URL", elapsedMs: Date.now() - directFetchStartTime };
+
+        async function getLinkSubject(linkText: string, linkHref: string, userGoal: string): Promise<string> {
+          try { const linkModel = google('gemma-3n-e4b-it'); const prompt = `A user's goal is to "${userGoal}". On a webpage, there is a link with the text "${linkText}" that points to "${linkHref}". What is the primary subject of THIS LINK? Respond with a single noun or short phrase.`; const { text } = await generateText({ model: linkModel, prompt, temperature: 0.1, maxTokens: 20 }); return text.trim().toLowerCase(); } catch (e) { console.warn(`[getLinkSubject] LLM call failed`); return "unknown"; }
         }
-        const articleLinks = Array.from(html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi))
-          .map(m => { try { const href = new URL(m[1], url).toString(); const text = m[2].replace(/<[^>]+>/g, '').trim(); const isArticle = /(\/article|\/news|\/blog|\/post|\/story|[\d-]+\.html?$)/i.test(href); return (isArticle && text && href.startsWith('http')) ? { href, text } : null; } catch { return null; } })
-          .filter(Boolean).slice(0, 50);
-        const summary = [
-          ogTitle || headings[0]?.text,
-          metaDescription || ogDescription,
-          ...headings.slice(1, 3).map(h => h.text),
-          extractedTables.length > 0 ? `Contains ${extractedTables.length} data table(s).` : '',
-          ...productCards.slice(0, 2).map(c => `${c.name} ${c.price}`),
-          ...faqs.slice(0, 1),
-          ...newsSections.slice(0, 1),
-          mainText.slice(0, 500)
-        ].filter(Boolean).join(' | ').replace(/\s+/g, ' ').slice(0, 1500);
-        steps.push('Step 7: Compiling results.');
+        async function extractAndScoreLinks(htmlContent: string, currentUrl: string, CIntent: any): Promise<{ href: string, text: string, score: number }[]> {
+          const aTagRegex = /<a[^>]+href=["']([^"'#?]+)["'][^>]*>(.*?)<\/a>/gi; const potentialLinks: { href: string; text: string }[] = []; let match; while ((match = aTagRegex.exec(htmlContent)) !== null) { const href = match[1]; const textContent = match[2].replace(/<[^>]+>/g, ' ').trim(); if (!href || href.startsWith('#') || textContent.length < 3) continue; try { const absoluteHref = new URL(href, currentUrl).toString(); if (new URL(absoluteHref).origin === baseOrigin && !visited.has(absoluteHref)) potentialLinks.push({ href: absoluteHref, text: textContent }); } catch {} } const scoredLinks: { href: string; text: string; score: number }[] = []; const linkAnalysisPromises = potentialLinks.slice(0, 10).map(async link => { if (Date.now() - overallStartTime > timeoutMs - 5000) return; const subject = await getLinkSubject(link.text, link.href, CIntent.object); let score = 0; const intentKeywords = [CIntent.object, ...CIntent.expanded].filter(Boolean).map(k => k.toLowerCase()); if (intentKeywords.some(kw => subject.includes(kw))) score += 10; else if (intentKeywords.some(kw => link.text.toLowerCase().includes(kw))) score += 2; if (score > 3) scoredLinks.push({ ...link, score }); }); await Promise.all(linkAnalysisPromises); scoredLinks.sort((a, b) => b.score - a.score); return scoredLinks.slice(0, 5);
+        }
+        function extractMainContent(html: string): string { return html.replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); }
+        async function describeImageWithVision(src: string, CIntent: any): Promise<{ description: string; confidence: number; isRelevant: boolean; }> {
+          try { const visionModel = google('gemma-3-27b-it'); const prompt = `Analyze image at ${src}. User wants: "${CIntent.object}". JSON: { "description": "15-word description.", "confidence": "0.0-1.0 confidence it matches user intent." }`; const { text } = await generateText({ model: visionModel, prompt, temperature: 0.2 }); const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}'); return { description: parsed.description || "No description.", confidence: Number(parsed.confidence) || 0, isRelevant: (Number(parsed.confidence) || 0) > 0.6 }; } catch (e) { return { description: "Vision error", confidence: 0, isRelevant: false }; }
+        }
+        async function describeVideoWithVision(src: string, CIntent: any): Promise<{ description: string; confidence: number; isRelevant: boolean; }> {
+          try { const visionModel = google('gemma-3-27b-it'); const prompt = `Analyze video at ${src}. User wants: "${CIntent.object}". JSON: { "description": "20-word summary.", "confidence": "0.0-1.0 confidence it matches." }`; const { text } = await generateText({ model: visionModel, prompt, temperature: 0.2 }); const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}'); return { description: parsed.description || "No summary.", confidence: Number(parsed.confidence) || 0, isRelevant: (Number(parsed.confidence) || 0) > 0.6 }; } catch (e) { return { description: "Vision error", confidence: 0, isRelevant: false }; }
+        }
+        async function filterImagesWithVision(imagesFromHtml: { src: string, alt: string }[], CIntent: any) {
+          const results = []; for (const img of imagesFromHtml.slice(0, 10)) { if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; } const visionAnalysis = await describeImageWithVision(img.src, CIntent); if (visionAnalysis.isRelevant) results.push({ ...img, ...visionAnalysis }); } results.sort((a, b) => b.confidence - a.confidence); return results;
+        }
+        async function filterVideosWithVision(videosFromHtml: { src: string, poster?: string, alt?: string }[], CIntent: any) {
+          const results = []; for (const vid of videosFromHtml.slice(0, 5)) { if (Date.now() - overallStartTime > timeoutMs) { operationTimedOut = true; break; } const visionAnalysis = await describeVideoWithVision(vid.src, CIntent); if (visionAnalysis.isRelevant) results.push({ ...vid, ...visionAnalysis }); } results.sort((a, b) => b.confidence - a.confidence); return results;
+        }
+
+        async function doFetchAndAnalyze({ currentUrl, currentDepth, CIntent }: { currentUrl: string, currentDepth: number, CIntent: any }): Promise<any> {
+            if (operationTimedOut || Date.now() - overallStartTime > timeoutMs || pagesFetchedCount >= maxPages || visited.has(currentUrl)) {
+                return { error: 'Aborted fetch due to limits.', url: currentUrl, steps: ["Aborted fetch"], images: [], videos: [], textContent: "" };
+            }
+            visited.add(currentUrl); pagesFetchedCount++;
+            const localSteps: string[] = [`Direct Fetch L${recursionDepth - currentDepth}: ${currentUrl}`];
+            
+            let res: Response;
+            try {
+                res = await fetch(currentUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AvurnaBot/1.0)' }, signal: AbortSignal.timeout(15000) });
+                if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+            } catch (fetchError: any) {
+                return { error: `Fetch error: ${fetchError.message}`, url: currentUrl, steps: localSteps, images: [], videos: [], textContent: "" };
+            }
+            
+            const contentType = res.headers.get('content-type') || '';
+
+            if (contentType.startsWith('image/')) {
+                localSteps.push('Detected direct image link. Sending for analysis.');
+                const visionResult = await describeImageWithVision(currentUrl, CIntent);
+                const imageResult = { src: currentUrl, alt: visionResult.description, ...visionResult };
+                return { url: currentUrl, images: [imageResult], videos: [], textContent: "", steps: localSteps };
+            } else if (contentType.includes('application/pdf')) {
+                return { type: 'document', url: currentUrl, description: 'Link is a PDF. Content analysis not supported.', steps: localSteps, images: [], videos: [], textContent: "" };
+            } else if (!contentType.includes('text/html')) {
+                const text = await res.text();
+                return { type: 'file', url: currentUrl, description: `File (${contentType})`, steps: localSteps, images: [], videos: [], textContent: text.slice(0, 500) };
+            }
+
+            const htmlContent = await res.text();
+            localSteps.push('Processing HTML content for media and text.');
+            
+            let pageResults: { images: any[], videos: any[], textContent?: string } = { images: [], videos: [] };
+            const inferredModality = CIntent.modality || (userIntent.toLowerCase().includes('video') ? 'video' : (userIntent.toLowerCase().includes('image') ? 'image' : 'summary'));
+            
+            const imagesOnPage = extractImagesFromHtml(htmlContent, currentUrl);
+            const videosOnPage = await extractVideosFromHtml(htmlContent, currentUrl);
+            pageResults.images = await filterImagesWithVision(imagesOnPage, CIntent);
+            pageResults.videos = await filterVideosWithVision(videosOnPage, CIntent);
+            
+            const textContent = extractMainContent(htmlContent);
+            pageResults.textContent = textContent.length > 200 ? textContent : "";
+
+            let isGoodEnoughFound = (inferredModality === 'image' && pageResults.images.length > 0) || (inferredModality === 'video' && pageResults.videos.length > 0) || (inferredModality === 'summary' && textContent.length > 1000);
+            let pageRecursiveResults: any[] = [];
+            if (currentDepth > 0 && !isGoodEnoughFound && !operationTimedOut) {
+                const pageNavLinks = await extractAndScoreLinks(htmlContent, currentUrl, CIntent);
+                if (pageNavLinks.length > 0) {
+                    localSteps.push(`Semantically exploring top link: ${pageNavLinks[0].href}`);
+                    const subResult = await doFetchAndAnalyze({ currentUrl: pageNavLinks[0].href, currentDepth: currentDepth - 1, CIntent });
+                    if (subResult && !subResult.error) pageRecursiveResults.push(subResult);
+                }
+            }
+
+            const allImages = [...pageResults.images, ...pageRecursiveResults.flatMap(r => r.images || [])];
+            const allVideos = [...pageResults.videos, ...pageRecursiveResults.flatMap(r => r.videos || [])];
+            const allText = pageResults.textContent || pageRecursiveResults.map(r => r.textContent).find(t => t) || "";
+            allImages.sort((a, b) => b.confidence - a.confidence);
+            allVideos.sort((a, b) => b.confidence - a.confidence);
+            
+            return { url: currentUrl, images: allImages, videos: allVideos, textContent: allText, steps: localSteps };
+        }
+        
+        const result = await doFetchAndAnalyze({ currentUrl: url, currentDepth: recursionDepth, CIntent: initialIntent });
+        return { source: 'direct', success: !result.error, ...result, elapsedMs: Date.now() - directFetchStartTime };
+    }
+    
+    // Execute Both Fetch Methods in Parallel
+    const [exaResult, directResult] = await Promise.allSettled([
+        fetchWithExa(url, liveCrawlMode),
+        fetchAndAnalyzeRecursively()
+    ]);
+
+    const mergedResult: any = { url, images: [], videos: [], textContent: "", narration: "", steps: [], fetchMethods: {}, overallStats: {} };
+
+    const exaData = exaResult.status === 'fulfilled' && exaResult.value.success ? exaResult.value : null;
+    const directData = directResult.status === 'fulfilled' && directResult.value.success ? directResult.value : null;
+
+    mergedResult.fetchMethods.exa = { success: !!exaData, elapsedMs: exaResult.status === 'fulfilled' ? exaResult.value.elapsedMs : 0, error: exaData ? null : (exaResult.status === 'fulfilled' ? exaResult.value.error : exaResult.reason?.message || 'Exa fetch failed') };
+    mergedResult.fetchMethods.direct = { success: !!directData, elapsedMs: directData ? directData.elapsedMs : 0, error: directData ? directData.error : (directResult.status === 'fulfilled' ? directResult.value.error : directResult.reason?.message || 'Direct fetch failed') };
+
+
+    if (!exaData && !directData) {
+        return { error: `Both fetch methods failed. Exa: ${mergedResult.fetchMethods.exa.error}. Direct: ${mergedResult.fetchMethods.direct.error}`, narration: "I'm sorry, I was unable to retrieve content from that URL. The site may be down or blocking access.", url, fetchMethods: mergedResult.fetchMethods, overallStats: { totalTimeMs: Date.now() - overallStartTime } };
+    }
+
+    mergedResult.images = directData?.images || [];
+    mergedResult.videos = directData?.videos || [];
+    mergedResult.textContent = exaData?.textContent || directData?.textContent || "";
+    mergedResult.steps = directData?.steps || ['Exa fetch completed, direct fetch failed or provided no steps.'];
+
+    if (initialIntent.modality === 'summary' && mergedResult.textContent) {
+        try {
+            const summaryModel = google('gemma-3-27b-it');
+            const { text } = await generateText({ model: summaryModel, prompt: `Provide a concise summary of this text: "${mergedResult.textContent.substring(0, 25000)}"` });
+            mergedResult.narration = text;
+        } catch (e: any) { mergedResult.narration = `Extracted article text, but summarization failed: ${e.message}`; }
+    } else {
+        const objectStr = initialIntent.object || "the requested content";
+        const hasMedia = mergedResult.images.length > 0 || mergedResult.videos.length > 0;
+        if (hasMedia) {
+             mergedResult.narration = `I found ${mergedResult.images.length} relevant image(s) and ${mergedResult.videos.length} relevant video(s) for "${objectStr}".`;
+        } else if (mergedResult.textContent) {
+            mergedResult.narration = `I successfully extracted the page content for "${objectStr}". While no specific media was found, I have the full text available for summarization.`;
+        } else {
+            mergedResult.narration = `I attempted to fetch content for "${objectStr}" but couldn't retrieve specific media or extensive text.`;
+        }
+    }
+    
+    mergedResult.overallStats = { totalTimeMs: Date.now() - overallStartTime, timedOut: Date.now() - overallStartTime >= timeoutMs };
+    return mergedResult;
+  },
+});
+
+
+// --- CORRECTED Exa Search Tool (Uses exa.answer for general queries) ---
+
+// --- Helper: Infer domains to include based on user intent (image, video, etc.) ---
+function inferDomainsFromIntent(query: string): string[] {
+  // Lowercase for easier matching
+  const q = query.toLowerCase();
+  // If user asks for images/photos/pictures, include image-rich domains
+  if (/\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/.test(q)) {
+    return [
+      'unsplash.com',
+      'pinterest.com',
+      'flickr.com',
+      'gettyimages.com',
+      'pexels.com',
+      'stock.adobe.com',
+      'shutterstock.com',
+      '500px.com',
+      'istockphoto.com',
+      'deviantart.com',
+      'wallhaven.cc',
+      'pixabay.com',
+      'freepik.com',
+      'dreamstime.com',
+      'canva.com',
+      'unsplash.com',
+    ];
+  }
+  // If user asks for videos, include video domains
+  if (/\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/.test(q)) {
+    return [
+      'youtube.com',
+      'vimeo.com',
+      'dailymotion.com',
+      'tiktok.com',
+      'metacafe.com',
+      'veoh.com',
+      'bilibili.com',
+      'twitch.tv',
+    ];
+  }
+  // Default: no domain filter (broad search)
+  return [];
+}
+
+export const exaSearchTool = tool({
+  description: "Performs a web search using Exa. Uses Exa's search for image/video requests with special domains, and Exa's answer for general queries. Returns search results including images if available.",
+  parameters: z.object({
+    query: z.string().describe("The search query to look up on the web."),
+  }),
+  execute: async ({ query }: { query: string }) => {
+    const start = Date.now();
+    const domains = inferDomainsFromIntent(query);
+    const isImageRequest = /\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/i.test(query);
+    const isVideoRequest = /\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/i.test(query);
+
+    // If image or video request, use exa.search with domains
+    if (isImageRequest || isVideoRequest) {
+      try {
+        const searchResponse = await exa.search(query, {
+          numResults: 10,
+          includeDomains: domains.length > 0 ? domains : undefined,
+        });
+
+        // For images, map to carousel format
+        let imagesForCarousel: { src: string; alt?: string; source?: { url: string; title?: string } }[] = [];
+        let videosForCarousel: { type: string; src: string; title?: string; poster?: string; source?: { url: string; title?: string } }[] = [];
+        let visionFilteringInfo: {
+          filtered: typeof imagesForCarousel;
+          all: typeof imagesForCarousel;
+          filteringApplied: boolean;
+          warning?: string;
+        } | null = null;
+        if (isImageRequest) {
+          imagesForCarousel = searchResponse.results
+            .filter(r => typeof r.image === 'string' && !!r.image)
+            .map(r => ({
+              src: String(r.image),
+              alt: (typeof r.title === 'string' && r.title) ? r.title : (r.url || ''),
+              source: { url: r.url, title: typeof r.title === 'string' ? r.title : undefined },
+            }))
+            .filter(img => !!img.src);
+          // Vision filtering step
+          const intent = await extractUserIntent(query);
+          visionFilteringInfo = await filterImagesWithVision(imagesForCarousel, query, intent);
+          imagesForCarousel = visionFilteringInfo.filtered;
+        }
+        if (isVideoRequest) {
+          videosForCarousel = searchResponse.results
+            .filter(r => r.url && /youtube|vimeo|dailymotion|tiktok|twitch|bilibili/.test(r.url))
+            .map((result: any) => ({
+              type: 'video',
+              src: transformToEmbedUrl(result.url),
+              title: typeof result.title === 'string' ? result.title : undefined,
+              poster: typeof result.image === 'string' ? result.image : undefined,
+              source: { url: result.url, title: typeof result.title === 'string' ? result.title : undefined },
+            }));
+        }
+
+        // Map sources for cards
+        const sourcesFromSearch = searchResponse.results.map(r => ({
+          url: r.url,
+          sourceUrl: r.url,
+          title: r.title || r.url,
+          snippet: r.text || '',
+          image: r.image,
+          favicon: r.favicon,
+          siteName: r.title || (r.url ? (() => { try { return new URL(r.url).hostname.replace(/^www\./, ''); } catch { return r.url; } })() : ''),
+          publishedDate: r.publishedDate,
+          author: r.author,
+          score: r.score
+        }));
+
+        const elapsedMs = Date.now() - start;
         return {
-          type: 'website',
-          url,
-          siteType,
-          title: ogTitle || (headings[0]?.text ?? url),
-          metaDescription,
-          ogTitle,
-          ogDescription,
-          headings,
-          navLinks,
-          productCards,
-          faqs,
-          newsSections,
-          extractedTables,
-          chartMarkdown,
-          summary,
-          preview: mainText.slice(0, 1000) + (mainText.length > 1000 ? '...' : ''),
-          suggestedLinks,
-          articleLinks,
-          language, // Add detected language code (e.g., 'eng', 'spa', 'und')
-          steps,
-          elapsed: Date.now() - startTime
+          query,
+          narration: isImageRequest
+            ? `I found ${imagesForCarousel.length} images matching your request. Here are some of them.`
+            : `I found ${videosForCarousel.length} videos matching your request. Here are some of them.`,
+          images: imagesForCarousel,
+          videos: videosForCarousel,
+          sources: sourcesFromSearch,
+          searchResults: searchResponse.results,
+          webSearchQueries: [query],
+          elapsedMs,
+          visionFiltering: visionFilteringInfo,
         };
-        // --- END: Original fetch/analyze logic ---
-      })();
-      // --- RECURSION: If depth > 0, follow links ---
-      if (depth > 0 && result && 'navLinks' in result && Array.isArray((result as any).navLinks)) {
-        const childResults = [];
-        for (const link of (result as any).navLinks as { href: string; text: string }[]) {
-          if (pagesFetched >= maxPages || timedOut) break;
-          if (!link.href || visited.has(link.href)) continue;
-          if (origin && !link.href.startsWith(origin)) continue;
-          try {
-            const child = await fetchAndAnalyze({ url: link.href, referer: url, userIntent, agentX, depth: depth - 1 });
-            childResults.push(child);
-          } catch (e) {
-            childResults.push({ error: String(e), url: link.href });
-          }
+      } catch (error: any) {
+        console.error("Exa targeted search error:", error);
+        return { query, error: `Failed to execute Exa search: ${error && typeof error === 'object' && 'message' in error ? (error as any).message : String(error)}` };
+      }
+    } else {
+      // --- GENERAL QUERY: Use exa.answer() and process citations ---
+      try {
+        const answerResponse = await exa.answer(query, {
+          text: true,
+        });
+
+        if (!answerResponse.citations || answerResponse.citations.length === 0) {
+          return {
+            query,
+            answer: answerResponse.answer || "I found an answer, but no specific citations were provided.",
+            sources: [],
+            searchResults: []
+          };
         }
-        return { ...result, childResults };
-      } else {
-        return result;
+
+        const sourcesForCards = answerResponse.citations.map(citation => ({
+          url: citation.url as string,
+          sourceUrl: citation.url as string,
+          title: citation.title || citation.url as string,
+          snippet: citation.text || '',
+          siteName: citation.title || (citation.url ? (() => { try { return new URL(citation.url as string).hostname.replace(/^www\./, ''); } catch { return citation.url as string; } })() : ''),
+          image: citation.image,
+          publishedDate: citation.publishedDate,
+          author: citation.author,
+          favicon: citation.favicon,
+        }));
+
+        const elapsedMs = Date.now() - start;
+        return {
+          query,
+          answer: answerResponse.answer,
+          sources: sourcesForCards,
+          searchResults: answerResponse.citations,
+          webSearchQueries: [query],
+          elapsedMs,
+        };
+      } catch (error: any) {
+        console.error("Exa answer error (general query):", error);
+        return { query, error: `Failed to execute Exa answer: ${error.message}` };
       }
     }
-    // --- Start recursion ---
-    return await fetchAndAnalyze({ url, referer, userIntent, agentX, depth: recursionDepth });
   },
 });
 
-// --- Google Search Tool (as provided by user) ---
-export const googleSearchTool = tool({
-  description: "Search the web using Google Search Grounding for up-to-date information, current events, or general knowledge questions.",
-  parameters: z.object({
-    query: z.string().describe("The search query to look up on the web"),
-  }),
-  execute: async ({ query }) => {
-    console.log(`googleSearchTool: Executing search for query: "${query}"`);
-    try {
-      const modelInstance = google('gemini-2.5-flash-preview-05-20', { // User-provided model
-        useSearchGrounding: true,
-        dynamicRetrievalConfig: {
-          mode: 'MODE_DYNAMIC',
-          dynamicThreshold: 0.8,
-        },
-      });
-
-      const { text, sources, providerMetadata } = await generateText({ // generateText for google search
-          model: modelInstance,
-          prompt: query,
-      });
-
-      const metadata = providerMetadata?.google as any | undefined;
-      const webSearchQueries = metadata?.groundingMetadata?.webSearchQueries ?? [];
-      
-      console.log(`googleSearchTool: Search successful for query: "${query}". Found ${sources?.length ?? 0} sources.`);
-
-      return {
-          query,
-          groundedResponse: text,
-          sources: sources ?? [],
-          webSearchQueries,
-      };
-    } catch (error: any) {
-        console.error(`googleSearchTool Error searching for "${query}":`, error);
-        return {
-          query,
-          error: `Failed to execute Google search: ${error.message || error}`,
-          groundedResponse: null,
-          sources: [],
-          webSearchQueries: [],
-        };
-    }
-  },
-});
+// --- HTML Media Extraction Utilities (No changes) ---
+function extractImagesFromHtml(html: string, baseUrl: string): { src: string, alt: string, width?: number, height?: number }[] {
+  const imgTagRegex = /<img\s+([^>]*?)>/gi; const srcRegex = /src=["']([^"']+)["']/; const altRegex = /alt=["']([^"']*)["']/; const widthRegex = /width=["']?(\d+)/; const heightRegex = /height=["']?(\d+)/; const images: { src: string, alt: string, width?: number, height?: number }[] = []; const commonUiPatterns = /\/(logo|icon|sprite|spinner|loader|avatar|profile|badge|button|arrow|thumb|pixel|spacer)-?.*\.(\w{3,4})$/i; const commonUiKeywordsInAlt = ['logo', 'icon', 'button', 'arrow', 'avatar', 'profile', 'badge', 'banner ad', 'advertisement']; let match; while ((match = imgTagRegex.exec(html)) !== null) { const imgTagContent = match[1]; const srcMatch = srcRegex.exec(imgTagContent); if (!srcMatch || !srcMatch[1]) continue; let src = srcMatch[1]; const altMatch = altRegex.exec(imgTagContent); let alt = altMatch ? altMatch[1] : ''; try { src = new URL(src, baseUrl).toString(); const widthMatch = widthRegex.exec(imgTagContent); const heightMatch = heightRegex.exec(imgTagContent); const width = widthMatch ? parseInt(widthMatch[1], 10) : undefined; const height = heightMatch ? parseInt(heightMatch[1], 10) : undefined; if (commonUiPatterns.test(src) || commonUiKeywordsInAlt.some(kw => alt.toLowerCase().includes(kw))) continue; if ((width !== undefined && width < 50) && (height !== undefined && height < 50)) continue; images.push({ src, alt, width, height }); } catch { /* Invalid URL */ } } return images;
+}
+async function extractVideosFromHtml(html: string, baseUrl: string): Promise<{ src: string, poster?: string, alt?: string }[]> {
+  const videos: { src: string, poster?: string, alt?: string }[] = []; const videoTagRegex = /<video[^>]*?(?:poster=["']([^"']*)["'])?[^>]*>([\s\S]*?)<\/video>/gi; const sourceTagRegex = /<source[^>]+src=["']([^"']+)["'][^>]*?(?:type=["']video\/([^"']+)["'])?/gi; const iframeRegex = /<iframe[^>]+src=["']([^"']+)["'][^>]*><\/iframe>/gi; let match; while ((match = videoTagRegex.exec(html)) !== null) { const poster = match[1]; const videoInnerHtml = match[2]; let sourceMatch; let videoSrc: string | null = null; while((sourceMatch = sourceTagRegex.exec(videoInnerHtml)) !== null) { if (sourceMatch[1] && (!videoSrc || (sourceMatch[2] && sourceMatch[2].includes('mp4')))) { videoSrc = sourceMatch[1]; if (sourceMatch[2] && sourceMatch[2].includes('mp4')) break; } } if (!videoSrc) { const videoSrcAttrMatch = /src=["']([^"']+)["']/.exec(match[0]); if (videoSrcAttrMatch) videoSrc = videoSrcAttrMatch[1]; } if (videoSrc) { try { const absoluteSrc = new URL(videoSrc, baseUrl).toString(); videos.push({ src: absoluteSrc, poster, alt: poster || "video content" }); } catch { /* Invalid URL */ } } } while ((match = iframeRegex.exec(html)) !== null) { const iframeSrc = match[1]; let absoluteSrc: string; try { absoluteSrc = new URL(iframeSrc, baseUrl).toString(); } catch { continue; } if (/youtube\.(com|nocookie\.com)\/embed\//.test(absoluteSrc)) { videos.push({ src: absoluteSrc, alt: "YouTube video" }); continue; } if (/player\.vimeo\.com\/video\//.test(absoluteSrc)) { videos.push({ src: absoluteSrc, alt: "Vimeo video" }); continue; } videos.push({ src: absoluteSrc, alt: "embedded video player" }); } return videos;
+}

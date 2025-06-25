@@ -1,6 +1,6 @@
 
 import Link from "next/link";
-import { SignInButton, SignUpButton } from "./deploy-button";
+import { SignUpButton } from "./deploy-button";
 import { ThemeToggle } from "./theme-toggle";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
@@ -17,7 +17,7 @@ export const Header = () => {
   //     const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
   //     document.documentElement.style.setProperty('--Avurna-header-color', isDark ? '#bdbdbd' : '#5d5d5d');
   //   };
-  //   setAvurnaHeaderColor();
+//   setAvurnaHeaderColor();
   //   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAvurnaHeaderColor);
   //   const observer = new MutationObserver(setAvurnaHeaderColor);
   //   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
@@ -52,8 +52,8 @@ export const Header = () => {
   return (
     <div
       className={
-        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#1f2023] z-50` +
-        (showBorder ? " border-b-4 border-zinc-200 dark:border-zinc-800" : " border-b-0")
+        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#212121] z-50` +
+        (showBorder ? " border-b border-zinc-200 dark:border-zinc-800" : " border-b-0")
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
     >
@@ -61,6 +61,10 @@ export const Header = () => {
         <div className="flex flex-row items-center gap-2 shrink-0 ">
           <span className="jsx-e3e12cc6f9ad5a71 flex flex-row items-center gap-2 home-links">
             {isMobileOrTablet ? (
+              /**
+               * WIP: We want to remove this icon link and this condition of mobile and tablet.
+               * Whether we are on phone or on tab we want to show the text "Avurna"
+               */
               <Link
                 className="text-zinc-800 dark:text-zinc-100 -translate-y-[.5px]"
                 rel="noopener"
@@ -103,7 +107,6 @@ export const Header = () => {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <SignInButton />
           <SignUpButton />
         </div>
       </div>

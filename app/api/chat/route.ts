@@ -1,14 +1,18 @@
-
-
 import { smoothStream, streamText, UIMessage } from "ai";
 import { SEARCH_MODE } from "@/components/ui/textarea";
 import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
-import { weatherTool, fetchUrlTool, googleSearchTool } from "@/ai/tools";
+import { weatherTool, fetchUrlTool, exaSearchTool } from "@/ai/tools";
 
 
 export const maxDuration = 60;
-const REASON_MODEL_ID = "qwen-qwq-32b";
+
+// Helper to select the reasoning model based on user sign-in status
+function getReasonModelId(user: any) {
+  return user && user.email
+    ? "gemini-2.5-flash"
+    : "gemini-2.5-flash-lite-preview-06-17";
+}
 
 // Define suggested prompts highlighting Avurna capabilities
 const AVURNA_SUGGESTED_PROMPTS = [
@@ -71,6 +75,7 @@ export async function POST(req: Request) {
     messages,
     selectedModel,
     action, // Expect 'action' in the request body
+    user // { firstName, email }
   } = requestBody;
 
   // --- FILTER OUT EMPTY MESSAGES (prevents Gemini API error) ---
@@ -94,10 +99,38 @@ export async function POST(req: Request) {
     });
   }
 
-  // --- Title Generation Handling ---
+  // --- Title Generation Handling (Robust: Only generate if message is clear) ---
   if (action === 'generateTitle' && messages && messages.length > 0) {
+
     const userMessageContent = messages[messages.length - 1]?.content ?? '';
-    const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like "New Chat".
+
+    // Improved vague message detection: only treat as vague if the entire message is a short greeting or filler, not if it contains a real question or statement.
+    function isVagueMessage(msg: string) {
+      if (!msg || typeof msg !== 'string') return true;
+      const trimmed = msg.trim();
+      if (trimmed.length < 2) return true;
+      // Only treat as vague if the WHOLE message is a greeting/filler, not if it contains a question or real content
+      const vagueExact = [
+        'hi', 'hello', 'hey', 'yo', 'sup', 'start', 'begin', 'new chat', 'test', 'ok', 'okay', 'help', 'continue', 'again', 'repeat', 'next', 'more', 'info', 'details', 'expand', 'elaborate', 'explain', 'yes', 'no', 'maybe', 'sure', 'thanks', 'thank you', 'cool', 'nice', 'good', 'great', 'awesome', 'wow', 'hmm', 'huh', 'pls', 'please'
+      ];
+      if (vagueExact.includes(trimmed.toLowerCase())) return true;
+      // Only treat as vague if the message is just punctuation or whitespace
+      if (/^\s*$/.test(trimmed) || /^([?.!\s]+)$/.test(trimmed)) return true;
+      // If message is just a single word and not a question
+      if (trimmed.split(/\s+/).length === 1 && !trimmed.endsWith('?')) return true;
+      // Otherwise, not vague
+      return false;
+    }
+
+    if (isVagueMessage(userMessageContent)) {
+      // Signal to frontend to wait for a clearer message
+      return new Response(JSON.stringify({ title: null, reason: "vague" }), {
+        headers: { 'Content-Type': 'application/json' }, status: 200,
+      });
+    }
+
+    // Only generate title if message is clear
+    const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like \"New Chat\".
 
     User Message: "${userMessageContent}"`;
     try {
@@ -305,7 +338,23 @@ export async function POST(req: Request) {
   let systemPrompt = fs.readFileSync(path.join(promptDir, "criticalPrompt.txt"), "utf8");
   // Always include critical rules
   // Always include the tool selection policy and system prompt
-  systemPrompt += "\n\n" + fs.readFileSync(path.join(promptDir, "systemPrompt.txt"), "utf8");
+  let systemPromptTxt = fs.readFileSync(path.join(promptDir, "systemPrompt.txt"), "utf8");
+  // Inject the current year dynamically
+  const currentYear = new Date().getFullYear();
+  systemPromptTxt = systemPromptTxt.replace(/# The current year is:.*\n?/i, `# The current year is: ${currentYear}\n`);
+  // Inject the current date and time dynamically
+  systemPromptTxt = systemPromptTxt.replace(/# The current date and time is: \{currentDate\} \(UTC\)/i, `# The current date and time is: ${currentDate} (UTC)`);
+
+  // --- Personalization Injection ---
+  const userFirstName = user?.firstName || "there";
+  const userEmail = user?.email || "";
+  // Replace placeholders in systemPromptTxt
+  systemPromptTxt = systemPromptTxt.replace(/\{userFirstName\}/g, userFirstName);
+  systemPromptTxt = systemPromptTxt.replace(/\{userEmail\}/g, userEmail);
+
+  const personalizationPrompt = `\n# Personalization Rules:\n    - The user's name is: ${userFirstName}\n    - The user's email is: ${userEmail}\n    - Always use the user's name frequently in your responses to make the conversation feel personal and engaging.\n    - Never mention the user's email unless the user explicitly asks for it.\n`;
+
+  systemPrompt += "\n\n" + personalizationPrompt + "\n" + systemPromptTxt;
   // Add Agent X prompt if user intent is web/automation (URL present or web task keywords)
   // const agentXNeeded = !!urlToAnalyze || /website|site|web|browser|agent|automation|scrape|extract|analyze|navigate|product|video|post|news|shopping|social|table|data|csv|spreadsheet/i.test(userIntent);
   // if (agentXNeeded) {
@@ -341,6 +390,10 @@ export async function POST(req: Request) {
   const forceInitialGoogleSearch = isFrontendRequestingSearch &&
     googleSearchAttemptsForThisQuery === 0 &&
     messages[messages.length - 1]?.role !== 'function';
+
+
+  // Dynamically select the reasoning model based on user sign-in status
+  const REASON_MODEL_ID = getReasonModelId(user);
 
   let actualModelIdForLLM: modelID;
   if (isFrontendRequestingSearch) {
@@ -386,7 +439,7 @@ export async function POST(req: Request) {
         return result.result;
       },
     },
-    googleSearch: googleSearchTool,
+    googleSearch: exaSearchTool,
   };
 
   const result = streamText({
@@ -398,6 +451,17 @@ export async function POST(req: Request) {
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
     ...(forceInitialGoogleSearch && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
+    ...(selectedModel === REASON_MODEL_ID && { // Apply thinkingConfig ONLY when REASON_MODEL_ID is selected
+        providerOptions: {
+            google: {
+                thinkingConfig: {
+                    thinkingBudget: 24576, // Adjust as needed
+                    includeThoughts: true,
+                },
+            },
+        },
+      }
+    ),
   });
 
   return result.toDataStreamResponse({
