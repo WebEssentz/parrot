@@ -178,7 +178,7 @@ function Textarea({
           "!shadow-none !backdrop-blur-none", // No shadow or blur
           isLightMode
             ? "bg-white bg-opacity-100 border-zinc-200"
-            : "bg-zinc-900/80 dark:bg-zinc-900/80",
+            : "bg-zinc-900/80 dark:bg-transparent",
           className
         )}
         style={{ ...style, height: animatedHeight, minHeight: 64, overflowY: (textareaRef.current && typeof maxHeightFromStyle === "number" && typeof animatedHeight === "number" && animatedHeight >= maxHeightFromStyle && textareaRef.current.scrollHeight > animatedHeight) ? "auto" : "hidden", zIndex: 1, position: 'relative' }}
