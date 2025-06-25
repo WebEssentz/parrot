@@ -4,14 +4,12 @@ import React from "react";
 import { useEffect, useState } from "react";
 import { saveDescriptionToIDB, getDescriptionFromIDB } from "../lib/desc-idb";
 import { saveMediaToIDB } from "@/lib/media-idb";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { memo, useCallback, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Menu, MenuButton, MenuItem } from '@headlessui/react';
-import { MoreVertical } from 'lucide-react';
 import { toast } from "sonner";
 import { useUser, UserButton } from "@clerk/nextjs";
 import {
@@ -28,7 +26,6 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
 } from "lucide-react";
-import { StreamingTextRenderer } from "./streaming-text-renderer";
 import styles from "@/components/ui/image-slider.module.css";
 import { MediaCarousel } from "./ui/media-carousel";
 
@@ -1020,10 +1017,10 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                 })}
               </div>
               {isAssistant && status === "ready" && (
-                <div className={cn(!isMobileOrTablet ? "flex flex-row mb-8" : "relative w-full mt-8")} style={!isMobileOrTablet ? { marginTop: '-20px' } : { marginTop: '-16px' }}>
+                <div className={cn(!isMobileOrTablet ? "flex flex-row mb-8" : "w-full mt-2")} style={!isMobileOrTablet ? { marginTop: '-20px' } : { marginTop: '-16px' }}>
                   <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto group/ai-icon-row")}
                     data-ai-action
-                    style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' } : { position: 'absolute', left: 0, right: 0, marginLeft: '-16px', marginRight: '10px', zIndex: 10, justifyContent: 'start' }}
+                    style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' } : { position: 'relative', left: 0, right: 0, marginLeft: '-16px', marginRight: '10px', zIndex: 10, justifyContent: 'start' }}
                     initial={{ opacity: 1 }} animate={{ opacity: 1 }}>
                     <Tooltip>
                       <TooltipTrigger asChild>
