@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@import 'katex/dist/katex.min.css'; /* ✨ NEW */
+@import "tailwindcss";
+
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));

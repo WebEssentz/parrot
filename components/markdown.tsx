@@ -1,12 +1,18 @@
+// 1. Markdown.tsx
+
 import Link from "next/link"
 import React, { memo } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
-import rehypeRaw from "rehype-raw" // Keep this for HTML parsing
+import rehypeRaw from "rehype-raw"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math" // ✨ NEW: Import remark-math
+import rehypeKatex from "rehype-katex" // ✨ NEW: Import rehype-katex
+import "katex/dist/katex.min.css" // ✨ NEW: Import KaTeX CSS
 import { CodeBlock } from "./code-block"
 import { cn } from "@/lib/utils"
 
 const components: Partial<Components> = {
+  // ... (all your other components like blockquote, code, p, etc. remain unchanged)
   blockquote: ({ node, children, ...props }) => (
     <blockquote
       className="relative my-4 border-l-4 border-zinc-300 dark:border-zinc-700 rounded"
@@ -20,7 +26,7 @@ const components: Partial<Components> = {
     >
       {React.Children.map(children, (child) => {
         if (typeof child === "string") {
-          return <p className="mb-0 mt-0 text-zinc-800 dark:text-zinc-100 text-base leading-relaxed">{child}</p> // Added leading-relaxed
+          return <p className="mb-0 mt-0 text-zinc-800 dark:text-zinc-100 text-base leading-relaxed">{child}</p>
         }
         if (
           React.isValidElement(child) &&
@@ -32,7 +38,7 @@ const components: Partial<Components> = {
               "p",
               {
                 ...childProps,
-                className: cn(childProps.className, "mb-0 mt-0 text-zinc-800 dark:text-zinc-100 text-base leading-relaxed"), // Added leading-relaxed
+                className: cn(childProps.className, "mb-0 mt-0 text-zinc-800 dark:text-zinc-100 text-base leading-relaxed"),
               },
               childProps.children,
             )
@@ -73,87 +79,64 @@ const components: Partial<Components> = {
       )
     }
   },
-
-  // --- Paragraph Styling ---
   p: ({ node, children, ...props }) => (
-    // Increased bottom margin, added line-height, and set font size to 16px
     <p className="mb-2 leading-relaxed" style={{ fontSize: "16px" }} {...props}>
       {children}
     </p>
   ),
-
   pre: ({ children }) => <>{children}</>,
-
-  // --- List Styling ---
   ol: ({ node, children, ...props }) => (
-    // Added vertical margin to the list block and increased space between items
     <ol className="list-decimal list-outside ml-6 my-4 space-y-1.5" {...props}>
       {children}
     </ol>
   ),
   ul: ({ node, children, ...props }) => (
-    // Added vertical margin to the list block and increased space between items
     <ul className="list-disc list-outside ml-6 my-4 space-y-1.5" {...props}>
       {children}
     </ul>
   ),
-
   li: ({ node, children, ...props }) => (
-    // Added line-height to list items
     <li className="pl-1 pb-4 leading-relaxed" {...props}>
       {children}
     </li>
   ),
-
   strong: ({ node, children, ...props }) => (
     <span className="font-semibold" {...props}>
       {children}
     </span>
   ),
-
   em: ({ node, children, ...props }) => (
     <em className="italic" {...props}>
       {children}
     </em>
   ),
-
   a: ({ node, children, ...props }) => {
-    // We no longer apply button styles directly with Tailwind classes here.
-    // Instead, we let the global CSS handle the styling for .source-button-inline a
-    // We still need the Link component and basic props.
     const isSourceButton = node && (node as any).parent &&
       (node as any).parent.type === 'element' &&
       (node as any).parent.properties &&
       Array.isArray((node as any).parent.properties.className) &&
       (node as any).parent.properties.className.includes('source-button-inline');
 
-    // Apply default link classes unless it's a source button.
-    // The actual button appearance will be handled by global CSS targeting .source-button-inline a
     const linkClasses = cn(
       {
         "text-blue-600 hover:underline dark:text-blue-400": !isSourceButton,
-        // If it's a source button, ensure no default underline/color conflicts here
-        "no-underline": isSourceButton, // Explicitly remove underline for the button case
+        "no-underline": isSourceButton,
       },
       (props as any).className
     );
 
-
     return (
-      // @ts-expect-error (Keep this if your Link component needs it)
+      // @ts-expect-error
       <Link className={linkClasses} target="_blank" rel="noreferrer" {...props}>
         {children}
       </Link>
     );
   },
-  // --- Video tag support for markdown rendering ---
   video: ({ node, ...props }) => (
     <video controls style={{ maxWidth: "100%" }} {...props} />
   ),
-
   h1: ({ node, children, ...props }) => {
     return (
-      // Added leading-snug or leading-tight for headings if they look too spaced
       <h1 className="text-3xl font-semibold mt-6 mb-3 leading-snug" {...props}>
         {children}
       </h1>
@@ -195,7 +178,6 @@ const components: Partial<Components> = {
     )
   },
   table: ({ node, children, ...props }) => {
-    // Defensive: ensure children are valid
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
       <table className="my-4 w-full text-sm border-collapse" {...props}>
@@ -203,17 +185,14 @@ const components: Partial<Components> = {
       </table>
     );
   },
-
   thead: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return <thead {...props}>{safeChildren}</thead>;
   },
-
   tbody: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return <tbody {...props}>{safeChildren}</tbody>;
   },
-
   tr: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
@@ -222,7 +201,6 @@ const components: Partial<Components> = {
       </tr>
     );
   },
-
   th: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
@@ -231,7 +209,6 @@ const components: Partial<Components> = {
       </th>
     );
   },
-
   td: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
@@ -242,9 +219,9 @@ const components: Partial<Components> = {
   },
 }
 
-const remarkPlugins = [remarkGfm]
+// ✨ NEW: Add remarkMath to your plugins
+const remarkPlugins = [remarkGfm, remarkMath]
 
-// --Helper: Render Sources Block in Markdown
 function stripSourcesBlock(markdown: string): string {
   const start = markdown.indexOf("<!-- AVURNA_SOURCES_START -->")
   const end = markdown.indexOf("<!-- AVURNA_SOURCES_END -->")
@@ -255,7 +232,12 @@ function stripSourcesBlock(markdown: string): string {
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {
   const clean = typeof children === "string" ? stripSourcesBlock(children) : children
   return (
-    <ReactMarkdown remarkPlugins={remarkPlugins} components={components} rehypePlugins={[rehypeRaw]}>
+    <ReactMarkdown
+      remarkPlugins={remarkPlugins}
+      // ✨ NEW: Add rehypeKatex to your rehype plugins
+      rehypePlugins={[rehypeRaw, rehypeKatex]}
+      components={components}
+    >
       {clean}
     </ReactMarkdown>
   )
