@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
+import { ThemeToggle } from "./theme-toggle";
 
 export const UserChatHeader = () => {
   const [showBorder, setShowBorder] = useState(false);
@@ -27,7 +28,7 @@ export const UserChatHeader = () => {
   return (
     <div
       className={
-        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#212121] z-50 transition-all duration-200 ` +
+        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#212121] z-50` +
         (showBorder ? " border-b border-zinc-200 dark:border-zinc-800" : " border-b-transparent")
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
@@ -37,7 +38,7 @@ export const UserChatHeader = () => {
           <span className="flex flex-row items-center gap-2 home-links">
             <span
               className={
-                `text-[20px] font-leading select-none -mt-2 font-medium transition-colors duration-200 text-black dark:text-white`
+                `text-[20px] font-leading select-none -mt-2 font-medium text-black dark:text-white`
               }
               style={{
                 lineHeight: '22px',
@@ -50,6 +51,7 @@ export const UserChatHeader = () => {
           </span>
         </div>
         <div className="flex items-center gap-2 pr-0" style={{ marginTop: '-2px' }}>
+          <ThemeToggle />
           <UserButton
             appearance={{
               // This styles the UserButton dropdown menu

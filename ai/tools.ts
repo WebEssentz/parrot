@@ -659,12 +659,82 @@ export const exaSearchTool = tool({
   description: "Performs a web search using Exa. Uses Exa's search for image/video requests with special domains, and Exa's answer for general queries. Returns search results including images if available.",
   parameters: z.object({
     query: z.string().describe("The search query to look up on the web."),
+    findSimilar: z.string().optional().describe("Optional URL to find similar content for instead of performing a regular search."),
+    excludeSourceDomain: z.boolean().optional().describe("When using findSimilar, whether to exclude results from the same domain (default: false)."),
+    numResults: z.number().optional().describe("Number of results to return (default: 10)."),
   }),
-  execute: async ({ query }: { query: string }) => {
+  execute: async ({ query, findSimilar, excludeSourceDomain = false, numResults = 10  }: { 
+    query: string,
+    findSimilar?: string, 
+    excludeSourceDomain?: boolean,
+    numResults?: number
+  }) => {
     const start = Date.now();
     const domains = inferDomainsFromIntent(query);
     const isImageRequest = /\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/i.test(query);
     const isVideoRequest = /\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/i.test(query);
+
+    // --- SIMILAR LINKS MODE ---
+    if (findSimilar) {
+      console.log(`[Exa Search] Finding similar content to: ${findSimilar}`);
+      try {
+        // Get similar links with their contents
+        const response = await exa.findSimilarAndContents(findSimilar, {
+          numResults,
+          excludeSourceDomain,
+          context: true,
+          livecrawl: 'fallback',
+          text: true,
+          summary: true
+        });
+        
+        // Format results for display
+        const similarLinks = response.results.map(result => ({
+          title: result.title,
+          url: result.url,
+          score: result.score,  // Similarity score
+          favicon: result.favicon,
+          snippet: result.text ? result.text.substring(0, 200) + "..." : "",
+          summary: result.summary,
+          siteName: result.title || (() => { 
+            try { return new URL(result.url).hostname.replace(/^www\./, ''); } 
+            catch { return result.url; }
+          })(),
+          publishedDate: result.publishedDate,
+          author: result.author,
+        }));
+        
+        // Extract images for carousel if available
+        const imagesForCarousel = response.results
+          .filter(r => typeof r.image === 'string' && !!r.image)
+          .map(r => ({
+            src: String(r.image),
+            alt: (typeof r.title === 'string' && r.title) ? r.title : (r.url || ''),
+            source: { url: r.url, title: typeof r.title === 'string' ? r.title : undefined },
+          }))
+          .filter(img => !!img.src);
+        
+        const elapsedMs = Date.now() - start;
+        return {
+          query,
+          sourceUrl: findSimilar,
+          narration: `Found ${similarLinks.length} similar links to the provided URL.`,
+          sources: similarLinks,
+          searchResults: response.results,
+          images: imagesForCarousel,
+          isSimilarSearch: true,
+          elapsedMs,
+        };
+      } catch (error) {
+        console.error("[Exa Similar Search] Error:", error);
+        return { 
+          query, 
+          sourceUrl: findSimilar,
+          error: `Failed to find similar links: ${error && typeof error === 'object' && 'message' in error ? (error as any).message : String(error)}`,
+          isSimilarSearch: true
+        };
+      }
+    }
 
     // If image or video request, use exa.search with domains
     if (isImageRequest || isVideoRequest) {

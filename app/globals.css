@@ -159,44 +159,31 @@
 }
 
 /* --- Enterprise-grade horizontal scroll prevention and responsive chat --- */
-/* --- THIS IS THE CRITICAL LAYOUT FIX --- */
 html, body {
-  /* This prevents the main page from EVER having a scrollbar,
-     ensuring the scrollbar on our chat container is at the true edge. */
   overflow: hidden !important;
   overscroll-behavior: none;
 }
-
-/* --- THIS IS THE NEW, SLEEK SCROLLBAR STYLE --- */
-/* Target the specific container with our new class */
 .scroll-container::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
-
 .scroll-container::-webkit-scrollbar-track {
-  background: transparent; /* Track is always invisible */
+  background: transparent;
 }
-
 .scroll-container::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0); /* Invisible by default */
+  background-color: rgba(156, 163, 175, 0);
   border-radius: 20px;
-  border: 3px solid transparent; /* Creates padding around thumb */
+  border: 3px solid transparent;
   background-clip: content-box;
-  transition: background-color .2s ease-in-out; /* Smooth fade transition */
+  transition: background-color .2s ease-in-out;
 }
-
-/* On hover of the scroll container, the thumb becomes visible */
 .scroll-container:hover::-webkit-scrollbar-thumb {
   background-color: rgba(120,120,120,0.25);
 }
-
-/* Firefox scrollbar styling for the container */
 .scroll-container {
   scrollbar-width: thin;
   scrollbar-color: rgba(120,120,120,0.25) transparent;
 }
-
 
 body {
   overflow-y: auto !important;
@@ -209,8 +196,6 @@ body {
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-
-/* Code blocks: horizontal scroll only for code, never for message */
 .markdown-body pre, .prose pre, .markdown pre {
   overflow-x: auto;
   max-width: 100%;
@@ -221,6 +206,87 @@ body {
   white-space: pre-wrap;
   max-width: 100%;
 }
+
+/* 
+  --- FINAL SOURCE HIGHLIGHT AND BUTTON STYLES (Robust Pointer-Events Method) --- 
+*/
+
+/* 
+  STEP 1: Make the entire container non-interactive by default.
+  This prevents the text from triggering a hover state on this parent.
+*/
+.source-highlight-container {
+  display: inline;
+  pointer-events: none; 
+}
+
+/* The text element inherits pointer-events: none, so it can't be hovered. */
+.source-text {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  border-radius: 5px;
+  padding: 0.1em 0.2em;
+  margin: -0.1em 0;
+}
+
+/* 
+  STEP 2: The highlight effect. This rule now ONLY fires when the container 
+  is hovered, which can only be caused by the button (see below).
+*/
+.source-highlight-container:hover .source-text {
+  background-color: #6a9deb;
+  color: #ffffff;
+}
+.dark .source-highlight-container:hover .source-text {
+  background-color: #6a9deb;
+  color: #ffffff;
+}
+
+/* --- Inline Source Button Styles --- */
+
+/* 
+  STEP 3: Explicitly re-enable pointer events on the button's link.
+  This makes it the ONLY element in the container that can be clicked or hovered.
+*/
+.source-button-inline > a {
+  pointer-events: auto; 
+  text-decoration: none !important;
+  display: inline-flex;
+  align-items: center;
+  background-color: #f4f4f4;
+  color: #707070;
+  border-radius: 1rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.60rem;
+  line-height: normal;
+  margin-left: 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Hover state for the button itself. This also causes the parent to enter a :hover state. */
+.source-button-inline > a:hover {
+  background-color: #000000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #ffffff;
+}
+
+/* Dark Mode styles for the button. */
+.dark .source-button-inline > a {
+  background-color: #333333;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark mode hover state for the button itself. */
+.dark .source-button-inline > a:hover {
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  color: #000000;
+}
+/* --- END OF FINAL STYLES --- */
+
 
 /* PauseIcon spinner animation */
 .pause-spinner {
@@ -275,3 +341,4 @@ body {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+

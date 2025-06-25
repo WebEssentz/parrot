@@ -1,7 +1,7 @@
 import Link from "next/link"
 import React, { memo } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
-import rehypeRaw from "rehype-raw"
+import rehypeRaw from "rehype-raw" // Keep this for HTML parsing
 import remarkGfm from "remark-gfm"
 import { CodeBlock } from "./code-block"
 import { cn } from "@/lib/utils"
@@ -117,13 +117,35 @@ const components: Partial<Components> = {
     </em>
   ),
 
-  a: ({ node, children, ...props }) => (
-    // @ts-expect-error
-    <Link className="text-blue-600 hover:underline dark:text-blue-400" target="_blank" rel="noreferrer" {...props}>
-      {children}
-    </Link>
-  ),
+  a: ({ node, children, ...props }) => {
+    // We no longer apply button styles directly with Tailwind classes here.
+    // Instead, we let the global CSS handle the styling for .source-button-inline a
+    // We still need the Link component and basic props.
+    const isSourceButton = node && (node as any).parent &&
+      (node as any).parent.type === 'element' &&
+      (node as any).parent.properties &&
+      Array.isArray((node as any).parent.properties.className) &&
+      (node as any).parent.properties.className.includes('source-button-inline');
 
+    // Apply default link classes unless it's a source button.
+    // The actual button appearance will be handled by global CSS targeting .source-button-inline a
+    const linkClasses = cn(
+      {
+        "text-blue-600 hover:underline dark:text-blue-400": !isSourceButton,
+        // If it's a source button, ensure no default underline/color conflicts here
+        "no-underline": isSourceButton, // Explicitly remove underline for the button case
+      },
+      (props as any).className
+    );
+
+
+    return (
+      // @ts-expect-error (Keep this if your Link component needs it)
+      <Link className={linkClasses} target="_blank" rel="noreferrer" {...props}>
+        {children}
+      </Link>
+    );
+  },
   // --- Video tag support for markdown rendering ---
   video: ({ node, ...props }) => (
     <video controls style={{ maxWidth: "100%" }} {...props} />
@@ -186,12 +208,12 @@ const components: Partial<Components> = {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return <thead {...props}>{safeChildren}</thead>;
   },
-  
+
   tbody: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return <tbody {...props}>{safeChildren}</tbody>;
   },
-  
+
   tr: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
@@ -200,7 +222,7 @@ const components: Partial<Components> = {
       </tr>
     );
   },
-  
+
   th: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
@@ -209,7 +231,7 @@ const components: Partial<Components> = {
       </th>
     );
   },
-  
+
   td: ({ node, children, ...props }) => {
     const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
