@@ -656,23 +656,37 @@ function inferDomainsFromIntent(query: string): string[] {
 }
 
 export const exaSearchTool = tool({
-  description: "Performs a web search using Exa. Uses Exa's search for image/video requests with special domains, and Exa's answer for general queries. Returns search results including images if available.",
+  description: "Performs a web search using Exa. Uses Exa's search for image/video requests with special domains,  It can do a standard query search, find similar pages to a URL, or search for specific media like images and videos, and Exa's answer for general queries. Returns search results including images if available.",
   parameters: z.object({
-    query: z.string().describe("The search query to look up on the web."),
-    findSimilar: z.string().optional().describe("Optional URL to find similar content for instead of performing a regular search."),
+   // 1. Make the standard query OPTIONAL
+    query: z.string().optional().describe("The search query to look up on the web. Use this for general searches, or for image/video requests."),
+    
+    // 2. Keep findSimilar as optional
+    findSimilar: z.string().optional().describe("A full URL to find similar pages for. Use this INSTEAD of 'query'."),
+    // 3. Other params remain optional
     excludeSourceDomain: z.boolean().optional().describe("When using findSimilar, whether to exclude results from the same domain (default: false)."),
     numResults: z.number().optional().describe("Number of results to return (default: 10)."),
+  })
+  // 4. Add the refinement logic
+  .refine(data => (!!data.query && !data.findSimilar) || (!data.query && !!data.findSimilar), {
+      message: 'You must provide either a "query" for a standard search OR a "findSimilar" URL, but not both at the same time.',
   }),
-  execute: async ({ query, findSimilar, excludeSourceDomain = false, numResults = 10  }: { 
-    query: string,
-    findSimilar?: string, 
+  execute: async ({
+    query,
+    findSimilar,
+    excludeSourceDomain = false,
+    numResults = 10
+  }: {
+    query?: string,
+    findSimilar?: string,
     excludeSourceDomain?: boolean,
     numResults?: number
   }) => {
     const start = Date.now();
-    const domains = inferDomainsFromIntent(query);
-    const isImageRequest = /\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/i.test(query);
-    const isVideoRequest = /\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/i.test(query);
+    const q = query ?? '';
+    const domains = inferDomainsFromIntent(q);
+    const isImageRequest = /\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/i.test(q);
+    const isVideoRequest = /\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/i.test(q);
 
     // --- SIMILAR LINKS MODE ---
     if (findSimilar) {
@@ -739,7 +753,7 @@ export const exaSearchTool = tool({
     // If image or video request, use exa.search with domains
     if (isImageRequest || isVideoRequest) {
       try {
-        const searchResponse = await exa.search(query, {
+        const searchResponse = await exa.search(query ?? '', {
           numResults: 10,
           includeDomains: domains.length > 0 ? domains : undefined,
         });
@@ -763,8 +777,8 @@ export const exaSearchTool = tool({
             }))
             .filter(img => !!img.src);
           // Vision filtering step
-          const intent = await extractUserIntent(query);
-          visionFilteringInfo = await filterImagesWithVision(imagesForCarousel, query, intent);
+          const intent = await extractUserIntent(query ?? '');
+          visionFilteringInfo = await filterImagesWithVision(imagesForCarousel, query ?? "", intent);
           imagesForCarousel = visionFilteringInfo.filtered;
         }
         if (isVideoRequest) {
@@ -814,7 +828,7 @@ export const exaSearchTool = tool({
     } else {
       // --- GENERAL QUERY: Use exa.answer() and process citations ---
       try {
-        const answerResponse = await exa.answer(query, {
+        const answerResponse = await exa.answer(query ?? '', {
           text: true,
         });
 
