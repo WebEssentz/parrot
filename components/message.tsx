@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
-import { memo, useCallback, useRef } from "react";
+import { memo, useRef } from "react";
 import { StrategySlate } from "./strategy-slate";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -933,6 +933,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                       </motion.div>
                     );
                   }
+            
                   if (part.type === "tool-invocation") {
                     if (part.toolInvocation.state === "result") {
                       return <motion.div key={`message-${message.id}-part-${i}`} initial={{ opacity: 1, height: 'auto' }} animate={{ opacity: 0, height: 0, margin: 0, padding: 0 }} transition={{ duration: 0.35, ease: 'easeInOut' }} style={{ overflow: 'hidden' }} />;

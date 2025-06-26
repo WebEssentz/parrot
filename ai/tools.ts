@@ -658,8 +658,8 @@ function inferDomainsFromIntent(query: string): string[] {
 export const exaSearchTool = tool({
   description: "Performs a web search using Exa. Uses Exa's search for image/video requests with special domains,  It can do a standard query search, find similar pages to a URL, or search for specific media like images and videos, and Exa's answer for general queries. Returns search results including images if available.",
   parameters: z.object({
-   // 1. Make the standard query OPTIONAL
-    query: z.string().optional().describe("The search query to look up on the web. Use this for general searches, or for image/video requests."),
+    queries: z.array(z.string()).min(1).optional()
+      .describe("An array of one or more independent search queries to execute in parallel. This is the preferred method for multiple searches."),
     
     // 2. Keep findSimilar as optional
     findSimilar: z.string().optional().describe("A full URL to find similar pages for. Use this INSTEAD of 'query'."),
@@ -668,22 +668,22 @@ export const exaSearchTool = tool({
     numResults: z.number().optional().describe("Number of results to return (default: 10)."),
   })
   // 4. Add the refinement logic
-  .refine(data => (!!data.query && !data.findSimilar) || (!data.query && !!data.findSimilar), {
-      message: 'You must provide either a "query" for a standard search OR a "findSimilar" URL, but not both at the same time.',
+  .refine(data => (!!data.queries && !data.findSimilar) || (!data.queries && !!data.findSimilar), {
+      message: 'You must provide either a "queries" array for a standard search OR a "findSimilar" URL, but not both at the same time.',
   }),
   execute: async ({
-    query,
+    queries,
     findSimilar,
     excludeSourceDomain = false,
-    numResults = 10
+    numResults = 5
   }: {
-    query?: string,
+    queries?: string[],
     findSimilar?: string,
     excludeSourceDomain?: boolean,
     numResults?: number
   }) => {
     const start = Date.now();
-    const q = query ?? '';
+    const q = queries?.[0] ?? '';
     const domains = inferDomainsFromIntent(q);
     const isImageRequest = /\b(image|photo|picture|wallpaper|gallery|pic|jpeg|jpg|png|gif|unsplash|pinterest|flickr|stock)\b/i.test(q);
     const isVideoRequest = /\b(video|movie|film|clip|trailer|watch|youtube|vimeo|dailymotion)\b/i.test(q);
@@ -730,7 +730,7 @@ export const exaSearchTool = tool({
         
         const elapsedMs = Date.now() - start;
         return {
-          query,
+          queries,
           sourceUrl: findSimilar,
           narration: `Found ${similarLinks.length} similar links to the provided URL.`,
           sources: similarLinks,
@@ -742,7 +742,7 @@ export const exaSearchTool = tool({
       } catch (error) {
         console.error("[Exa Similar Search] Error:", error);
         return { 
-          query, 
+          queries, 
           sourceUrl: findSimilar,
           error: `Failed to find similar links: ${error && typeof error === 'object' && 'message' in error ? (error as any).message : String(error)}`,
           isSimilarSearch: true
@@ -750,10 +750,57 @@ export const exaSearchTool = tool({
       }
     }
 
+     // --- MODE 2: BATCHED SEARCH (The core new logic) ---
+    if (queries && queries.length > 0) {
+      console.log(`[Exa Search] Executing batched search for ${queries.length} queries:`, queries);
+      try {
+        // Use Promise.all to run all searches concurrently, which is highly efficient.
+        const searchPromises = queries.map(query => {
+          const isMediaQuery = /\b(image|photo|picture|video|movie|clip)\b/i.test(query);
+          // Use exa.search for media-heavy queries, exa.answer for text-based queries.
+          return isMediaQuery 
+            ? exa.search(query, { numResults, includeDomains: inferDomainsFromIntent(query) })
+            : exa.answer(query, {});
+        });
+
+        const responses = await Promise.all(searchPromises);
+
+        // Aggregate all results into a single, comprehensive object.
+        const allSearchResults: any[] = [];
+        let combinedAnswer = "";
+
+        responses.forEach((response, index) => {
+          const query = queries[index];
+          // Handle results from exa.answer
+          if ('answer' in response && response.answer) {
+            combinedAnswer += `\n\n## Results for: "${query}"\n\n${response.answer}`;
+            allSearchResults.push(...response.citations);
+          } 
+          // Handle results from exa.search
+          else if ('results' in response) {
+            allSearchResults.push(...response.results);
+          }
+        });
+        
+        return {
+          webSearchQueries: queries, // Pass the original queries for the UI
+          answer: combinedAnswer.trim(),
+          searchResults: allSearchResults,
+          elapsedMs: Date.now() - start,
+        };
+
+      } catch (error: any) {
+        console.error("Exa batched search error:", error);
+        return { error: `Failed to execute batched search: ${error.message}` };
+      }
+    }
+    
+
     // If image or video request, use exa.search with domains
     if (isImageRequest || isVideoRequest) {
       try {
-        const searchResponse = await exa.search(query ?? '', {
+        const query = queries?.[0] ?? '';
+        const searchResponse = await exa.search(query, {
           numResults: 10,
           includeDomains: domains.length > 0 ? domains : undefined,
         });
@@ -777,8 +824,8 @@ export const exaSearchTool = tool({
             }))
             .filter(img => !!img.src);
           // Vision filtering step
-          const intent = await extractUserIntent(query ?? '');
-          visionFilteringInfo = await filterImagesWithVision(imagesForCarousel, query ?? "", intent);
+          const intent = await extractUserIntent(queries?.[0] ?? '');
+          visionFilteringInfo = await filterImagesWithVision(imagesForCarousel, queries?.[0] ?? "", intent);
           imagesForCarousel = visionFilteringInfo.filtered;
         }
         if (isVideoRequest) {
@@ -817,24 +864,26 @@ export const exaSearchTool = tool({
           videos: videosForCarousel,
           sources: sourcesFromSearch,
           searchResults: searchResponse.results,
-          webSearchQueries: [query],
+          webSearchQueries: [q],
           elapsedMs,
           visionFiltering: visionFilteringInfo,
         };
       } catch (error: any) {
+        const query = queries?.[0] ?? '';
         console.error("Exa targeted search error:", error);
         return { query, error: `Failed to execute Exa search: ${error && typeof error === 'object' && 'message' in error ? (error as any).message : String(error)}` };
       }
     } else {
       // --- GENERAL QUERY: Use exa.answer() and process citations ---
       try {
-        const answerResponse = await exa.answer(query ?? '', {
+        const answerResponse = await exa.answer(q ?? '', {
           text: true,
         });
 
         if (!answerResponse.citations || answerResponse.citations.length === 0) {
+          const query = queries?.[0] ?? '';
           return {
-            query,
+            query: query,
             answer: answerResponse.answer || "I found an answer, but no specific citations were provided.",
             sources: [],
             searchResults: []
@@ -855,16 +904,16 @@ export const exaSearchTool = tool({
 
         const elapsedMs = Date.now() - start;
         return {
-          query,
+          query: q,
           answer: answerResponse.answer,
           sources: sourcesForCards,
           searchResults: answerResponse.citations,
-          webSearchQueries: [query],
+          webSearchQueries: [q],
           elapsedMs,
         };
       } catch (error: any) {
         console.error("Exa answer error (general query):", error);
-        return { query, error: `Failed to execute Exa answer: ${error.message}` };
+        return { query: q, error: `Failed to execute Exa answer: ${error.message}` };
       }
     }
   },

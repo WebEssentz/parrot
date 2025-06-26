@@ -319,17 +319,15 @@ export async function POST(req: Request) {
     return { result, informMessages };
   }
 
-  const now = new Date();
-  // ... (rest of your existing system prompt and chat logic) ...
-  const currentDate = now.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  const birthDate = new Date('2009-06-17T00:00:00Z');
-  let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
-  const m = now.getUTCMonth() - birthDate.getUTCMonth();
-  if (m < 0 || (m === 0 && now.getUTCDate() < birthDate.getUTCDate())) { age--; }
-  const BirthDate = new Date('2009-05-28T00:00:00Z');
-  let Age = now.getUTCFullYear() - BirthDate.getUTCFullYear();
-  const M = now.getUTCMonth() - BirthDate.getUTCMonth();
-  if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
+  // const currentDate = now.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  // const birthDate = new Date('2009-06-17T00:00:00Z');
+  // let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
+  // const m = now.getUTCMonth() - birthDate.getUTCMonth();
+  // if (m < 0 || (m === 0 && now.getUTCDate() < birthDate.getUTCDate())) { age--; }
+  // const BirthDate = new Date('2009-05-28T00:00:00Z');
+  // let Age = now.getUTCFullYear() - BirthDate.getUTCFullYear();
+  // const M = now.getUTCMonth() - BirthDate.getUTCMonth();
+  // if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
 
   // Dynamic prompt assembly
   const fs = require("fs");
@@ -339,11 +337,17 @@ export async function POST(req: Request) {
   // Always include critical rules
   // Always include the tool selection policy and system prompt
   let systemPromptTxt = fs.readFileSync(path.join(promptDir, "systemPrompt.txt"), "utf8");
-  // Inject the current year dynamically
-  const currentYear = new Date().getFullYear();
-  systemPromptTxt = systemPromptTxt.replace(/# The current year is:.*\n?/i, `# The current year is: ${currentYear}\n`);
-  // Inject the current date and time dynamically
-  systemPromptTxt = systemPromptTxt.replace(/# The current date and time is: \{currentDate\} \(UTC\)/i, `# The current date and time is: ${currentDate} (UTC)`);
+  // === THE CRITICAL FIX IS HERE ===
+  // 1. Get the current date and time at the moment of the request.
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  // 2. Format it into a clear, human-readable string. toUTCString() is perfect.
+  const currentDateString = now.toUTCString(); // e.g., "Thu, 27 Jun 2024 12:00:00 GMT"
+
+  // 3. Inject the current year and date string into the system prompt.
+  systemPrompt = systemPrompt.replace(/\{currentYear\}/g, currentYear.toString());
+  systemPrompt = systemPrompt.replace(/\{currentDate\}/g, currentDateString);
+  // === END OF FIX ===
 
   // --- Personalization Injection ---
   const userFirstName = user?.firstName || "there";
