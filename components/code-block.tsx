@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Download as DownloadIcon } from "lucide-react";
+import { ChevronsUpDown, CopyIcon, Download as DownloadIcon } from "lucide-react";
 import { useTheme } from "next-themes";
-
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { solarizedlight } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -791,174 +790,92 @@ export function CodeBlock({
     document.body.removeChild(link);
   };
 
-  if (inline) {
-    // --- Inline Code Styling (Verified ChatGPT Style) ---
-    // Use <code> tag for semantic correctness. Apply Tailwind classes.
+   if (inline) {
     return (
-      <code
-        className={
-          // Use text-sm or text-xs depending on your base font size
-          // bg-zinc-100/70 dark:bg-zinc-800/70 provides a slightly transparent bg
-          "relative rounded bg-zinc-100 dark:bg-zinc-800 px-[0.4em] py-[0.2em] font-mono text-sm text-zinc-900 dark:text-zinc-100 break-words"
-        }
-        {...props}
-      >
+      <code className="relative rounded bg-zinc-500/10 dark:bg-zinc-400/10 px-[0.4em] py-[0.2em] font-mono text-sm break-words">
         {children}
       </code>
     );
-  } else {
-    // --- Block Code Rendering (Keep As Is from previous update) ---
-    // This part renders the fenced code blocks ```like this```
-    return (
-      <TooltipProvider>
-        <div className={`not-prose relative flex flex-col my-4 group/codeblock ${styles.codeBlockOuter}`}>
-          {/* Code block header */}
-          <div
-            ref={headerRef}
-            className="flex items-center justify-between px-2 sm:px-4 py-2 rounded-t-xl border-b border-zinc-200 dark:border-zinc-700 relative overflow-visible"
-            style={{
-              background:
-                theme === "light"
-                  ? "#f3f4f6"
-                  : "#23272e",
-              cursor: isMobile ? "pointer" : undefined,
-            }}
-            onMouseEnter={() => !isMobile && setShowActions(true)}
-            onMouseLeave={() => !isMobile && setShowActions(false)}
-            onClick={() => {
-              if (isMobile) {
-                setShowActions((v) => !v);
-                if (actionsTimeout.current) clearTimeout(actionsTimeout.current);
-                actionsTimeout.current = setTimeout(() => setShowActions(false), 3500);
-              }
-            }}
-          >
-            {/* Language badge at left with tooltip */}
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-xs px-2 py-0.5 rounded font-mono text-zinc-600 dark:text-zinc-300 cursor-pointer">
-                    {detectedLanguage}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">
-                  {detectedLanguage === 'plaintext' ? 'Plain text (auto-detected)' : `Language: ${detectedLanguage}`}
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            {/* Actions: kebab or all icons */}
-            <div className="flex items-center gap-2 relative min-w-[40px]">
-              {/* Kebab icon (desktop default, animates out) */}
-              <button
-                className={`transition-all duration-200 ease-in-out absolute right-0 top-0 mt-1 z-10 bg-zinc-100 dark:bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-600 flex items-center p-1 rounded ${showActions ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 pointer-events-auto scale-100'}`}
-                aria-label="Show code actions"
-                type="button"
-                tabIndex={showActions ? -1 : 0}
-                style={{ visibility: showActions ? 'hidden' : 'visible' }}
-              >
-                {CustomKebabIcon}
-              </button>
-              {/* Action icons (Copy, Download, Collapse/Expand) */}
-              <div
-                className={`flex items-center gap-2 transition-all duration-200 ease-in-out ${showActions ? 'opacity-100 scale-100' : 'opacity-0 pointer-events-none scale-90'} bg-zinc-100 dark:bg-transparent rounded p-1`}
-                style={{ position: 'relative', zIndex: 20 }}
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handleCopy}
-                      className="flex items-center gap-1 p-1 rounded cursor-pointer"
-                      aria-label="Copy code"
-                      type="button"
-                    >
-                      {CustomCopyIcon}
-                      <span className="text-xs font-medium">Copy</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">
-                    Copy
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handleDownload}
-                      className="flex items-center gap-1 p-1 rounded cursor-pointer"
-                      aria-label="Download code"
-                      type="button"
-                    >
-                      <DownloadIcon size={16} />
-                      <span className="text-xs font-medium">Download</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">
-                    Download
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setCollapsed((c) => !c)}
-                      className="flex items-center gap-1 p-1 rounded cursor-pointer"
-                      aria-label={collapsed ? 'Expand code' : 'Collapse code'}
-                      type="button"
-                    >
-                      <span className="text-xs font-medium">{collapsed ? 'Expand' : 'Collapse'}</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">
-                    {collapsed ? 'Expand code' : 'Collapse code'}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          </div>
-          {/* Code block body */}
-          {!collapsed && (
-            <div
-              className={
-                styles.codeBlockScroll +
-                (theme === "light"
-                  ? " bg-white rounded-b-xl"
-                  : " bg-black rounded-b-xl")
-              }
-            >
-              <div className="w-full px-0 sm:px-4 py-2 sm:py-4">
-                <div className={styles.codeBlockContent}>
-                  <SyntaxHighlighter
-                    language={detectedLanguage}
-                    style={THEMES[themeIndex].value}
-                    customStyle={{
-                      backgroundColor: theme === "light" ? "#fff" : "transparent",
-                      margin: 0,
-                      padding: 0,
-                      borderRadius: 0,
-                      fontSize: 14,
-                      width: '100%',
-                      minWidth: 0,
-                      overflowX: 'auto',
-                      boxSizing: 'border-box',
-                      wordBreak: 'break-all',
-                      whiteSpace: 'pre',
-                      // Force full transparency in dark mode
-                      ...(theme !== "light" ? { background: 'transparent', backgroundColor: 'transparent' } : {})
-                    }}
-                    codeTagProps={{
-                      className: "whitespace-pre break-words font-mono w-full min-w-0",
-                    }}
-                    {...props}
-                  >
-                    {codeString}
-                  </SyntaxHighlighter>
-                </div>
-              </div>
-            </div>
-          )}
-          {collapsed && (
-            <div className="italic text-xs text-zinc-400 px-4 py-8 text-center select-none rounded-b-xl">{codeLines} lines hidden</div>
-          )}
-        </div>
-      </TooltipProvider>
-    );
   }
+
+  return (
+    <TooltipProvider>
+      {/* 1. Unified container with rounded edges and overflow hidden */}
+      <div
+        className="not-prose relative my-4 rounded-lg overflow-hidden"
+        style={{ backgroundColor: THEMES[themeIndex].value.background as string }}
+      >
+        {/* 2. Header with same background, language left, buttons right */}
+        <div className="flex items-center justify-between px-4 py-2 text-zinc-300">
+          <span className="text-xs font-sans text-zinc-400 select-none">
+            {detectedLanguage}
+          </span>
+
+          {/* 3. Buttons are always visible */}
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={handleCopy} className="flex cursor-pointer items-center gap-1.5 p-1 rounded hover:bg-white/10 transition-colors">
+                  <CopyIcon className="size-3.5" />
+                  <span className="text-xs font-medium">{copied ? 'Copied!' : 'Copy'}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Copy code</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={handleDownload} className="flex cursor-pointer items-center gap-1.5 p-1 rounded hover:bg-white/10 transition-colors">
+                  <DownloadIcon className="size-3.5" />
+                  <span className="text-xs font-medium">Download</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Download file</TooltipContent>
+            </Tooltip>
+
+             <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={() => setCollapsed(!collapsed)} className="flex cursor-pointer items-center gap-1.5 p-1 rounded hover:bg-white/10 transition-colors">
+                  <ChevronsUpDown className="size-3.5" />
+                  <span className="text-xs font-medium">{collapsed ? 'Expand' : 'Collapse'}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{collapsed ? 'Expand code' : 'Collapse code'}</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Code Body */}
+        {!collapsed && (
+          <div className={styles.codeBlockScroll}>
+            <SyntaxHighlighter
+              language={detectedLanguage}
+              style={THEMES[themeIndex].value}
+              customStyle={{
+                // IMPORTANT: Make highlighter background transparent to show parent's color
+                background: 'transparent',
+                backgroundColor: 'transparent',
+                margin: 0,
+                // Add padding inside the scroll container
+                padding: '0 1rem 1rem 1rem',
+                fontSize: '14px',
+              }}
+              codeTagProps={{
+                className: "font-mono text-sm",
+              }}
+              {...props}
+            >
+              {codeString}
+            </SyntaxHighlighter>
+          </div>
+        )}
+        
+        {collapsed && (
+            <div className="italic text-xs text-zinc-500 text-center select-none py-4 border-t border-white/5">
+              {codeLines} lines hidden
+            </div>
+        )}
+      </div>
+    </TooltipProvider>
+  );
 }
