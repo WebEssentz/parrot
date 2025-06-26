@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next"
-import { IBM_Plex_Mono, Source_Serif_4 } from 'next/font/google';
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./styles/text-animations.css" // Import the animations CSS
 import { Toaster } from "@/components/ui/sonner";
@@ -10,17 +10,14 @@ import {
   ClerkProvider,
 } from '@clerk/nextjs'
 
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-mono', // CSS variable for code
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
 });
 
-const sourceSerif = Source_Serif_4({
-  subsets: ['latin'],
-  weight: ['400', '600'],
-  style: ['normal', 'italic'],
-  variable: '--font-serif', // CSS variable for UI text and comments
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -50,7 +47,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#18181b" />
       </head>
       <body
-        className={`${ibmPlexMono.variable} ${sourceSerif.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
         <ClerkProvider>
@@ -68,4 +65,3 @@ export default function RootLayout({
     </html>
   );
 }
-

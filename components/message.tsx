@@ -9,6 +9,7 @@ import type { Message as TMessage } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { memo, useCallback, useRef } from "react";
+import { StrategySlate } from "./strategy-slate";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { useUser, UserButton } from "@clerk/nextjs";
@@ -491,16 +492,6 @@ function copyToClipboard(text: string) {
   }
 }
 
-interface ReasoningPartData {
-  type: "reasoning";
-  reasoning: string;
-  details: Array<{ type: "text"; text: string; signature?: string } | { type: "redacted"; data: string }>;
-}
-
-interface ReasoningMessagePartProps {
-  part: ReasoningPartData;
-  isReasoning: boolean;
-}
 
 export function extractSourcesFromText(text: string): { title: string; url: string }[] {
   const sources: { title: string; url: string }[] = [];
@@ -514,60 +505,6 @@ export function extractSourcesFromText(text: string): { title: string; url: stri
     sources.push({ title: match[1] || "Source", url: match[2] });
   }
   return sources;
-}
-
-export function ReasoningMessagePart({ part, isReasoning }: ReasoningMessagePartProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const variants = {
-    collapsed: { height: 0, opacity: 0, marginTop: 0, marginBottom: 0 },
-    expanded: { height: "auto", opacity: 1, marginTop: "1rem", marginBottom: 0 },
-  };
-  const memoizedSetIsExpanded = useCallback((value: boolean) => {
-    setIsExpanded(value);
-  }, []);
-
-  useEffect(() => {
-    memoizedSetIsExpanded(isReasoning);
-  }, [isReasoning, memoizedSetIsExpanded]);
-
-  // No shimmer, no gradient, just static label for reasoning
-  return (
-    <div className="flex flex-col pb-4">
-      {isReasoning ? (
-        <div className="flex flex-row items-center gap-1">
-          <span className="font-medium text-sm mt-1 relative inline-block" style={{ minWidth: 60 }}>
-            <span className="!bg-transparent">Thinking</span>
-          </span>
-        </div>
-      ) : (
-        <div className="flex flex-row gap-2 items-center">
-          <span className="font-medium text-md mt-1 relative inline-block" style={{ minWidth: 60, cursor: 'pointer' }} onClick={() => setIsExpanded((v) => !v)}>Show thoughts</span>
-          <button
-            className={cn("cursor-pointer rounded-full dark:hover:bg-zinc-800 hover:bg-zinc-200", { "dark:bg-zinc-800 bg-zinc-200": isExpanded })}
-            onClick={() => setIsExpanded(!isExpanded)}
-            style={{ marginLeft: '-2px', marginTop: '9px', display: 'flex', alignItems: 'flex-end' }}
-          >
-            {isExpanded ? (
-              <ChevronUpIcon className="h-4 w-4" style={{ display: 'block' }} />
-            ) : (
-              <ChevronDownIcon className="h-4 w-4" style={{ display: 'block' }} />
-            )}
-          </button>
-        </div>
-      )}
-      <AnimatePresence initial={false}>
-        {isExpanded && (
-          <motion.div key="reasoning" className="text-sm dark:text-zinc-400 text-zinc-600 flex flex-col gap-4 border-l pl-3 dark:border-zinc-800" initial="collapsed" animate="expanded" exit="collapsed" variants={variants} transition={{ duration: 0.2, ease: "easeInOut" }}>
-            {part.details.map((detail, detailIndex) =>
-              detail.type === "text"
-                ? <span key={detailIndex} className="italic"><Markdown>{detail.text}</Markdown></span>
-                : "<redacted>"
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }
 
 
@@ -662,7 +599,7 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
                 transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
               >
                 <div style={{ paddingRight: (!isMobileOrTablet && !isWideUserMessage) ? 72 : isLongUserMessage ? 36 : undefined, position: 'relative' }}>
-                <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                  <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
                   {isLongUserMessage && (
                     <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
                       <Tooltip>
@@ -781,6 +718,26 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
   const isAssistant = message.role === "assistant";
   const [sourcesSidebarOpen, setSourcesSidebarOpen] = useState(false);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
+
+  const reasoningParts = React.useMemo(() =>
+    message.parts?.filter(part => part.type === 'reasoning') ?? [],
+    [message.parts]
+  );
+
+  // 2. Extract all other parts that should be rendered normally.
+  const regularParts = React.useMemo(() =>
+    message.parts?.filter(part => part.type !== 'reasoning') ?? [],
+    [message.parts]
+  );
+
+  // --- NEW PROP CALCULATION ---
+  // Determine if the very last part of the message stream is a 'reasoning' part.
+  const isLastPartReasoning = React.useMemo(() => {
+    if (!message.parts || message.parts.length === 0) return false;
+    return message.parts[message.parts.length - 1].type === 'reasoning';
+  }, [message.parts]);
+
+
 
   // Memoize the calculation of sources, media, text, and searchResults without side effects.
   const { images, videos, sources, allText, searchResults, visionFiltering } = React.useMemo(() => {
@@ -953,11 +910,18 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
             </div>
           ))
         )}
-        <div className={cn("flex w-full flex-col items-start")}> 
+        <div className={cn("flex w-full flex-col items-start")}>
           {isAssistant ? (
             <div className={cn("group/ai-message-hoverable", isMobileOrTablet ? "w-full pl-10" : "w-fit")} style={{ marginLeft: 0, paddingLeft: 0, marginTop: isMobileOrTablet ? 32 : undefined }}>
               <div className={cn(!isMobileOrTablet && "flex flex-col space-y-4 w-fit", isMobileOrTablet && styles.clearfix)} style={{ alignItems: !isMobileOrTablet ? 'flex-start' : undefined }}>
-                {message.parts?.map((part, i) => {
+                {reasoningParts.length > 0 && (
+                  <StrategySlate
+                    reasoningParts={reasoningParts}
+                    isLastPartReasoning={isLastPartReasoning}
+                  />
+                )}
+
+                {regularParts.map((part, i) => {
                   if (part.type === "text") {
                     const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
                     const isActivelyStreamingText = isAssistant && status === "streaming" && isLatestMessage && isEffectivelyLastPart;
@@ -979,41 +943,44 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                     return (
                       <div className="flex flex-col" key={`message-${message.id}-part-${i}`}>
                         <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
-                          <div className="flex flex-row items-center gap-1">
+                          {/* Move favicon(s) closer to the label by reducing gap and placing them immediately before the label */}
+                          <div className="flex flex-row items-center gap-0.5">
                             <AnimatePresence initial={false}>
                               {searchedSites.map((url, idx) => (
                                 <motion.img
                                   key={url}
                                   src={getFaviconUrl(url)}
                                   alt="site favicon"
-                                  className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm -ml-1 first:ml-0"
+                                  className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm"
                                   initial={{ x: -20, opacity: 0 }}
                                   animate={{ x: 0, opacity: 1 }}
                                   exit={{ x: 20, opacity: 0 }}
                                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block' }}
+                                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: 0, display: 'inline-block', marginRight: 6, top: '6px' }}
                                 />
                               ))}
                             </AnimatePresence>
-                          </div>
-                          <span className="font-medium pl-4 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
-                            {state === "call" && label ? (
-                              <span style={{ position: 'relative', display: 'inline-block' }}>
-                                <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
-                                <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                            {/* Only shift fetchUrl tool label and icon to the right */}
+                            {toolName === "fetchUrl" && state === "call" && label ? (
+                              <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem', marginLeft: 4 }}>
+                                <span style={{ position: 'relative', display: 'inline-block' }}>
+                                  <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
+                                  <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                                </span>
+                              </span>
+                            ) : state === "call" && label ? (
+                              <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
+                                <span style={{ position: 'relative', display: 'inline-block' }}>
+                                  <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
+                                  <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                                </span>
                               </span>
                             ) : null}
-                          </span>
+                          </div>
                         </div>
                       </div>
                     );
                   }
-                  if (part.type === "reasoning") {
-                    return (
-                      <ReasoningMessagePart key={`message-${message.id}-${i}`} part={part as ReasoningPartData} isReasoning={(message.parts && status === "streaming" && i === message.parts.length - 1) ?? false} />
-                    );
-                  }
-                  return null;
                 })}
               </div>
               {isAssistant && status === "ready" && (
@@ -1190,11 +1157,11 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                             className="flex items-start gap-3 p-2  rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors mb-2"
                                           >
                                             <SourceFavicon url={src.url} title={src.title} />
-                                              <div className="flex flex-col justify-center" style={{ marginTop: '-2px' }}>
-                                                <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
-                                                  style={{ marginTop: 0 }}>{src.title}</div>
-                                                <WebpageTitleDisplay source={{ url: src.url }} />
-                                              </div>
+                                            <div className="flex flex-col justify-center" style={{ marginTop: '-2px' }}>
+                                              <div className="font-medium text-sm text-zinc-500 dark:text-zinc-400 line-clamp-1"
+                                                style={{ marginTop: 0 }}>{src.title}</div>
+                                              <WebpageTitleDisplay source={{ url: src.url }} />
+                                            </div>
                                           </a>
                                         ));
                                       }

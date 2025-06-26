@@ -1,5 +1,3 @@
-// 1. Markdown.tsx
-
 import Link from "next/link"
 import React, { memo } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
@@ -12,7 +10,6 @@ import { CodeBlock } from "./code-block"
 import { cn } from "@/lib/utils"
 
 const components: Partial<Components> = {
-  // ... (all your other components like blockquote, code, p, etc. remain unchanged)
   blockquote: ({ node, children, ...props }) => (
     <blockquote
       className="relative my-4 border-l-4 border-zinc-300 dark:border-zinc-700 rounded"
