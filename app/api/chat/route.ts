@@ -4,7 +4,6 @@ import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, exaSearchTool } from "@/ai/tools";
 
-
 export const maxDuration = 60;
 
 // Helper to select the reasoning model based on user sign-in status
@@ -380,7 +379,7 @@ export async function POST(req: Request) {
     for (const msg of currentTurnMessages) {
       if (msg.role === 'assistant' && msg.toolInvocations) {
         for (const ti of msg.toolInvocations) {
-          if ((ti.toolName === 'googleSearch' || ti.toolName === 'googleSearchTool') &&
+          if ((ti.toolName === 'googleSearch' || ti.toolName === 'exaSearchTool') &&
             (typeof ti.args === 'string' && ti.args.includes(lastUserMessageContent)) ||
             (typeof ti.args === 'object' && ti.args && JSON.stringify(ti.args).includes(lastUserMessageContent))
           ) {

@@ -32,7 +32,6 @@ import { MediaCarousel } from "./ui/media-carousel";
 
 // --- Helper Components & Hooks ---
 
-
 const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="stroke-[2] size-4" {...props}>
     <rect x="3" y="8" width="13" height="13" rx="4" stroke="currentColor"></rect>
@@ -1097,6 +1096,9 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                   type="button"
                                   onClick={() => setSourcesSidebarOpen(true)}
                                 >
+                                  {/** WIP: We want to add a plus icon(add icon) beside the last icon from the favicon source icon
+                                   * Now it should should only render when we have more than 3 sources. Otherwise we keep the current UI.
+                                   */}
                                   {sources.slice(0, 3).map((src, idx) => (
                                     <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
                                       <SourceFavicon url={src.url} title={src.title} />

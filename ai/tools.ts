@@ -658,12 +658,8 @@ function inferDomainsFromIntent(query: string): string[] {
 export const exaSearchTool = tool({
   description: "Performs a web search using Exa. Uses Exa's search for image/video requests with special domains,  It can do a standard query search, find similar pages to a URL, or search for specific media like images and videos, and Exa's answer for general queries. Returns search results including images if available.",
   parameters: z.object({
-    queries: z.array(z.string()).min(1).optional()
-      .describe("An array of one or more independent search queries to execute in parallel. This is the preferred method for multiple searches."),
-    
-    // 2. Keep findSimilar as optional
+    queries: z.array(z.string()).min(1).optional().describe("An array of one or more independent search queries to execute in parallel. This is the preferred method for multiple searches."),
     findSimilar: z.string().optional().describe("A full URL to find similar pages for. Use this INSTEAD of 'query'."),
-    // 3. Other params remain optional
     excludeSourceDomain: z.boolean().optional().describe("When using findSimilar, whether to exclude results from the same domain (default: false)."),
     numResults: z.number().optional().describe("Number of results to return (default: 10)."),
   })

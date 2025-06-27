@@ -236,12 +236,12 @@ body {
   is hovered, which can only be caused by the button (see below).
 */
 .source-highlight-container:hover .source-text {
-  background-color: #6a9deb;
-  color: #ffffff;
+  background-color: #d4e5f3;
+  color: #444444;
 }
 .dark .source-highlight-container:hover .source-text {
-  background-color: #6a9deb;
-  color: #ffffff;
+  background-color: #d4e5f3;
+  color: #000000;
 }
 
 /* --- Inline Source Button Styles --- */
