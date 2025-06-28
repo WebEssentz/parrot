@@ -28,7 +28,7 @@ export const UserChatHeader = () => {
   return (
     <div
       className={
-        `fixed right-0 left-0 w-full top-0 bg-white dark:bg-[#212121] z-50` +
+        `fixed right-0 left-0 w-full top-0 bg-[#F7F7F8] dark:bg-[#212121] z-50` +
         (showBorder ? " border-b border-zinc-200 dark:border-zinc-800" : " border-b-transparent")
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}

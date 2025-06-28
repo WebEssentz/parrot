@@ -20,6 +20,7 @@ interface InputProps {
   hasSentMessage: boolean;
   isDesktop: boolean;
   disabled?: boolean;
+  suggestedPrompts: string[];
   offlineState?: 'online' | 'reconnecting' | 'offline';
 }
 
@@ -36,6 +37,7 @@ export const Textarea = ({
   isDesktop,
   disabled = false,
   offlineState = 'online',
+  suggestedPrompts
 }: InputProps) => {
   const { isSignedIn } = useUser();
   // Use the useMobile hook to detect mobile (not tablet)
@@ -44,7 +46,6 @@ export const Textarea = ({
   // const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
 
   const [staticPlaceholderAnimatesOut, setStaticPlaceholderAnimatesOut] = React.useState(false);
-  const [suggestedPrompts, setSuggestedPrompts] = React.useState<string[]>([]);
   const [currentPromptIndex, setCurrentPromptIndex] = React.useState(0);
   const [previousPromptIndex, setPreviousPromptIndex] = React.useState<number | null>(null);
   const [showAnimatedSuggestions, setShowAnimatedSuggestions] = React.useState(false);
@@ -58,39 +59,39 @@ export const Textarea = ({
   // Remove suggested prompts for signed-in users
   const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
 
-  React.useEffect(() => {
-    if (featureActive) {
-      const fetchPrompts = async () => {
-        try {
-          const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'getSuggestedPrompts' }),
-          });
-          if (!response.ok) throw new Error('Failed to fetch prompts');
-          const data = await response.json();
-          setSuggestedPrompts(data.prompts && data.prompts.length > 0 ? data.prompts : []);
-        } catch (error) {
-          console.error("Error fetching suggested prompts:", error);
-          setSuggestedPrompts([]);
-        }
-      };
-      fetchPrompts();
-    } else {
-      setSuggestedPrompts([]);
-      setShowAnimatedSuggestions(false);
-      setStaticPlaceholderAnimatesOut(false);
-      setIsTabToAcceptEnabled(true);
-      setPromptVisible(false);
-      setPreviousPromptIndex(null);
-    }
-  }, [featureActive]);
+  // React.useEffect(() => {
+  //   if (featureActive) {
+  //     const fetchPrompts = async () => {
+  //       try {
+  //         const response = await fetch('/api/chat', {
+  //           method: 'POST',
+  //           headers: { 'Content-Type': 'application/json' },
+  //           body: JSON.stringify({ action: 'getSuggestedPrompts' }),
+  //         });
+  //         if (!response.ok) throw new Error('Failed to fetch prompts');
+  //         const data = await response.json();
+  //         setSuggestedPrompts(data.prompts && data.prompts.length > 0 ? data.prompts : []);
+  //       } catch (error) {
+  //         console.error("Error fetching suggested prompts:", error);
+  //         setSuggestedPrompts([]);
+  //       }
+  //     };
+  //     fetchPrompts();
+  //   } else {
+  //     setSuggestedPrompts([]);
+  //     setShowAnimatedSuggestions(false);
+  //     setStaticPlaceholderAnimatesOut(false);
+  //     setIsTabToAcceptEnabled(true);
+  //     setPromptVisible(false);
+  //     setPreviousPromptIndex(null);
+  //   }
+  // }, [featureActive]);
 
   React.useEffect(() => {
     let fadeOutTimer: NodeJS.Timeout | undefined;
     let showSuggestionsTimer: NodeJS.Timeout | undefined;
 
-    if (featureActive && !input && suggestedPrompts.length > 0) {
+    if (featureActive && !input && suggestedPrompts && suggestedPrompts.length > 0) {
       setIsTabToAcceptEnabled(true);
       setStaticPlaceholderAnimatesOut(false);
       setShowAnimatedSuggestions(false); 
@@ -119,7 +120,7 @@ export const Textarea = ({
       clearTimeout(fadeOutTimer);
       clearTimeout(showSuggestionsTimer);
     };
-  }, [featureActive, input, suggestedPrompts.length]);
+  }, [featureActive, input, suggestedPrompts]);
 
   React.useEffect(() => {
     let promptInterval: NodeJS.Timeout | undefined;
@@ -178,12 +179,12 @@ export const Textarea = ({
   // Memoize textareaStyle to prevent unnecessary re-renders of the child if this component updates.
   const textareaStyle = React.useMemo(() => ({ 
     minHeight: 56, // Increased min-height slightly to better contain buttons
-    maxHeight: 256 // Corresponds to max-h-64
+    maxHeight: 150 // Corresponds to max-h-64
   }), []);
 
   return (
     <div className="relative flex w-full items-end px-3 py-3 ">
-      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-2 border-zinc-200 dark:border-zinc-700 shadow-lg bg-transparent dark:bg-transparent">
+      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-2 border-zinc-200 dark:border-zinc-800/70 shadow-lg bg-[#F7F7F8] dark:bg-[transparent]">
         {shouldShowCustomPlaceholderElements && (
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
@@ -214,7 +215,7 @@ export const Textarea = ({
                       {showTabBadge && (
                         <span 
                           className="ml-1.5 flex-shrink-0 text-[10px] leading-tight text-zinc-400 dark:text-zinc-500 border border-zinc-300 dark:border-zinc-600 rounded-sm px-1 py-[1px] bg-transparent"
-                          style={{ marginRight: '29px' }} // Space from the edge
+                          style={{ marginRight: '30px' }} // Space from the edge
                         >
                           TAB
                         </span>

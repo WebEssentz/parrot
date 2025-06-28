@@ -25,7 +25,7 @@ export const SignUpButton = () => {
   return (
     <Link
       href="/sign-up"
-      className="inline-flex items-center gap-2 ml-1 font-semibold bg-[#171717] text-white text-sm px-4 py-2 rounded-full hover:bg-zinc-900 dark:bg-white dark:text-[#171717] dark:hover:bg-zinc-100"
+      className="inline-flex items-center gap-2 ml-1 font-semibold bg-[#171717] text-white text-sm px-3 py-1.5 rounded-full hover:bg-zinc-900 dark:bg-white dark:text-[#171717] dark:hover:bg-zinc-100"
     >
       Sign up
     </Link>

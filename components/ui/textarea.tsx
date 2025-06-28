@@ -76,7 +76,7 @@ export function AttachButton({
           onClick={onClick}
           disabled={disabled}
           className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-8 rounded-full text-zinc-500 dark:text-zinc-400 bg-white dark:bg-transparent font-medium px-2.5", // Adjusted dark bg and -ml
+            "inline-flex items-center cursor-pointer justify-center h-8 rounded-full text-zinc-500 dark:text-zinc-400 bg-[#F7F7F8] dark:bg-transparent font-medium px-2.5", // Adjusted dark bg and -ml
             "hover:bg-zinc-100 dark:hover:bg-zinc-700/70", // Adjusted dark hover bg
             disabled ? "opacity-50 cursor-not-allowed" : ""
           )}
@@ -174,10 +174,10 @@ function Textarea({
         ref={textareaRef}
         data-slot="textarea"
         className={cn(
-          "border-input placeholder:text-muted-foreground focus-visible:border-ring w-full rounded-md border px-3 py-2 text-base transition-colors outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-10",
+          "border-input placeholder:text-muted-foreground w-full rounded-md border px-3 py-2 text-base outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-10",
           "!shadow-none !backdrop-blur-none", // No shadow or blur
           isLightMode
-            ? "bg-white bg-opacity-100 border-zinc-200"
+            ? "bg-white bg-opacity-100 border-black"
             : "bg-zinc-900/80 dark:bg-transparent",
           className
         )}

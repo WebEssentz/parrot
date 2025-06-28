@@ -2,7 +2,7 @@ import { smoothStream, streamText, UIMessage } from "ai";
 import { SEARCH_MODE } from "@/components/ui/textarea";
 import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
-import { weatherTool, fetchUrlTool, exaSearchTool} from "@/ai/tools";
+import { weatherTool, fetchUrlTool, exaSearchTool, githubTool } from "@/ai/tools";
 
 export const maxDuration = 60;
 
@@ -14,17 +14,135 @@ function getReasonModelId(user: any) {
 }
 
 // Define suggested prompts highlighting Avurna capabilities
-const AVURNA_SUGGESTED_PROMPTS = [
-  "Give me some fun activities I can do today",
-  "Generate an image of a futuristic cityscape",
-  "Help me debug this Python code for web scraping",
-  "Explain how API integration works.",
-  "I'm starving, suggest a recipe for dinner",
-  "Help me optimize my project workflow",
-  "Help me solve a maths problem",
-  "Help me write a story",
-  "Summarize this website: https://apple.com",
-];
+// --- NEW: Grouped and Themed Suggested Prompts ---
+const PROMPT_GROUPS = {
+  dev: [
+    "Improve the performance of `utils.js` in the `facebook/react` repo.",
+    "Write a Python script to scrape the top 5 posts from Hacker News.",
+    "Refactor this messy JavaScript function to be more readable and efficient.",
+    "Explain the concept of 'git rebase' like I'm five.",
+    "Draft a GitHub Actions workflow to run tests on every pull request.",
+    "Debug this SQL query; it's running too slow.",
+    "Build a simple snake game in JavaScript.",
+    "What are the key differences between REST and GraphQL APIs?",
+    "Create a Dockerfile for a basic Node.js Express app.",
+    "Summarize the latest open issues in the `vercel/next.js` repository.",
+  ],
+  creative: [
+    "Write the opening scene of a sci-fi noir mystery.",
+    "Give me three compelling names for a new coffee brand.",
+    "Help me outline a blog post about the future of AI.",
+    "Create a short, emotional story about a robot who learns to dream.",
+    "Write a witty and professional LinkedIn post announcing a new job.",
+    "Brainstorm a marketing tagline for a new sustainable fashion line.",
+    "Compose a poem about the feeling of logging off after a long day.",
+    "Help me write a difficult email to a client about a project delay.",
+    "Generate a character profile for a cynical detective with a secret.",
+    "Turn this list of features into an exciting product announcement.",
+  ],
+  curator: [
+    "Show me images of the latest iPhone from apple.com.",
+    "Show me the music video for the current #1 song on the Billboard Hot 100.",
+    "Summarize the key arguments in this article: https://www.theverge.com/2024/1/25/24049387/google-search-ai-sge-results-quality",
+    "What are the top 3 trending videos on YouTube right now?",
+    "Find me a great recipe for spaghetti carbonara.",
+    "Give me a brief overview of the latest developments in fusion energy.",
+    "Extract all the product names and prices from this ecommerce page: https://store.google.com/",
+    "Create a 5-song playlist with a similar vibe to Tame Impala.",
+    "Who won the F1 race last weekend and what was the key moment?",
+    "What are some highly-rated, affordable restaurants near me?",
+  ],
+  strategist: [
+    "Help me solve this probability problem: If I roll two dice, what are the odds of getting a sum of 8?",
+    "I'm planning a trip to Japan. Create a 7-day itinerary for Tokyo and Kyoto.",
+    "Explain the core concepts of blockchain technology in simple terms.",
+    "Compare the pros and cons of investing in stocks vs. real estate in a table.",
+    "Help me create a budget for a personal project with a $1000 limit.",
+    "What are some effective strategies for learning a new language?",
+    "Break down the steps to starting a successful podcast.",
+    "Analyze the strengths and weaknesses of a SWOT analysis.",
+    "Give me a logical framework for making a difficult life decision.",
+    "Explain 'First Principles' thinking with a real-world example.",
+  ],
+  casual: [
+    "Give me some fun activities I can do this weekend.",
+    "Tell me a surprisingly interesting fact.",
+    "I'm bored. Suggest a new hobby I could pick up.",
+    "Draft a funny, slightly sarcastic out-of-office email response.",
+    "What's a great movie to watch tonight if I'm in the mood for a thriller?",
+    "If animals could talk, which species would be the rudest?",
+    "Give me a workout routine I can do at home with no equipment.",
+    "I'm starving. Suggest a quick and easy recipe for dinner.",
+    "Help me plan a surprise birthday party for a friend.",
+    "Tell me a joke that's actually funny.",
+  ],
+};
+
+// --- Smart Shuffle Logic for Suggested Prompts ---
+// This class manages the state of the prompts to ensure variety.
+class PromptSelector {
+  private remainingPrompts!: { [group: string]: string[] };
+  private remainingGroups!: string[];
+
+  constructor() {
+    this.reset();
+  }
+
+  // Resets the state to the full set of prompts and groups
+  private reset() {
+    this.remainingPrompts = JSON.parse(JSON.stringify(PROMPT_GROUPS));
+    this.remainingGroups = Object.keys(PROMPT_GROUPS);
+  }
+
+  // The main method to get a list of unique, varied prompts
+  public getSuggestedPrompts(count = 5): string[] {
+    const selectedPrompts: string[] = [];
+    let availableGroups = [...this.remainingGroups];
+
+    // Ensure we don't try to select more prompts than are available
+    const totalRemaining = Object.values(this.remainingPrompts).flat().length;
+    if (totalRemaining === 0) {
+      this.reset(); // If we've used all prompts, start over
+      return this.getSuggestedPrompts(count);
+    }
+    const selectionCount = Math.min(count, availableGroups.length, totalRemaining);
+
+    for (let i = 0; i < selectionCount; i++) {
+      // 1. Randomly pick a group from the available ones for this round
+      const groupIndex = Math.floor(Math.random() * availableGroups.length);
+      const groupName = availableGroups[groupIndex];
+      
+      // 2. Randomly pick a prompt from that group
+      const promptsInGroup = this.remainingPrompts[groupName];
+      const promptIndex = Math.floor(Math.random() * promptsInGroup.length);
+      const selectedPrompt = promptsInGroup[promptIndex];
+      
+      selectedPrompts.push(selectedPrompt);
+      
+      // 3. Remove the selected prompt from its group to prevent re-selection
+      promptsInGroup.splice(promptIndex, 1);
+      
+      // 4. If a group is now empty, remove it from the main list of remaining groups
+      if (promptsInGroup.length === 0) {
+        const mainGroupIndex = this.remainingGroups.indexOf(groupName);
+        if (mainGroupIndex > -1) {
+          this.remainingGroups.splice(mainGroupIndex, 1);
+        }
+      }
+      
+      // 5. Remove the group from this round's selection pool to ensure group variety
+      availableGroups.splice(groupIndex, 1);
+    }
+    
+    return selectedPrompts;
+  }
+}
+
+// We need a single, persistent instance of the selector across API calls.
+// In a real server, this would be managed in a singleton or similar state management pattern.
+// For Vercel serverless functions, this will be re-instantiated on each cold start,
+// which is acceptable for this use case.
+const promptSelector = new PromptSelector();
 
 // --- Robust FetchUrlTool Retry Logic ---
 // This function wraps fetchUrlTool execution with automatic retries if results are insufficient or user requests to "go deeper"
@@ -92,11 +210,12 @@ export async function POST(req: Request) {
   }
 
   // --- Suggested Prompts Handling ---
-  if (action === 'getSuggestedPrompts') {
-    return new Response(JSON.stringify({ prompts: AVURNA_SUGGESTED_PROMPTS }), {
-      headers: { 'Content-Type': 'application/json' }, status: 200,
-    });
-  }
+if (action === 'getSuggestedPrompts') {
+  // The server's only job is to send the full, unchanging list of all prompts.
+  return new Response(JSON.stringify({ promptGroups: PROMPT_GROUPS }), {
+    headers: { 'Content-Type': 'application/json' }, status: 200,
+  });
+}
 
   // --- Title Generation Handling (Robust: Only generate if message is clear) ---
   if (action === 'generateTitle' && messages && messages.length > 0) {
@@ -443,7 +562,7 @@ export async function POST(req: Request) {
       },
     },
     googleSearch: exaSearchTool,
-
+    githubTool: githubTool,
   };
 
   const result = streamText({

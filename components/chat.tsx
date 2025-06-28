@@ -3,6 +3,7 @@
 import React from "react";
 import { getDefaultModel } from "@/ai/providers";
 import { useUser } from "@clerk/nextjs";
+import { useSuggestedPrompts } from '@/hooks/use-suggested-prompts'; 
 import { useMobile } from "../hooks/use-mobile";
 import { defaultModel } from "@/ai/providers";
 import { SEARCH_MODE } from "@/components/ui/textarea";
@@ -10,6 +11,7 @@ import { useChat } from "@ai-sdk/react";
 import { useRef as useReactRef } from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
+import { SuggestedPrompts } from "./suggested-prompts";
 import { ProjectOverview } from "./project-overview";
 import { Messages } from "./messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
@@ -107,6 +109,8 @@ export default function Chat() {
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(getDefaultModel(!!isSignedIn));
+  const dynamicSuggestedPrompts = useSuggestedPrompts();
+
   // Update selectedModel if sign-in state changes
   useEffect(() => {
     setSelectedModel(getDefaultModel(!!isSignedIn));
@@ -153,6 +157,7 @@ export default function Chat() {
     stop,
     setMessages,
     data,
+    append,
     // appendMessage, (not present in useChat)
   } = useChat({
     api: '/api/chat',
@@ -183,6 +188,15 @@ export default function Chat() {
       modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
     },
   });
+
+  // CREATE the sendMessage function to pass as a prop.
+  // This uses the `append` function we just destructured.
+  const sendMessage = (message: string) => {
+    append({
+      role: 'user',
+      content: message,
+    });
+  };
 
   // Watch for recursionPrompt in data
   useEffect(() => {
@@ -266,7 +280,7 @@ export default function Chat() {
   }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, containerRef]);
 
   const hasSentMessage = messages.length > 0;
-  
+
   useEffect(() => {
     if (status === 'streaming' || status === 'submitted') {
       setTimeout(() => {
@@ -274,7 +288,7 @@ export default function Chat() {
       }, 80);
     }
   }, [status, endRef]);
-  
+
   useEffect(() => {
     const elementToObserve = inputAreaRef.current;
 
@@ -297,7 +311,7 @@ export default function Chat() {
     // Keep window resize listener if it's meant to trigger remeasurement
     // for reasons beyond the element's own ResizeObserver capabilities.
     window.addEventListener('resize', measureAndUpdateHeight);
-    
+
     return () => {
       observer.unobserve(elementToObserve);
       window.removeEventListener('resize', measureAndUpdateHeight);
@@ -327,7 +341,7 @@ export default function Chat() {
       setShowMobileInfoMessage(false);
     }
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
-  
+
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
   const isMobileOrTabletHook = useMobile();
   // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
@@ -360,7 +374,7 @@ export default function Chat() {
             <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-[50rem]">
               <ProjectOverview />
               {isDesktop && (
-                <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto mt-6 ">
+                <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto mt-6 ">
                   <CustomTextareaWrapper
                     selectedModel={selectedModel}
                     setSelectedModel={setSelectedModel}
@@ -372,31 +386,41 @@ export default function Chat() {
                     stop={stop}
                     hasSentMessage={hasSentMessage}
                     isDesktop={isDesktop}
+                    suggestedPrompts={dynamicSuggestedPrompts}
                   />
                 </form>
+              )}
+              {/* 
+        CORRECT PLACEMENT:
+        Show suggested prompts BELOW the textarea, ONLY on desktop.
+      */}
+              {isDesktop && (
+                <div className="mt-4 w-full max-w-4xl mx-auto">
+                  <SuggestedPrompts sendMessage={sendMessage} />
+                </div>
               )}
               {isDesktop && (
                 <>
                   <div className="fixed left-1/2 -translate-x-1/2 bottom-1 z-30 flex justify-center pointer-events-none">
-                    <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
+                    <span className="text-xs font-normal text-zinc-600 dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
                       By messaging Avurna, you agree to our{' '}
                       <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
                       {' '}and our{' '}
                       <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Privacy Policy</a>.
                     </span>
                   </div>
-                  <div className="fixed left-4 bottom-0 z-30 py-2">
-                    <span className="text-sm font-normal text-zinc-600 dark:text-zinc-300 select-none">
+                  {/* <div className="fixed left-4 bottom-0 z-30 py-2">
+                    <span className="text-xs font-normal text-zinc-600 dark:text-zinc-300 select-none">
                       © {currentYear} Avocado
                     </span>
-                  </div>
-                  <div className="fixed right-4 bottom-0 z-30 py-2">
+                  </div> */}
+                  {/* <div className="fixed right-4 bottom-0 z-30 py-2">
                     <div className="inline-flex items-center gap-x-3">
-                      <a href="https://x.com/YourXProfile" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our X profile"><XIcon size={18} /></a>
-                      <a href="https://linkedin.com/company/YourLinkedIn" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn profile"><LinkedInIcon size={18} /></a>
-                      <a href="https://github.com/YourGithub" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our GitHub"><Github className="size-[18px]" /></a>
+                      <a href="https://x.com/YourXProfile" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our X profile"><XIcon size={15} /></a>
+                      <a href="https://linkedin.com/company/YourLinkedIn" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn profile"><LinkedInIcon size={15} /></a>
+                      <a href="https://github.com/YourGithub" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our GitHub"><Github className="size-[15px]" /></a>
                     </div>
-                  </div>
+                  </div> */}
                 </>
               )}
             </div>
@@ -436,6 +460,7 @@ export default function Chat() {
                   stop={stop}
                   hasSentMessage={hasSentMessage}
                   isDesktop={false}
+                  suggestedPrompts={dynamicSuggestedPrompts}
                 />
               </form>
               {(hasSentMessage) && (
@@ -466,6 +491,7 @@ export default function Chat() {
                   stop={stop}
                   hasSentMessage={hasSentMessage}
                   isDesktop={true}
+                  suggestedPrompts={dynamicSuggestedPrompts}
                 />
               </form>
               {(hasSentMessage) && (
