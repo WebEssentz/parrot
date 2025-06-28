@@ -11,22 +11,6 @@ export const Header = () => {
   const { theme } = useTheme();
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // // Set header text color CSS variable for light/dark mode
-  // useEffect(() => {
-  //   const setAvurnaHeaderColor = () => {
-  //     const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches;
-  //     document.documentElement.style.setProperty('--Avurna-header-color', isDark ? '#bdbdbd' : '#5d5d5d');
-  //   };
-//   setAvurnaHeaderColor();
-  //   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAvurnaHeaderColor);
-  //   const observer = new MutationObserver(setAvurnaHeaderColor);
-  //   observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-  //   return () => {
-  //     window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', setAvurnaHeaderColor);
-  //     observer.disconnect();
-  //   };
-  // }, []);
-
   useEffect(() => {
     const check = () => setIsMobileOrTablet(window.innerWidth < 1024);
     check();

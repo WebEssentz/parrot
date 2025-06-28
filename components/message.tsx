@@ -11,6 +11,7 @@ import { useTheme } from "next-themes";
 import { memo, useRef } from "react";
 import { StrategySlate } from "./strategy-slate";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { GithubWorkflowAggregator } from './github-workflow-aggregator';
 import { toast } from "sonner";
 import { useUser, UserButton } from "@clerk/nextjs";
 import {
@@ -933,7 +934,22 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                     );
                   }
             
-                  if (part.type === "tool-invocation") {
+                    if (part.type === "tool-invocation") {
+                    // Github workflow aggregator UI for githubTool
+                    const githubWorkflowInvocations = (message.parts ?? []).filter(
+                      p => p.type === 'tool-invocation' && p.toolInvocation.toolName === 'githubTool'
+                    );
+                    if (
+                      part.toolInvocation.toolName === 'githubTool' &&
+                      part.toolInvocation.state === 'call' &&
+                      githubWorkflowInvocations.length > 0
+                    ) {
+                      return (
+                      <div key={`message-${message.id}-part-${i}`} className="w-full">
+                        <GithubWorkflowAggregator invocations={githubWorkflowInvocations} />
+                      </div>
+                      );
+                    }
                     if (part.toolInvocation.state === "result") {
                       return <motion.div key={`message-${message.id}-part-${i}`} initial={{ opacity: 1, height: 'auto' }} animate={{ opacity: 0, height: 0, margin: 0, padding: 0 }} transition={{ duration: 0.35, ease: 'easeInOut' }} style={{ overflow: 'hidden' }} />;
                     }
@@ -942,45 +958,45 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                     const searchedSites = searchedSitesByPart[i] || [];
                     return (
                       <div className="flex flex-col" key={`message-${message.id}-part-${i}`}>
-                        <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
-                          {/* Move favicon(s) closer to the label by reducing gap and placing them immediately before the label */}
-                          <div className="flex flex-row items-center gap-0.5">
-                            <AnimatePresence initial={false}>
-                              {searchedSites.map((url, idx) => (
-                                <motion.img
-                                  key={url}
-                                  src={getFaviconUrl(url)}
-                                  alt="site favicon"
-                                  className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm"
-                                  initial={{ x: -20, opacity: 0 }}
-                                  animate={{ x: 0, opacity: 1 }}
-                                  exit={{ x: 20, opacity: 0 }}
-                                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: 0, display: 'inline-block', marginRight: 6, top: '6px' }}
-                                />
-                              ))}
-                            </AnimatePresence>
-                            {/* Only shift fetchUrl tool label and icon to the right */}
-                            {toolName === "fetchUrl" && state === "call" && label ? (
-                              <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem', marginLeft: 4 }}>
-                                <span style={{ position: 'relative', display: 'inline-block' }}>
-                                  <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
-                                  <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
-                                </span>
-                              </span>
-                            ) : state === "call" && label ? (
-                              <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
-                                <span style={{ position: 'relative', display: 'inline-block' }}>
-                                  <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
-                                  <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
-                                </span>
-                              </span>
-                            ) : null}
-                          </div>
+                      <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
+                        {/* Move favicon(s) closer to the label by reducing gap and placing them immediately before the label */}
+                        <div className="flex flex-row items-center gap-0.5">
+                        <AnimatePresence initial={false}>
+                          {searchedSites.map((url, idx) => (
+                          <motion.img
+                            key={url}
+                            src={getFaviconUrl(url)}
+                            alt="site favicon"
+                            className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm"
+                            initial={{ x: -20, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: 20, opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: 0, display: 'inline-block', marginRight: 6, top: '6px' }}
+                          />
+                          ))}
+                        </AnimatePresence>
+                        {/* Only shift fetchUrl tool label and icon to the right */}
+                        {toolName === "fetchUrl" && state === "call" && label ? (
+                          <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem', marginLeft: 4 }}>
+                          <span style={{ position: 'relative', display: 'inline-block' }}>
+                            <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
+                            <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                          </span>
+                          </span>
+                        ) : state === "call" && label ? (
+                          <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
+                          <span style={{ position: 'relative', display: 'inline-block' }}>
+                            <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
+                            <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                          </span>
+                          </span>
+                        ) : null}
                         </div>
                       </div>
+                      </div>
                     );
-                  }
+                    }
                 })}
               </div>
               {isAssistant && status === "ready" && (

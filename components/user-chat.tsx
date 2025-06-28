@@ -1,9 +1,7 @@
 "use client";
 
 import React from "react";
-import { useMobile } from "../hooks/use-mobile";
-import { defaultModel, getDefaultModel } from "@/ai/providers";
-import { SEARCH_MODE } from "@/components/ui/textarea";
+import { getDefaultModel } from "@/ai/providers";
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
@@ -12,6 +10,7 @@ import { Messages } from "./messages";
 import { toast } from "sonner";
 import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
+import { SuggestedPrompts } from "./suggested-prompts";
 
 
 // GreetingBanner component for personalized greeting
