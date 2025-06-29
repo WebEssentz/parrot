@@ -3,7 +3,7 @@
 import React from "react";
 import { getDefaultModel } from "@/ai/providers";
 import { useUser } from "@clerk/nextjs";
-import { useSuggestedPrompts } from '@/hooks/use-suggested-prompts'; 
+import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts'; 
 import { useMobile } from "../hooks/use-mobile";
 import { defaultModel } from "@/ai/providers";
 import { SEARCH_MODE } from "@/components/ui/textarea";
@@ -109,7 +109,7 @@ export default function Chat() {
 
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(getDefaultModel(!!isSignedIn));
-  const dynamicSuggestedPrompts = useSuggestedPrompts();
+  const dynamicSuggestedPrompts = useLiveSuggestedPrompts();
 
   // Update selectedModel if sign-in state changes
   useEffect(() => {
