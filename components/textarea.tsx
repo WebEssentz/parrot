@@ -184,7 +184,7 @@ export const Textarea = ({
 
   return (
     <div className="relative flex w-full items-end px-3 py-3 ">
-      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-2 border-zinc-200 dark:border-zinc-800/70 shadow-lg bg-[#F7F7F8] dark:bg-[transparent]">
+      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-2 border-zinc-200 dark:border-zinc-800/70 shadow-lg bg-[#F7F7F8] dark:bg-[#212121]">
         {shouldShowCustomPlaceholderElements && (
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
