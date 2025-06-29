@@ -8,6 +8,7 @@ import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { useUser } from "@clerk/nextjs";
 import { Messages } from "./messages";
 import { toast } from "sonner";
+import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts'; 
 import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
 import { SuggestedPrompts } from "./suggested-prompts";
@@ -112,6 +113,7 @@ export default function UserChat() {
   const [isDesktop, setIsDesktop] = useState<undefined | boolean>(undefined);
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
+  const dynamicSuggestedPrompts = useLiveSuggestedPrompts();
 
   // --- Compose user info for backend ---
   const userInfo = isLoaded && user ? {
@@ -216,6 +218,7 @@ export default function UserChat() {
                     isDesktop={!!isDesktop}
                     disabled={offlineState !== 'online'}
                     offlineState={offlineState}
+                    suggestedPrompts={dynamicSuggestedPrompts}
                   />
                 </form>
               )}
@@ -252,6 +255,7 @@ export default function UserChat() {
                 isDesktop={false}
                 disabled={offlineState !== 'online'}
                 offlineState={offlineState}
+                suggestedPrompts={dynamicSuggestedPrompts}
               />
             </form>
           </div>
@@ -277,6 +281,7 @@ export default function UserChat() {
                   isDesktop={!!isDesktop}
                   disabled={offlineState !== 'online'}
                   offlineState={offlineState}
+                  suggestedPrompts={dynamicSuggestedPrompts}
                 />
               </form>
             </div>

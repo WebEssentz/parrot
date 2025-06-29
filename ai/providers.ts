@@ -39,7 +39,7 @@ export const MODELS = Object.keys(languageModels);
  * Usage: getDefaultModel(isSignedIn)
  */
 export function getDefaultModel(isSignedIn: boolean): modelID {
-  return isSignedIn ? "gemini-2.5-flash" : "gemini-2.5-flash-lite-preview-06-17";
+  return isSignedIn ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-05-20";
 }
 
 // For legacy usage, keep the old export (signed-in default)

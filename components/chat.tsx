@@ -347,7 +347,7 @@ export default function Chat() {
   // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
   // Push chat view down on all devices (more)
   // Instead of buffer, use a real padding-bottom on the message container
-  const inputAreaPadding = inputAreaHeight + 120;
+  const inputAreaPadding = inputAreaHeight;
   const currentYear = new Date().getFullYear();
 
   return (

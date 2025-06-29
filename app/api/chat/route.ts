@@ -10,7 +10,7 @@ export const maxDuration = 60;
 function getReasonModelId(user: any) {
   return user && user.email
     ? "gemini-2.5-flash"
-    : "gemini-2.5-flash-lite-preview-06-17";
+    : "gemini-2.5-flash-preview-05-20";
 }
 
 // Define suggested prompts highlighting Avurna capabilities

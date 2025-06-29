@@ -45,7 +45,7 @@ export const Header = () => {
       <div className="flex justify-between items-center p-4 py-2">
         <div className="flex flex-row items-center gap-2 shrink-0 ">
           <span className="jsx-e3e12cc6f9ad5a71 flex flex-row items-center gap-2 home-links">
-            <Link href="/" className="text-2xl font-base tracking-tight text-black dark:text-white">
+            <Link href="/" className="-mt-3 text-xl font-base tracking-tight text-black dark:text-white">
               Avurna
             </Link>
           </span>
