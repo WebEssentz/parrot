@@ -6,7 +6,6 @@ import { useUser } from "@clerk/nextjs";
 import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts'; 
 import { useMobile } from "../hooks/use-mobile";
 import { defaultModel } from "@/ai/providers";
-import { SEARCH_MODE } from "@/components/ui/textarea";
 import { useChat } from "@ai-sdk/react";
 import { useRef as useReactRef } from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -107,7 +106,6 @@ export default function Chat() {
   const [showMobileInfoMessage, setShowMobileInfoMessage] = useState(false);
   const [hasShownMobileInfoMessageOnce, setHasShownMobileInfoMessageOnce] = useState(false);
 
-  const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const modelForCurrentSubmissionRef = useRef<string>(getDefaultModel(!!isSignedIn));
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts();
 
@@ -164,19 +162,21 @@ export default function Chat() {
     maxSteps: 5,
     body: { selectedModel },
     initialMessages: [],
-    // onStream: (data) => {
-    //   if (data && typeof data === 'object' && data.type === 'recursionPrompt') {
-    //     setRecursionPrompt(data);
-    //     return false;
-    //   }
-    //   return true;
-    // },
+    onToolCall: (toolCall) => {
+    console.log('AI-SDK Debug: Tool Call Initiated:', toolCall);
+  },
+  onResponse: (toolResult) => {
+    console.log('AI-SDK Debug: Tool Result Received:', toolResult);
+    // If you see this log, it means the SDK is receiving the result.
+    // The problem then shifts to why the AI model isn't acting on it.
+  },
     onFinish: (_message, _options) => {
+      console.log('AI-SDK Debug: Chat finished.');
       setSelectedModel(getDefaultModel(!!isSignedIn));
-      setIsSubmittingSearch(false);
       modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
     },
     onError: (error) => {
+      console.error("AI-SDK Debug: Error during chat:", error);
       toast.error(
         error.message && error.message.length > 0
           ? error.message
@@ -184,10 +184,13 @@ export default function Chat() {
         { position: "top-center", richColors: true },
       );
       setSelectedModel(getDefaultModel(!!isSignedIn));
-      setIsSubmittingSearch(false);
       modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
     },
   });
+
+  useEffect(() => {
+  console.log('Current Messages State:', messages);
+}, [messages]);
 
   // CREATE the sendMessage function to pass as a prop.
   // This uses the `append` function we just destructured.
@@ -243,16 +246,9 @@ export default function Chat() {
     const intendedModelForThisSubmit = selectedModel;
     modelForCurrentSubmissionRef.current = intendedModelForThisSubmit;
 
-    if (intendedModelForThisSubmit === SEARCH_MODE) {
-      if (isSubmittingSearch) return;
-      setIsSubmittingSearch(true);
-    } else if (isSubmittingSearch && modelForCurrentSubmissionRef.current === SEARCH_MODE) {
-      return;
-    }
-
-    originalHandleSubmit(e, {
-      body: { selectedModel: modelForCurrentSubmissionRef.current }
-    });
+    // 1. Get the current list of messages
+    // 2. Call the original submit function from useChat
+    originalHandleSubmit(e);
 
     if (showMobileInfoMessage) setShowMobileInfoMessage(false);
 
@@ -277,7 +273,7 @@ export default function Chat() {
         }, 40);
       }
     }, 120);
-  }, [selectedModel, isSubmittingSearch, input, originalHandleSubmit, showMobileInfoMessage, containerRef]);
+  }, [selectedModel, input, originalHandleSubmit, messages, setMessages, showMobileInfoMessage, containerRef]);
 
   const hasSentMessage = messages.length > 0;
 
@@ -342,7 +338,7 @@ export default function Chat() {
     }
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
 
-  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
+  const uiIsLoading = status === "streaming" || status === "submitted"
   const isMobileOrTabletHook = useMobile();
   // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
   // Push chat view down on all devices (more)

@@ -7,8 +7,6 @@ import { useRef, useLayoutEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Paperclip } from "lucide-react";
 
-export const SEARCH_MODE = "__search_mode__"; // Ensure this is consistently defined
-
 // WIP: We want to create a license line in our files like below
 // It should say something about licensed use. ie. Avurna is not a free software to distribute, sell, or purchase, and is tied to the Avocado INC.
 

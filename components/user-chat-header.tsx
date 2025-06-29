@@ -33,7 +33,7 @@ export const UserChatHeader = () => {
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
     >
-      <div className="flex justify-between items-center p-4">
+      <div className="flex justify-between items-center p-4 py-2">
         <div className="flex flex-row items-center gap-2 shrink-0 ">
           <span className="flex flex-row items-center gap-2 home-links">
             <span
@@ -57,7 +57,7 @@ export const UserChatHeader = () => {
               // This styles the UserButton dropdown menu
               baseTheme: resolvedTheme === 'dark' ? dark : undefined,
               elements: {
-                userButtonAvatarBox: "w-10 h-10",
+                userButtonAvatarBox: "w-6 h-6",
                 userButtonPopoverCard: {
                   backgroundColor: resolvedTheme === 'dark' ? '#212121' : '#ffffff',
                   border: resolvedTheme === 'dark' ? '1px solid #3f3f46' : '1px solid #e5e5e5',

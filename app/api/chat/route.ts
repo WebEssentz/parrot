@@ -1,5 +1,4 @@
 import { smoothStream, streamText, UIMessage } from "ai";
-import { SEARCH_MODE } from "@/components/ui/textarea";
 import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, exaSearchTool, githubTool } from "@/ai/tools";
@@ -105,7 +104,8 @@ export async function robustFetchUrlTool(params: any, userMessage: string, maxDe
         || (result.siteType === 'general' && (!result.summary || result.summary.length < 100))
         || userRequestedDeeper));
     if (!insufficient) {
-      break;
+      // If result is sufficient, return immediately
+      return result;
     }
     attempt++;
     recursionDepth = Math.min(recursionDepth + 1, maxDepth);
@@ -113,9 +113,11 @@ export async function robustFetchUrlTool(params: any, userMessage: string, maxDe
     reason += `Not enough data found at depth ${recursionDepth - 1}, trying depth ${recursionDepth} (maxPages ${maxPages})...\n`;
     userRequestedDeeper = false; // Only trigger once per user message
   }
+  // After maxDepth attempts, always return the last result, even if insufficient
   if (reason) {
-    // Attach retry info for LLM/user
-    result.retryInfo = reason.trim();
+    if (result && typeof result === 'object') {
+      result.retryInfo = reason.trim();
+    }
   }
   return result;
 }
@@ -417,64 +419,30 @@ if (action === 'getSuggestedPrompts') {
   //   systemPrompt += "\n\n" + fs.readFileSync(path.join(promptDir, "agentXPrompt.txt"), "utf8");
   // }
 
-  const isFrontendRequestingSearch = selectedModel === SEARCH_MODE;
-  // (moved up for recursion logic)
-  // (moved up above for recursion logic)
-
-  let googleSearchAttemptsForThisQuery = 0;
-  if (lastUserMessage) {
-    let currentTurnMessages = messages as UIMessage[];
-    const lastUserMessageIndex = messages.map((m: UIMessage) => m.id).lastIndexOf(lastUserMessage.id);
-    if (lastUserMessageIndex !== -1) {
-      currentTurnMessages = messages.slice(lastUserMessageIndex);
-    }
-
-    for (const msg of currentTurnMessages) {
-      if (msg.role === 'assistant' && msg.toolInvocations) {
-        for (const ti of msg.toolInvocations) {
-          if ((ti.toolName === 'googleSearch' || ti.toolName === 'exaSearchTool') &&
-            (typeof ti.args === 'string' && ti.args.includes(lastUserMessageContent)) ||
-            (typeof ti.args === 'object' && ti.args && JSON.stringify(ti.args).includes(lastUserMessageContent))
-          ) {
-            googleSearchAttemptsForThisQuery++;
-          }
-        }
-      }
-    }
-  }
-
-  const forceInitialGoogleSearch = isFrontendRequestingSearch &&
-    googleSearchAttemptsForThisQuery === 0 &&
-    messages[messages.length - 1]?.role !== 'function';
-
-
   // Dynamically select the reasoning model based on user sign-in status
   const REASON_MODEL_ID = getReasonModelId(user);
 
+  // --- Simplified Model Selection Logic ---
   let actualModelIdForLLM: modelID;
-  if (isFrontendRequestingSearch) {
-    actualModelIdForLLM = REASON_MODEL_ID;
-  } else if (selectedModel === REASON_MODEL_ID) {
+  if (selectedModel === REASON_MODEL_ID) {
     actualModelIdForLLM = REASON_MODEL_ID;
   } else if (selectedModel === defaultModel || !selectedModel) {
     actualModelIdForLLM = defaultModel;
   } else {
+    // This part handles other potential models you might add later
     actualModelIdForLLM = selectedModel as modelID;
   }
 
+  // Validate the model ID
   try {
     model.languageModel(actualModelIdForLLM);
   } catch (e: any) {
-    if (e.constructor?.name === 'AI_NoSuchModelError' || e.message?.includes('No such languageModel')) {
-      console.warn(`LLM ID "${actualModelIdForLLM}" is not valid. Falling back to defaultModel "${defaultModel}". Frontend selectedModel: "${selectedModel}"`);
-      actualModelIdForLLM = defaultModel;
-    } else {
-      throw e;
-    }
+    console.warn(`LLM ID "${actualModelIdForLLM}" is not valid. Falling back to defaultModel "${defaultModel}".`);
+    actualModelIdForLLM = defaultModel;
   }
   const languageModel = model.languageModel(actualModelIdForLLM);
 
-  console.log(`API Request: Frontend selectedModel = "${selectedModel}", forceInitialGoogleSearch = ${forceInitialGoogleSearch}, googleSearchAttemptsForThisQuery = ${googleSearchAttemptsForThisQuery}, Using LLM = "${actualModelIdForLLM}"`);
+  console.log(`API Request: Using LLM = "${actualModelIdForLLM}"`);
 
 
   // --- Tool Wrapping: Intercept fetchUrl tool calls for robust retry ---
@@ -507,7 +475,6 @@ if (action === 'getSuggestedPrompts') {
     tools: wrappedTools,
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
-    ...(forceInitialGoogleSearch && { toolChoice: { type: 'tool', toolName: 'googleSearch' } }),
     ...(selectedModel === REASON_MODEL_ID && { // Apply thinkingConfig ONLY when REASON_MODEL_ID is selected
         providerOptions: {
             google: {
