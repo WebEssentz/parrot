@@ -161,6 +161,11 @@
   --bg-surface-l2: hsl(220 5% 19%);
 }
 
+body.loading-prevent-scroll {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* --- Enterprise-grade horizontal scroll prevention and responsive chat --- */
 html, body {
   overflow: hidden !important;

@@ -193,7 +193,7 @@ export default function UserChat() {
         }`}
         style={{
           paddingTop: '80px',
-          paddingBottom: hasSentMessage ? `calc(${inputAreaHeight}px + 4rem)` : '0px',
+          paddingBottom: hasSentMessage ? `calc(${inputAreaHeight}px)` : '0px',
         }}
       >
         {!hasSentMessage ? (

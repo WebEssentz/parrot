@@ -369,7 +369,7 @@ export default function Chat() {
           <div className="flex h-full items-center justify-center">
             <div className="w-full px-4 pb-4 sm:pb-10 flex flex-col items-center max-w-xl lg:max-w-[50rem]">
               <ProjectOverview />
-              {isDesktop && (
+            {isDesktop && (
                 <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto mt-6 ">
                   <CustomTextareaWrapper
                     selectedModel={selectedModel}
