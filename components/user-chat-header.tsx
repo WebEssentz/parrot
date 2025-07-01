@@ -1,21 +1,29 @@
-// components/user-chat-header.tsx
 "use client";
 
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
 import { useSidebar } from "@/lib/sidebar-context";
-import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { Menu } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion"; // <-- Import AnimatePresence
+import { motion, AnimatePresence } from "framer-motion";
 
 export const UserChatHeader = () => {
   const { resolvedTheme } = useTheme();
   const { toggleSidebar, isDesktopSidebarCollapsed } = useSidebar();
-  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  
+  const [isDesktop, setIsDesktop] = useState<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const handleResize = () => setIsDesktop(mediaQuery.matches);
+    
+    handleResize();
+    mediaQuery.addEventListener('change', handleResize);
+    
+    return () => mediaQuery.removeEventListener('change', handleResize);
+  }, []);
   
   const [showBorder, setShowBorder] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     const onScroll = () => {
@@ -25,22 +33,21 @@ export const UserChatHeader = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-  setIsLoaded(true);
-  }, []);
-
-  if (!isLoaded) return null;
+  if (isDesktop === undefined) {
+    return null;
+  }
 
   return (
     <motion.div
       initial={false}
       animate={{
-        // --- THE FIX IS HERE ---
         left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem'
       }}
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       className={
-        `fixed right-0 top-0 bg-background/80 backdrop-blur-sm z-40` + 
+        // --- THE FIX IS HERE ---
+        // Lowered z-index from 40 to 30 to sit below the mobile sidebar.
+        `fixed right-0 top-0 bg-background/80 backdrop-blur-sm z-30` + 
         (showBorder ? " border-b border-border" : " border-b-transparent")
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
@@ -52,10 +59,8 @@ export const UserChatHeader = () => {
               <span className="sr-only">Toggle Sidebar</span>
           </button>
           
-          {/* --- THIS IS THE FIX --- */}
-          {/* The "Avurna" text is now animated and conditional */}
           <AnimatePresence>
-            {isDesktopSidebarCollapsed && (
+            {isDesktop && isDesktopSidebarCollapsed && (
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0, transition: { delay: 0.2 } }}

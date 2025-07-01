@@ -203,12 +203,15 @@ export const Sidebar = () => {
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       // --- THIS IS THE RESTORED STYLING ---
       className={clsx(
-        "fixed top-0 left-0 flex h-full flex-col border-r z-30 overflow-x-hidden",
+        "flex h-full flex-col border-r overflow-x-hidden",
         "border-zinc-200 dark:border-zinc-800",
-        { "cursor-ew-resize": isDesktop },
+        // These classes are now conditional based on screen size
         {
+          "fixed top-0 left-0 z-50": isDesktop, // z-50 to match mobile panel
+          "cursor-ew-resize": isDesktop,
           "bg-[#F7F7F8] dark:bg-[#212121]": isDesktopSidebarCollapsed,
           "bg-[#f9f9f9] dark:bg-[#212121]": !isDesktopSidebarCollapsed,
+          "w-64": !isDesktop, // Give it a static width on mobile
         }
       )}
     >

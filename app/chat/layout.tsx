@@ -1,4 +1,3 @@
-// app/chat/layout.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -41,25 +40,45 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
       }}
     >
       <div className="flex h-screen w-full">
-        <Sidebar />
-        
-        {/* Mobile-only overlay */}
+        {/* Desktop sidebar (static, in flex-flow) */}
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
+
+        {/* Mobile sidebar (animated overlay) */}
         <AnimatePresence>
           {isSidebarOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={toggleSidebar}
-              className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-            />
+            <>
+              {/* --- THE FIX IS HERE (Backdrop) --- */}
+              {/* Increased z-index from 30 to 40 to cover the header. */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={toggleSidebar}
+                className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                aria-hidden="true"
+              />
+              {/* --- THE FIX IS HERE (Sidebar Panel) --- */}
+              {/* Increased z-index from 40 to 50 to be on top of everything. */}
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: "0%" }}
+                exit={{ x: "-100%" }}
+                transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
+                className="fixed top-0 left-0 h-full z-50 lg:hidden"
+              >
+                <Sidebar />
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
-
+        
         {/* Main content area */}
         <main
           className={`h-screen flex-1 overflow-y-auto transition-[padding-left] duration-300 ease-in-out
-                      ${isDesktopSidebarCollapsed ? 'lg:pl-14' : 'lg:pl-64'}`} // <-- THE FIX IS HERE
+                      ${isDesktopSidebarCollapsed ? 'lg:pl-14' : 'lg:pl-64'}`}
         >
           {children}
         </main>
