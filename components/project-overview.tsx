@@ -13,7 +13,6 @@ export const ProjectOverview = () => {
       >
         Avurna
       </h3>
-
     </div>
   );
 };

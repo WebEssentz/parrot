@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('User', {
-  id: uuid('id').primaryKey().notNull().defaultRandom(), // CORRECTED: uuid
+  id: varchar('id', { length: 255 }).primaryKey().notNull(),
   email: varchar('email', { length: 64 }).notNull().unique(),
   username: varchar('username', { length: 255 }).unique(), // Now nullable
   firstName: varchar('first_name', { length: 255 }).default(''),
@@ -26,11 +26,12 @@ export type User = InferSelectModel<typeof user>;
 
 export const chat = pgTable('Chat', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
-  createdAt: timestamp('createdAt').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  // --- NEW COLUMN ---
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   title: text('title').notNull(),
-  userId: uuid('userId')
-    .notNull()
-    .references(() => user.id),
+  userId: varchar('userId', { length: 255 }).notNull().references(() => user.id),
+  messages: json('messages').notNull(), 
   visibility: varchar('visibility', { enum: ['public', 'private'] })
     .notNull()
     .default('private'),
@@ -117,7 +118,7 @@ export const document = pgTable(
     kind: varchar('text', { enum: ['text', 'code', 'image', 'sheet'] })
       .notNull()
       .default('text'),
-    userId: uuid('userId')
+    userId: varchar('userId', { length: 255 })
       .notNull()
       .references(() => user.id),
   },

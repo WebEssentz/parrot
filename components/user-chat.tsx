@@ -2,16 +2,20 @@
 
 import React from "react";
 import { getDefaultModel } from "@/ai/providers";
-import { useChat } from "@ai-sdk/react";
+import { Message, useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { useUser } from "@clerk/nextjs";
 import { Messages } from "./messages";
 import { toast } from "sonner";
-import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts'; 
+import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts';
 import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
 import { SuggestedPrompts } from "./suggested-prompts";
+import { useSidebar } from '@/lib/sidebar-context'; // <-- 1. Import useSidebar
+import { motion } from "framer-motion";
+import { message } from "@/lib/db/schema";
+
 
 
 // GreetingBanner component for personalized greeting
@@ -74,7 +78,7 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
 function useReconnectToClerk() {
   const [offlineState, setOfflineState] = useState<'online' | 'reconnecting' | 'offline'>('online');
   const [hasShownReconnect, setHasShownReconnect] = useState(false);
-  
+
   useEffect(() => {
     const handleOnline = () => {
       setOfflineState('online');
@@ -102,7 +106,7 @@ function useReconnectToClerk() {
   return offlineState;
 }
 
-export default function UserChat() {
+export default function UserChat({ initialChat }: { initialChat?: any }) {
   const offlineState = useReconnectToClerk();
   const containerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>; // For auto-scroll on send
@@ -114,12 +118,35 @@ export default function UserChat() {
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts();
+  const { isDesktopSidebarCollapsed } = useSidebar(); // <-- 2. Get the state from sidebar
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [dbUser, setDbUser] = useState<any>(null); // State to hold our confirmed DB user 
 
   // --- Compose user info for backend ---
   const userInfo = isLoaded && user ? {
     firstName: user.firstName || user.username || '',
     email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || '',
   } : undefined;
+
+  // --- NEW useEffect TO SYNC USER ---
+  useEffect(() => {
+    // This function ensures the user exists in our DB when the component mounts
+    const syncUser = async () => {
+      if (isSignedIn) {
+        try {
+          const response = await fetch('/api/user', { method: 'POST' });
+          if (!response.ok) throw new Error("Failed to sync user");
+          const userData = await response.json();
+          setDbUser(userData); // Save the confirmed user from our DB
+        } catch (error) {
+          console.error("User sync error:", error);
+          toast.error("There was an issue loading your profile.");
+        }
+      }
+    };
+    syncUser();
+  }, [isSignedIn]); // Run this effect whenever the sign-in state changes
+
 
   // Update selectedModel if sign-in state changes
   useEffect(() => {
@@ -134,12 +161,73 @@ export default function UserChat() {
     handleSubmit: originalHandleSubmit,
     status,
     stop,
+    append
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
-    body: { selectedModel, user: userInfo },
-    initialMessages: [],
-    onFinish: () => {
+    body: { selectedModel, user: userInfo, userId: dbUser?.id },
+    initialMessages: initialChat?.messages || [],
+    id: initialChat?.id, // Pass the chat ID to the hook
+    // --- THIS IS THE NEW, UPGRADED onFinish HANDLER ---
+    onFinish: async (assistantMessage) => {
+      if (!dbUser?.id) return; // Don't save if we don't have a confirmed user
+
+      const finalMessages = [...messages, assistantMessage];
+
+      const sanitizedMessages = finalMessages.map(m => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        parts: m.parts,
+        createdAt: m.createdAt,
+      }));
+
+      try {
+        let response;
+
+        if (chatId) {
+          // --- UPDATE an existing chat ---
+          response = await fetch(`/api/chats/${chatId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: sanitizedMessages }),
+          });
+        } else {
+          // --- CREATE LOGIC (THE FIX) ---
+          
+          // 1. Read the title that was set by `generateAndSetTitle`.
+          const chatTitle = document.title || "New Chat";
+          
+          response = await fetch('/api/chats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            // 2. Send the title along with the messages.
+            body: JSON.stringify({ 
+              messages: sanitizedMessages, 
+              userId: dbUser.id,
+              title: chatTitle 
+            }),
+          });
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to save or update chat");
+        }
+
+        if (!chatId) {
+          const newChatData = await response.json();
+          if (newChatData?.id) {
+            setChatId(newChatData.id);
+            window.history.pushState(null, '', `/chat/${newChatData.id}`);
+            // The document title is already set, so no need to set it again.
+          }
+        }
+
+      } catch (error) {
+        console.error("Save/Update Chat Error:", error);
+        toast.error("Could not save the conversation.");
+      }
       setSelectedModel(getDefaultModel(!!isSignedIn));
       setIsSubmittingSearch(false);
     },
@@ -150,15 +238,42 @@ export default function UserChat() {
     },
   });
 
-  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+   // --- NEW: useEffect to set title on initial load ---
+  useEffect(() => {
+    if (initialChat?.title) {
+      document.title = initialChat.title;
+    }
+  }, [initialChat]);
+
+  // Set the chat ID state from the initial prop
+  useEffect(() => {
+    if (initialChat?.id) {
+      setChatId(initialChat.id);
+    }
+  }, [initialChat]);
+
+   // Remove the old useCallback handleSubmit.
+  // This is the new, single handleSubmit function.
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    originalHandleSubmit(e, { body: { selectedModel } });
-    // Scroll to bottom after sending
-    setTimeout(() => {
-      endRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 0);
-  }, [input, originalHandleSubmit, selectedModel]);
+    const trimmedInput = input.trim();
+    if (!trimmedInput) return;
+
+    if (!chatId) {
+      generateAndSetTitle(trimmedInput); 
+    }
+
+    append({
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: trimmedInput,
+      data: { imageUrl: user?.imageUrl || null }
+    }, {
+      body: { selectedModel }
+    });
+
+    setInput('');
+  };
 
   const mergedMessages = [...messages, ...pendingMessages.map(msg => ({ id: msg.id, role: 'user' as const, content: msg.content, pending: true, status: msg.status || 'pending' }))];
   const hasSentMessage = mergedMessages.length > 0;
@@ -179,18 +294,17 @@ export default function UserChat() {
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-  
+
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
-  
+
   return (
-    <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-background">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-background">
       <UserChatHeader />
 
       <main
         ref={containerRef}
-        className={`flex-1 w-full scroll-container ${
-          hasSentMessage ? 'overflow-y-auto' : 'overflow-y-hidden'
-        }`}
+        className={`flex-1 w-full scroll-container ${hasSentMessage ? 'overflow-y-auto' : 'overflow-y-hidden'
+          }`}
         style={{
           paddingTop: '80px',
           paddingBottom: hasSentMessage ? `calc(${inputAreaHeight}px)` : '0px',
@@ -265,7 +379,14 @@ export default function UserChat() {
       {/* This input form is for when a message has been sent (on all screen sizes) */}
       {hasSentMessage && (
         <>
-          <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
+          <motion.div
+            initial={false}
+            ref={inputAreaRef}
+            // Use Framer Motion's animate prop instead of className for the position
+            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '4rem' : '16rem') : '0rem' }}
+            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
+            className="fixed bottom-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"
+          >
             <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
               <form onSubmit={handleSubmit} className="w-full relative z-10">
                 <CustomTextareaWrapper
@@ -285,12 +406,18 @@ export default function UserChat() {
                 />
               </form>
             </div>
-          </div>
-          <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
+          </motion.div>
+          <motion.div
+            initial={false}
+            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '4rem' : '16rem') : '0rem' }}
+            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
+            className="fixed right-0 bottom-0 z-40 text-center pb-2 pointer-events-none"
+          >
+
             <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none rounded-xl pointer-events-auto">
               Avurna uses AI. Double check response.
             </span>
-          </div>
+          </motion.div>
         </>
       )}
     </div>

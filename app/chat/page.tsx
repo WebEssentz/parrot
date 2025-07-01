@@ -1,21 +1,20 @@
+// app/chat/page.tsx
 "use client";
 
-import dynamic from "next/dynamic";
-import { redirect } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
+import UserChat from "@/components/user-chat"; // Your big UserChat component
 import { SpinnerIcon } from "@/components/icons";
 
-const Chat = dynamic(() => import("@/components/chat"), { ssr: false });
+export default function ChatPage() {
+  const { isLoaded, isSignedIn } = useUser();
 
-export default function Page() {
-  const { user, isLoaded } = useUser();
-
-  // When Clerk is loaded, if the user is signed in,
-  // redirect them immediately to the main chat interface.
-  if (isLoaded && user) {
-    redirect("/chat"); // Redirect to the page that has the sidebar
+  // Protect this route. If the user isn't signed in, send them to the landing page.
+  if (isLoaded && !isSignedIn) {
+    redirect("/");
   }
 
+  // Show a spinner while Clerk is loading the user state
   if (!isLoaded) {
     return (
       <div
@@ -40,6 +39,8 @@ export default function Page() {
       </div>
     );
   }
-  
-  return <Chat />;
+
+  // If we're here, the user is loaded and signed in.
+  // Render the full chat experience.
+  return <UserChat />;
 }

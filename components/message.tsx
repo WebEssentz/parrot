@@ -13,7 +13,7 @@ import { StrategySlate } from "./strategy-slate";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { GithubWorkflowAggregator } from './github-workflow-aggregator';
 import { toast } from "sonner";
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import {
   Drawer,
   DrawerContent,
@@ -521,7 +521,13 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
   const { theme } = useTheme();
   const isMobileOrTablet = useIsMobileOrTablet();
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
+  const { user: liveUser } = useUser();
+
+  // --- THE FIX ---
+  // 1. Prioritize the imageUrl saved WITH the message.
+  // 2. Fall back to the currently logged-in user's image for real-time messages.
+  const imageUrlToShow = part.experimental_customData?.imageUrl || liveUser?.imageUrl;
 
   if (!part || part.type !== 'text') return null;
 
@@ -540,7 +546,7 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   const isWideUserMessage = part.text.length > 80;
 
   // Define the colors for the tail to match the bubble background
-  const bubbleBgColor = theme === 'dark' ? '#272727ff' : '#f6f6f7';
+  const bubbleBgColor = theme === 'dark' ? '#272727ff' : '#f4f4f4';
   const tailBorderColor = theme === 'dark' ? '#363636ff' : '#efeff3ff'; // more visible in light mode
 
 
@@ -568,10 +574,18 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
       <motion.div initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-center w-full pb-4">
         {/* Show avatar if signed in, aligned center with bubble, with spacing */}
         {isSignedIn && (
-          <div className="flex-shrink-0 flex items-center" style={{ alignSelf: 'flex-start', marginTop: '10px', marginRight: '8px', pointerEvents: 'none' }}>
-            <div style={{ pointerEvents: 'none' }}>
-              <UserButton appearance={{ elements: { userButtonAvatarBox: "w-8 h-8" } }} afterSignOutUrl="/" showName={false} />
-            </div>
+          <div className="flex-shrink-0" style={{ alignSelf: 'flex-start', marginTop: '10px', marginRight: '8px' }}>
+            {/* 
+              CHANGE: Replace the complex UserButton with a simple, lightweight img tag.
+              This is much more performant for a list of messages.
+            */}
+            {imageUrlToShow && (
+              <img 
+                src={imageUrlToShow} 
+                alt="User Avatar" 
+                className="h-7 w-7 rounded-full"
+              />
+            )}
           </div>
         )}
         <div className={isSignedIn ? "flex flex-row w-full items-start" : "flex flex-row w-full items-start"} style={{ background: 'none', border: 'none', boxShadow: 'none', position: 'relative' }}>
@@ -599,7 +613,7 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
                 transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
               >
                 <div style={{ paddingRight: (!isMobileOrTablet && !isWideUserMessage) ? 72 : isLongUserMessage ? 36 : undefined, position: 'relative' }}>
-                  <Markdown>{isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}</Markdown>
+                  {isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}
                   {isLongUserMessage && (
                     <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
                       <Tooltip>
