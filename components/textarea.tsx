@@ -3,7 +3,7 @@
 import { Textarea as ShadcnTextarea, AttachButton } from "@/components/ui/textarea";
 import { defaultModel } from "@/ai/providers"; 
 import { ArrowUp, ArrowRight } from "lucide-react";
-import { PauseIcon } from "./icons"; 
+import { PauseIcon, SpinnerIcon } from "./icons"; 
 import React from "react";
 import { useMobile } from "../hooks/use-mobile";
 import { useUser } from "@clerk/nextjs";
@@ -267,21 +267,26 @@ export const Textarea = ({
             </div>
             <div className="absolute end-3 bottom-0 flex items-center gap-2">
               <div className="ms-auto flex items-center gap-1.5">
+                {/* Show Submit/Loading button for all other states */}
                 {status !== "streaming" && status !== "submitted" && (
                   <button
                     type="submit"
-                    disabled={isLoading || !input.trim() || disabled} 
+                    // Disable if loading, no input, or explicitly disabled
+                    disabled={isLoading || !input.trim() || disabled}
                     className={`rounded-3xl flex items-center justify-center transition-colors duration-300 ${
                       isLoading || !input.trim() || disabled
                         ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                         : 'dark:bg-white bg-black hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
                     }`}
-                    aria-label="Send" data-testid="composer-button-send" style={{ minWidth: 36, minHeight: 36, padding: 0 }}
+                    aria-label="Send" style={{ minWidth: 36, minHeight: 36, padding: 0 }}
                   >
-                    {!hasSentMessage ? (
-                      <ArrowRight className="h-5 w-5 transition-colors duration-300 mx-auto my-auto text-white dark:text-black" />
+                    {isLoading ? (
+                      // Show spinner when isLoading is true
+                      <SpinnerIcon className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-400" />
+                    ) : hasSentMessage ? (
+                      <ArrowUp className="h-5 w-5 transition-colors duration-300 text-white dark:text-black" />
                     ) : (
-                      <ArrowUp className="h-5 w-5 transition-colors duration-300 mx-auto my-auto text-white dark:text-black" />
+                      <ArrowRight className="h-5 w-5 transition-colors duration-300 text-white dark:text-black" />
                     )}
                   </button>
                 )}

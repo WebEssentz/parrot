@@ -92,9 +92,16 @@ const NewChatIcon = ({ className }: { className?: string }) => {
 const NewChatButton = () => {
   const router = useRouter();
   const { isDesktopSidebarCollapsed } = useSidebar();
+  // The 'toggleSidebar' might be needed if you want to close the mobile sidebar on click
+  const { toggleSidebar, isSidebarOpen } = useSidebar(); 
 
+  
   const handleClick = () => {
     router.push('/chat');
+
+    if (isSidebarOpen) {
+      toggleSidebar();
+    }
   };
 
   return (

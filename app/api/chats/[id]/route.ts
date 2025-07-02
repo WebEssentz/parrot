@@ -8,14 +8,10 @@ import { NextResponse } from 'next/server';
 
 export async function PUT(
   request: Request,
-  // Correct way to receive params in App Router route handlers
   { params }: { params: { id: string } }
 ) {
   const { userId } = await auth();
-
-  // --- THE FIX ---
-  // Await the context object to safely access its properties.
-  const { id: chatId } = await params;
+  const { id: chatId } = params;
 
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -23,21 +19,31 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { messages } = body;
+    // --- FIX: Destructure both possible fields ---
+    const { messages, title } = body;
 
-    if (!messages) {
-      return NextResponse.json({ error: 'Messages are missing' }, { status: 400 });
+    // A request must have at least one field to update
+    if (!messages && !title) {
+        return NextResponse.json({ error: 'No data provided for update' }, { status: 400 });
     }
 
-    // Update the chat record where the ID matches AND it belongs to the current user
+    const updateData: { updatedAt: Date; messages?: any; title?: string } = {
+        updatedAt: new Date(),
+    };
+
+    if (messages) {
+        updateData.messages = messages;
+    }
+    if (title) {
+        updateData.title = title;
+    }
+
     const [updatedChat] = await db.update(chat)
-      .set({
-        messages: messages,
-        updatedAt: new Date(), // Update the timestamp
-      })
+      .set(updateData)
       .where(and(eq(chat.id, chatId), eq(chat.userId, userId)))
       .returning({
         id: chat.id,
+        title: chat.title,
       });
 
     if (!updatedChat) {

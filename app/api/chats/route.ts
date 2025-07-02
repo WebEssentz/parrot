@@ -41,23 +41,25 @@ export async function GET(request: Request) {
 // --- POST Endpoint ---
 export async function POST(request: Request) {
   try {
-
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    // const body = await request.json();
-    // const { messages, userId, title } = body;
-
-    // if (!messages || messages.length === 0) {
-    //   return NextResponse.json({ error: 'No messages to save' }, { status: 400 });
-    // }
     
+    // --- FIX: Read the body from the request ---
+    const body = await request.json();
+    const { messages, title } = body;
+
+    // Validate the data
+    if (!messages || messages.length === 0 || !title) {
+      return NextResponse.json({ error: 'Title and messages are required' }, { status: 400 });
+    }
+    
+    // Create the chat with the provided title and messages
     const [newChat] = await db.insert(chat).values({
       userId: userId,
-      title: "New Chat", // A default title, AI can rename it later
-      messages: [], // Start with an empty message array
+      title: title, // Use the title from the request
+      messages: messages, // Use the messages from the request
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning({
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newChat, { status: 201 });
   } catch (error) {
-    console.error('Error saving chat:', error);
-    return NextResponse.json({ error: 'Failed to save chat' }, { status: 500 });
+    console.error('Error creating chat:', error);
+    return NextResponse.json({ error: 'Failed to create chat' }, { status: 500 });
   }
 }

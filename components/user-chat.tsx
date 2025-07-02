@@ -2,8 +2,8 @@
 
 import React from "react";
 import { getDefaultModel } from "@/ai/providers";
-import { Message, useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { Message as TMessage, useChat } from "@ai-sdk/react"; // Import Message type
+import { useEffect, useRef, useState } from "react";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { useUser } from "@clerk/nextjs";
 import { Messages } from "./messages";
@@ -11,10 +11,10 @@ import { toast } from "sonner";
 import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts';
 import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
-import { SuggestedPrompts } from "./suggested-prompts";
-import { useSidebar } from '@/lib/sidebar-context'; // <-- 1. Import useSidebar
+import { useSidebar } from '@/lib/sidebar-context';
 import { motion } from "framer-motion";
-import { message } from "@/lib/db/schema";
+import { useChats, ChatSummary } from '@/hooks/use-chats';
+import { useRouter } from 'next/navigation';
 
 
 
@@ -121,6 +121,15 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const { isDesktopSidebarCollapsed } = useSidebar(); // <-- 2. Get the state from sidebar
   const [chatId, setChatId] = useState<string | null>(null);
   const [dbUser, setDbUser] = useState<any>(null); // State to hold our confirmed DB user 
+  const router = useRouter();
+
+  const { mutateChats } = useChats();
+  // --- THIS REF IS THE KEY TO THE FIX ---
+  // We'll use a ref to hold the generated title so onFinish can access it.
+  const generatedTitleRef = useRef<string | null>(null);
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  // This ref will hold the user's message that initiated the current stream
+  const lastUserMessageRef = useRef<TMessage | null>(null);
 
   // --- Compose user info for backend ---
   const userInfo = isLoaded && user ? {
@@ -158,21 +167,34 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     input,
     handleInputChange,
     setInput,
-    handleSubmit: originalHandleSubmit,
     status,
+    setMessages,
     stop,
-    append
+    append,
+    reload
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
     body: { selectedModel, user: userInfo, userId: dbUser?.id },
     initialMessages: initialChat?.messages || [],
-    id: initialChat?.id, // Pass the chat ID to the hook
+    id: chatId ?? undefined, // Pass the chat ID to the hook (undefined if null)
     // --- THIS IS THE NEW, UPGRADED onFinish HANDLER ---
     onFinish: async (assistantMessage) => {
       if (!dbUser?.id) return; // Don't save if we don't have a confirmed user
+      
+      // 1. Get the user message that started this interaction from our ref.
+      const userMessage = lastUserMessageRef.current;
 
-      const finalMessages = [...messages, assistantMessage];
+      if (!userMessage) {
+        // This case should not happen in normal flow, but it's a good safeguard.
+        console.error("Could not find the user message that triggered this onFinish event.");
+        return;
+      }
+
+
+      const finalMessages = [...messages, userMessage, assistantMessage];
+   
+      const finalTitle = generatedTitleRef.current || initialChat?.title || document.title || 'New Chat';
 
       const sanitizedMessages = finalMessages.map(m => ({
         id: m.id,
@@ -184,28 +206,25 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
 
       try {
         let response;
+        let currentChatId = chatId || initialChat?.id;
 
-        if (chatId) {
+        if (currentChatId) {
           // --- UPDATE an existing chat ---
-          response = await fetch(`/api/chats/${chatId}`, {
+          response = await fetch(`/api/chats/${currentChatId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: sanitizedMessages }),
+            body: JSON.stringify({ messages: finalMessages, title: finalTitle }),
           });
         } else {
           // --- CREATE LOGIC (THE FIX) ---
-          
-          // 1. Read the title that was set by `generateAndSetTitle`.
-          const chatTitle = document.title || "New Chat";
-          
           response = await fetch('/api/chats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             // 2. Send the title along with the messages.
             body: JSON.stringify({ 
-              messages: sanitizedMessages, 
+              messages: finalMessages, 
               userId: dbUser.id,
-              title: chatTitle 
+              title: finalTitle 
             }),
           });
         }
@@ -215,14 +234,23 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           throw new Error(errorData.error || "Failed to save or update chat");
         }
 
-        if (!chatId) {
-          const newChatData = await response.json();
-          if (newChatData?.id) {
-            setChatId(newChatData.id);
-            window.history.pushState(null, '', `/chat/${newChatData.id}`);
-            // The document title is already set, so no need to set it again.
-          }
+        // After the first successful save, we have a real ID.
+        if (!currentChatId) {
+            const newChatData: ChatSummary = await response.json();
+            currentChatId = newChatData.id;
+            // No more window.history! Use the router.
+            // The router.replace will update the URL without a hard navigation,
+            // but it's enough to trigger the [id]/page.tsx to take over.
+            router.replace(`/chat/${currentChatId}`, { scroll: false });
         }
+
+        // Always refresh the sidebar to get the final, correct state from the server.
+        // --- THIS IS THE FIX ---
+        // Re-fetch the chat list but prevent the current component from re-rendering.
+        // This updates the sidebar without "kicking out" the user.
+        mutateChats();
+        generatedTitleRef.current = null; // Reset the ref for the next new chat
+        lastUserMessageRef.current = null; // Clear the ref
 
       } catch (error) {
         console.error("Save/Update Chat Error:", error);
@@ -238,12 +266,16 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     },
   });
 
-   // --- NEW: useEffect to set title on initial load ---
+  
+
+  // This effect handles the initial load AND a key change correctly.
   useEffect(() => {
-    if (initialChat?.title) {
-      document.title = initialChat.title;
+    if (initialChat) {
+      setMessages(initialChat.messages || []);
+      setChatId(initialChat.id);
+      document.title = initialChat.title || 'Chat';
     }
-  }, [initialChat]);
+  }, [initialChat, setMessages]); // Add setMessages to dependency array
 
   // Set the chat ID state from the initial prop
   useEffect(() => {
@@ -252,26 +284,50 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     }
   }, [initialChat]);
 
-   // Remove the old useCallback handleSubmit.
-  // This is the new, single handleSubmit function.
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+   // --- SIMPLIFIED handleSubmit ---
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
 
-    if (!chatId) {
-      generateAndSetTitle(trimmedInput); 
-    }
+    
 
-    append({
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: trimmedInput,
-      data: { imageUrl: user?.imageUrl || null }
-    }, {
-      body: { selectedModel }
-    });
+    // --- Fire-and-forget title generation ---
+    const prepareNewChat = async () => {
+      // This is the first message of a new chat.
+      if (!chatId && messages.length === 0) {
+        setIsGeneratingTitle(true); // Start the loading spinner
 
+        // Optimistically add to sidebar immediately.
+        mutateChats(
+          (currentData = []) => [{ id: `temp-${Date.now()}`, title: 'New Chat', isOptimistic: true }, ...currentData],
+          false
+        );
+        
+        // Generate the title but DO NOT wait for it.
+        await generateAndSetTitle(trimmedInput);
+        generatedTitleRef.current = document.title;
+        
+        setIsGeneratingTitle(false); // Stop the loading spinner
+      }
+    };
+    
+    // Run the preparation in the background.
+    prepareNewChat();
+
+    // Create the user message object
+      const userMessage: TMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: trimmedInput,
+        data: { imageUrl: user?.imageUrl || null }
+      };
+
+    // Store it in our ref immediately before calling append
+    lastUserMessageRef.current = userMessage;
+
+    // 3. Append the message to the UI and let useChat handle the rest.
+    append(userMessage);
     setInput('');
   };
 

@@ -13,19 +13,16 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Unwrap params using React.use() as required by Next.js 14+ for dynamic routes
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const React = require('react');
-  const unwrappedParams = React.use(params);
+  // You can simplify the param handling. The 'use' hook is for server-side.
+  const chatId = params.id
 
-  useEffect(() => {
-    // Function to fetch the specific chat data
+   useEffect(() => {
     const fetchChat = async () => {
-      if (!unwrappedParams.id) return;
+      if (!chatId) return;
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/chats/${unwrappedParams.id}`);
+        const response = await fetch(`/api/chats/${chatId}`);
         if (!response.ok) {
           throw new Error('Failed to load chat. It may not exist or you may not have permission.');
         }
@@ -38,7 +35,7 @@ export default function ChatPage({ params }: { params: { id: string } }) {
       }
     };
     fetchChat();
-  }, [unwrappedParams.id]); // Re-run this effect if the chat ID in the URL changes
+  }, [chatId]); // The dependency is just the ID string.
 
   if (isLoading) {
     return (
@@ -75,5 +72,5 @@ export default function ChatPage({ params }: { params: { id: string } }) {
 
   // Once data is loaded, pass it to the UserChat component
   // We'll need to update UserChat to accept this data as a prop.
-  return <UserChat initialChat={chatData} />;
+  return <UserChat key={chatId} initialChat={chatData} />;
 }
