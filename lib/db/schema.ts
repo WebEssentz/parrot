@@ -9,6 +9,7 @@ import {
   primaryKey,
   foreignKey,
   boolean,
+  index
 } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('User', {
@@ -35,6 +36,17 @@ export const chat = pgTable('Chat', {
   visibility: varchar('visibility', { enum: ['public', 'private'] })
     .notNull()
     .default('private'),
+},
+  (table) => {
+  return {
+    // Index on the `userId` column. This will dramatically speed up queries
+    // that filter chats by user (e.g., `WHERE "userId" = '...'`).
+    userIdx: index('user_id_idx').on(table.userId),
+
+    // Index on the `updatedAt` column. This speeds up ordering operations
+    // (e.g., `ORDER BY "updatedAt" DESC`).
+    updatedAtIdx: index('updated_at_idx').on(table.updatedAt),
+  };
 });
 
 export type Chat = InferSelectModel<typeof chat>;

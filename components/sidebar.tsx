@@ -93,9 +93,9 @@ const NewChatButton = () => {
   const router = useRouter();
   const { isDesktopSidebarCollapsed } = useSidebar();
   // The 'toggleSidebar' might be needed if you want to close the mobile sidebar on click
-  const { toggleSidebar, isSidebarOpen } = useSidebar(); 
+  const { toggleSidebar, isSidebarOpen } = useSidebar();
 
-  
+
   const handleClick = () => {
     router.push('/chat');
 
@@ -222,7 +222,7 @@ export const Sidebar = () => {
         }
       )}
     >
-       <div
+      <div
         className="flex flex-col h-full w-full"
         onClick={handleAsideClick}
       >
@@ -264,8 +264,8 @@ export const Sidebar = () => {
               />
             </motion.div>
           </div>
-          
-          <div className="h-[0.60rem]"/>
+
+          <div className="h-[0.60rem]" />
           <SearchInput />
           <div className="h-1.5" />
           <NewChatButton />
@@ -288,7 +288,7 @@ export const Sidebar = () => {
                 key="chat-history-list" // A unique key for AnimatePresence to track
                 // CRITICAL: This prevents the parent's `layout` animation from
                 // interfering with our opacity animation, ensuring no glitches.
-                layout={false} 
+                layout={false}
                 initial={{ opacity: 0 }}
                 // The `delay` ensures the sidebar has finished expanding before the list fades in.
                 animate={{ opacity: 1, transition: { delay: 0.25, duration: 0.2 } }}
@@ -339,7 +339,7 @@ export const Sidebar = () => {
                 {/* --- FIX 3: Shift UserButton and Chevron apart --- */}
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                  className="w-full flex items-center justify-between p-2 rounded-lg cursor-pointer hover:bg-zinc-200/70 dark:hover:bg-zinc-700/30"
                 >
                   {/* This container keeps the avatar and name together */}
                   <div className="flex items-center flex-grow min-w-0">

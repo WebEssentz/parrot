@@ -3,6 +3,7 @@
 import { Trash2, Edit3 } from "lucide-react";
 import clsx from "clsx";
 import { useEffect, useState, useRef } from "react";
+import { useSWRConfig } from 'swr';
 
 // --- THE TYPEWRITER EFFECT HOOK ---
 // This hook is now simpler. It just types out the text it's given.
@@ -46,6 +47,9 @@ export const ChatHistoryItem = ({
   isActive,
   onClick,
 }: ChatHistoryItemProps) => {
+  // --- Get the global mutate function from SWR's cache ---
+  const { mutate } = useSWRConfig();
+
   // --- THIS IS THE FIX ---
   // 1. A ref to store the title that was last rendered.
   const prevTitleRef = useRef<string | null>(null);
@@ -85,15 +89,29 @@ export const ChatHistoryItem = ({
   // - Otherwise, show the full title instantly.
   const finalTitle = isActive ? chat.title : shouldAnimate ? typedTitle : chat.title;
 
+  // --- 3. The Pre-fetching Handler ---
+  // This function will be called when the user's mouse enters the button.
+  const handlePrefetch = () => {
+    // We don't need to pre-fetch the currently active chat or an optimistic one.
+    if (isActive || chat.isOptimistic) return;
+
+    // Trigger a fetch for this specific chat's data.
+    // The key '/api/chats/[id]' must match the key used in your `[id]/page.tsx`.
+    // SWR will fetch this data and store it in the global cache. If the data
+    // is already in the cache, it won't re-fetch unless it's stale.
+    mutate(`/api/chats/${chat.id}`);
+  };
+  
   return (
     <button
       onClick={onClick}
+      onMouseEnter={handlePrefetch}
       className={clsx(
         "group w-full h-10 flex items-center justify-start px-3 rounded-lg relative",
         "text-left text-sm truncate cursor-pointer",
         {
           "bg-zinc-200/80 dark:bg-zinc-700/20 text-zinc-900 dark:text-zinc-100 font-medium": isActive,
-          "text-zinc-600 dark:text-zinc-300/70 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/30": !isActive,
+          "text-zinc-600 hover:text-primary dark:text-zinc-300/70 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/30": !isActive,
         }
       )}
     >
@@ -117,8 +135,8 @@ export const ChatHistoryItem = ({
           className="flex items-center" 
           onClick={(e) => e.stopPropagation()}
         >
-          <button className="p-1 rounded hover:text-zinc-900 dark:hover:text-white"><Edit3 size={14}/></button>
-          <button className="p-1 rounded hover:text-red-500"><Trash2 size={14}/></button>
+          <button className="p-1 rounded cursor-pointer hover:text-zinc-900 dark:hover:text-white"><Edit3 size={14}/></button>
+          <button className="p-1 rounded cursor-pointer hover:text-red-500"><Trash2 size={14}/></button>
         </div>
       </div>
     </button>
