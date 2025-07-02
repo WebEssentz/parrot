@@ -27,7 +27,7 @@ export const ChatHistoryList = () => {
       {/* --- THE REFINED SECTION HEADER --- */}
       {/* This is now much more subtle and professional. */}
       <div className="px-4 py-1 mb-1">
-        <span className="text-xs font-semibold tracking-wide text-zinc-500 dark:text-zinc-400">
+        <span className="text-sm font-semibold tracking-wide text-zinc-500 dark:text-zinc-400/30">
           Chats
         </span>
       </div>
