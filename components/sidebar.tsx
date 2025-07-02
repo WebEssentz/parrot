@@ -28,7 +28,7 @@ const SearchInput = () => {
           "h-10 w-full group flex items-center overflow-hidden rounded-full relative",
           "cursor-pointer border text-zinc-500",
           "bg-bg-[#fcfcfc] border-zinc-200 hover:bg-zinc-200 hover:border-zinc-300",
-          "dark:bg-[#2D2D2D] dark:border-zinc-700/75 dark:text-zinc-400 dark:hover:bg-[#3b3b3b] dark:hover:border-zinc-700",
+          "dark:bg-zinc-700/20 dark:border-zinc-700/75 dark:text-zinc-400 dark:hover:bg-[#3b3b3b] dark:hover:border-zinc-700",
 
           // --- Let the content inside handle padding and alignment ---
           {

@@ -93,7 +93,7 @@ export const ChatHistoryItem = ({
         "text-left text-sm truncate cursor-pointer",
         {
           "bg-zinc-200/80 dark:bg-zinc-700/20 text-zinc-900 dark:text-zinc-100 font-medium": isActive,
-          "text-zinc-600 dark:text-white hover:bg-zinc-200/70 dark:hover:bg-zinc-700/30": !isActive,
+          "text-zinc-600 dark:text-zinc-300/70 hover:bg-zinc-200/70 dark:hover:bg-zinc-700/30": !isActive,
         }
       )}
     >
