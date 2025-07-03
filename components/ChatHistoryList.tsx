@@ -81,14 +81,16 @@ export const ChatHistoryList = () => {
 
       {/* The actual list of chats */}
       <div className="flex flex-col space-y-1 px-2">
-        {chats.map((chat) => (
-          <ChatHistoryItem
-            key={chat.id}
-            chat={chat}
-            isActive={chat.id === activeChatId}
-            onClick={() => handleChatClick(chat.id)}
-          />
-        ))}
+        {Array.isArray(chats) && chats
+          .filter(chat => chat && chat.id) // Only include valid chats
+          .map((chat) => (
+            <ChatHistoryItem
+              key={chat.id}
+              chat={chat}
+              isActive={chat.id === activeChatId}
+              onClick={() => handleChatClick(chat.id)}
+            />
+          ))}
          {/* --- 5. The "Sentinel" and Loading Indicator --- */}
         {/* This invisible element triggers the next fetch when it comes into view */}
         {hasMore && <div ref={ref} className="h-1" />}

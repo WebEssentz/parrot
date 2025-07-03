@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import React from "react";
 import UserChat from "@/components/user-chat"; // We will reuse our main chat component
 import { SpinnerIcon } from "@/components/icons";
 
@@ -13,10 +14,10 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // You can simplify the param handling. The 'use' hook is for server-side.
-  const chatId = params.id
+// In client components, params is always a plain object
+  const { id: chatId } = params;
 
-   useEffect(() => {
+  useEffect(() => {
     const fetchChat = async () => {
       if (!chatId) return;
       setIsLoading(true);

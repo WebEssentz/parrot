@@ -1,15 +1,21 @@
+// src/components/Markdown.tsx
+
 import Link from "next/link"
 import React, { memo } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import remarkGfm from "remark-gfm"
-import remarkMath from "remark-math" // ✨ NEW: Import remark-math
-import rehypeKatex from "rehype-katex" // ✨ NEW: Import rehype-katex
-import "katex/dist/katex.min.css" // ✨ NEW: Import KaTeX CSS
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
+import "katex/dist/katex.min.css"
 import { CodeBlock } from "./code-block"
 import { cn } from "@/lib/utils"
+// 🚀 MODIFIED: Use a named type import for the KaTeX options type.
+import type { KatexOptions } from "katex"
 
+// The components object remains the same...
 const components: Partial<Components> = {
+  // ... all your existing component overrides (blockquote, code, etc.)
   blockquote: ({ node, children, ...props }) => (
     <blockquote
       className="relative my-4 border-l-4 border-zinc-300 dark:border-zinc-700 rounded"
@@ -216,8 +222,13 @@ const components: Partial<Components> = {
   },
 }
 
-// ✨ NEW: Add remarkMath to your plugins
 const remarkPlugins = [remarkGfm, remarkMath]
+
+const katexOptions: KatexOptions = {
+  trust: true,
+  throwOnError: false,
+  
+}
 
 function stripSourcesBlock(markdown: string): string {
   const start = markdown.indexOf("<!-- AVURNA_SOURCES_START -->")
@@ -231,8 +242,7 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
   return (
     <ReactMarkdown
       remarkPlugins={remarkPlugins}
-      // ✨ NEW: Add rehypeKatex to your rehype plugins
-      rehypePlugins={[rehypeRaw, rehypeKatex]}
+      rehypePlugins={[rehypeRaw, [rehypeKatex, katexOptions]]}
       components={components}
     >
       {clean}
