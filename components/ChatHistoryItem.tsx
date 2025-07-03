@@ -135,8 +135,24 @@ export const ChatHistoryItem = ({
           className="flex items-center" 
           onClick={(e) => e.stopPropagation()}
         >
-          <button className="p-1 rounded cursor-pointer hover:text-zinc-900 dark:hover:text-white"><Edit3 size={14}/></button>
-          <button className="p-1 rounded cursor-pointer hover:text-red-500"><Trash2 size={14}/></button>
+          <span
+            className="p-1 rounded cursor-pointer hover:text-zinc-900 dark:hover:text-white"
+            role="button"
+            tabIndex={0}
+            aria-label="Edit chat"
+            // onClick={...} // Add your edit handler here
+          >
+            <Edit3 size={14}/>
+          </span>
+          <span
+            className="p-1 rounded cursor-pointer hover:text-red-500"
+            role="button"
+            tabIndex={0}
+            aria-label="Delete chat"
+            // onClick={...} // Add your delete handler here
+          >
+            <Trash2 size={14}/>
+          </span>
         </div>
       </div>
     </button>
