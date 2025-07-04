@@ -478,4 +478,4 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
       )}
     </div>
   );
-}
+} // code
