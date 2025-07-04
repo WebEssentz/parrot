@@ -119,9 +119,10 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [pendingMessages, setPendingMessages] = useState<any[]>([]);
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts();
   const { isDesktopSidebarCollapsed } = useSidebar(); // <-- 2. Get the state from sidebar
-  const [chatId, setChatId] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null>(initialChat?.id ?? null);
   const [dbUser, setDbUser] = useState<any>(null); // State to hold our confirmed DB user 
   const router = useRouter();
+  const [chatTitle, setChatTitle] = useState(initialChat?.title || "New Chat");
 
   const { mutateChats } = useChats();
   // --- THIS REF IS THE KEY TO THE FIX ---
@@ -162,6 +163,26 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     setSelectedModel(getDefaultModel(!!isSignedIn));
   }, [isSignedIn]);
 
+ // Title generation (cleaned)
+  async function generateAndSetTitle(firstUserMessageContent: string) {
+    setIsGeneratingTitle(true);
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generateTitle', messages: [{ role: 'user', content: firstUserMessageContent }] }),
+      });
+      const data = await response.json();
+      if (data.title) {
+        setChatTitle(data.title);
+        document.title = data.title;
+      }
+    } catch (e) {
+      toast.error("Error generating title");
+    }
+    setIsGeneratingTitle(false);
+  }
+
   const {
     messages,
     input,
@@ -175,89 +196,41 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
-    body: { selectedModel, user: userInfo, userId: dbUser?.id },
+    body: { selectedModel, user: dbUser ? { ...dbUser } : undefined },
     initialMessages: initialChat?.messages || [],
     id: chatId ?? undefined, // Pass the chat ID to the hook (undefined if null)
     // --- THIS IS THE NEW, UPGRADED onFinish HANDLER ---
     onFinish: async (assistantMessage) => {
-      if (!dbUser?.id) return; // Don't save if we don't have a confirmed user
-      
-      // 1. Get the user message that started this interaction from our ref.
-      const userMessage = lastUserMessageRef.current;
-
-      if (!userMessage) {
-        // This case should not happen in normal flow, but it's a good safeguard.
-        console.error("Could not find the user message that triggered this onFinish event.");
-        return;
-      }
-
-
-      const finalMessages = [...messages, userMessage, assistantMessage];
-   
-      const finalTitle = generatedTitleRef.current || initialChat?.title || document.title || 'New Chat';
-
-      const sanitizedMessages = finalMessages.map(m => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        parts: m.parts,
-        createdAt: m.createdAt,
-      }));
-
+      if (!dbUser?.id) return;
+      const userMessage = messages[messages.length - 1]; // Last user message
+      const finalMessages = [...messages, assistantMessage];
+      const finalTitle = chatTitle || "New Chat";
+      let response, newChatId = chatId;
       try {
-        let response;
-        let currentChatId = chatId || initialChat?.id;
-
-        if (currentChatId) {
-          // --- UPDATE an existing chat ---
-          response = await fetch(`/api/chats/${currentChatId}`, {
+        if (newChatId) {
+          response = await fetch(`/api/chats/${newChatId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messages: finalMessages, title: finalTitle }),
           });
         } else {
-          // --- CREATE LOGIC (THE FIX) ---
           response = await fetch('/api/chats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // 2. Send the title along with the messages.
-            body: JSON.stringify({ 
-              messages: finalMessages, 
-              userId: dbUser.id,
-              title: finalTitle 
-            }),
+            body: JSON.stringify({ messages: finalMessages, userId: dbUser.id, title: finalTitle }),
           });
         }
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to save or update chat");
+        if (!response.ok) throw new Error("Failed to save chat");
+        if (!newChatId) {
+          const newChat = await response.json();
+          newChatId = newChat.id;
+          setChatId(newChatId);
+          router.replace(`/chat/${newChatId}`, { scroll: false });
         }
-
-        // After the first successful save, we have a real ID.
-        if (!currentChatId) {
-            const newChatData: ChatSummary = await response.json();
-            currentChatId = newChatData.id;
-            // No more window.history! Use the router.
-            // The router.replace will update the URL without a hard navigation,
-            // but it's enough to trigger the [id]/page.tsx to take over.
-            router.replace(`/chat/${currentChatId}`, { scroll: false });
-        }
-
-        // Always refresh the sidebar to get the final, correct state from the server.
-        // --- THIS IS THE FIX ---
-        // Re-fetch the chat list but prevent the current component from re-rendering.
-        // This updates the sidebar without "kicking out" the user.
         mutateChats();
-        generatedTitleRef.current = null; // Reset the ref for the next new chat
-        lastUserMessageRef.current = null; // Clear the ref
-
-      } catch (error) {
-        console.error("Save/Update Chat Error:", error);
-        toast.error("Could not save the conversation.");
+      } catch {
+        toast.error("Could not save chat");
       }
-      setSelectedModel(getDefaultModel(!!isSignedIn));
-      setIsSubmittingSearch(false);
     },
     onError: (error) => {
       toast.error(error.message || "An error occurred.", { position: "top-center", richColors: true });
@@ -285,49 +258,19 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   }, [initialChat]);
 
    // --- SIMPLIFIED handleSubmit ---
+ // Prevent submit if not ready
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!dbUser?.id) {
+      toast.error("User not loaded yet, please wait!");
+      return;
+    }
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
-
-    
-
-    // --- Fire-and-forget title generation ---
-    const prepareNewChat = async () => {
-      // This is the first message of a new chat.
-      if (!chatId && messages.length === 0) {
-        setIsGeneratingTitle(true); // Start the loading spinner
-
-        // Optimistically add to sidebar immediately.
-        mutateChats(
-          (currentData = []) => [{ id: `temp-${Date.now()}`, title: 'New Chat', isOptimistic: true }, ...currentData],
-          false
-        );
-        
-        // Generate the title but DO NOT wait for it.
-        await generateAndSetTitle(trimmedInput);
-        generatedTitleRef.current = document.title;
-        
-        setIsGeneratingTitle(false); // Stop the loading spinner
-      }
-    };
-    
-    // Run the preparation in the background.
-    prepareNewChat();
-
-    // Create the user message object
-      const userMessage: TMessage = {
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: trimmedInput,
-        data: { imageUrl: user?.imageUrl || null }
-      };
-
-    // Store it in our ref immediately before calling append
-    lastUserMessageRef.current = userMessage;
-
-    // 3. Append the message to the UI and let useChat handle the rest.
-    append(userMessage);
+    if (!chatId && messages.length === 0) {
+      await generateAndSetTitle(trimmedInput);
+    }
+    append({ id: crypto.randomUUID(), role: 'user', content: trimmedInput, data: { imageUrl: user?.imageUrl || null } });
     setInput('');
   };
 
@@ -478,4 +421,4 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
       )}
     </div>
   );
-} // code
+}
