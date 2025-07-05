@@ -318,20 +318,19 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
 
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle;
 
+  // ... (The rest of the JSX is unchanged) ...
     return (
-    <div className="relative flex h-full w-full flex-col bg-background">
+    <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background">
       <UserChatHeader />
 
       <main
         ref={containerRef}
-        className={"flex-1 overflow-y-auto"}
+        className={"absolute inset-0 overflow-y-auto"}
         style={{
           paddingTop: '5rem',
-          marginTop: "0px",
           paddingBottom: hasSentMessage ? `${inputAreaHeight + 16}px` : '0px',
         }}
       >
-        <div className="flex flex-col gap-3 p-4">
         {!hasSentMessage ? (
           // THIS IS THE FIX:
           // Mobile (default): `items-center` vertically centers the content.
@@ -371,9 +370,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
         <ChatScrollAnchor containerRef={containerRef} />
         {/* End ref for auto-scroll on send */}
         <div ref={endRef} />
-        </div>
       </main>
-      
 
       {/* The mobile input form is only rendered here, outside the main content flow */}
       {!isDesktop && !hasSentMessage && (
@@ -407,7 +404,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
             initial={false}
             ref={inputAreaRef}
             // Use Framer Motion's animate prop instead of className for the position
-            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem', right: "6px"}}
+            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem' }}
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
             className="fixed bottom-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"
           >
@@ -433,10 +430,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           </motion.div>
           <motion.div
             initial={false}
-            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem', right: "6px" }}
+            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem' }}
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
             className="fixed right-0 bottom-0 z-40 text-center pb-2 pointer-events-none"
           >
+
             <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none rounded-xl pointer-events-auto">
               Avurna uses AI. Double check response.
             </span>
