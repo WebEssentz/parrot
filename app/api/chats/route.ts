@@ -1,11 +1,10 @@
 // app/api/chats/route.ts
 
-import { db } from '@/lib/db'; // Corrected path assuming db is in lib
+import { db } from '@/lib/db';
 import { chat } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm'; // Import desc for ordering
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server'; // <-- IMPORT THIS
-
 
 // --- GET Endpoint ---
 export async function GET(request: Request) {
@@ -21,7 +20,6 @@ export async function GET(request: Request) {
 
     // const body = await request.json();
     // const { userId } = body;
-
 
     // --- THIS IS THE PAGINATION LOGIC ---
     const { searchParams } = new URL(request.url);

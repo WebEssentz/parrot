@@ -126,7 +126,7 @@
 }
 
 .dark {
-  --background: #212121;
+  --background: #1C1C1C;
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.141 0.005 285.823);
   --card-foreground: oklch(0.985 0 0);
@@ -166,43 +166,8 @@ body.loading-prevent-scroll {
   overscroll-behavior: none;
 }
 
-/* --- Enterprise-grade horizontal scroll prevention and responsive chat --- */
-html, body {
-  overflow: hidden !important;
-  overscroll-behavior: none;
-}
-.scroll-container::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-.scroll-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scroll-container::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0);
-  border-radius: 20px;
-  border: 3px solid transparent;
-  background-clip: content-box;
-  transition: background-color .2s ease-in-out;
-}
-.scroll-container:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(120,120,120,0.25);
-}
-.scroll-container {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(120,120,120,0.25) transparent;
-}
-
-body {
-  overflow-y: auto !important;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable;
-}
-
 .markdown-body, .prose, .markdown {
   word-break: break-word;
-  overflow-wrap: anywhere;
 }
 .markdown-body pre, .prose pre, .markdown pre {
   overflow-x: auto;
@@ -330,22 +295,52 @@ body {
 .animate-shimmer {
   animation: shimmer 1.2s infinite linear;
 }
-
-/* Minimal scrollbar for chat/code blocks */
+/* For Webkit browsers (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(120,120,120,0.25);
-  border-radius: 8px;
-  transition: background 0.3s;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(120,120,120,0.45);
-}
-::-webkit-scrollbar-track {
-  background: transparent;
+  width: 6px;  /* --- The sleek, thin width --- */
+  height: 6px; /* --- The sleek, thin height for horizontal scroll --- */
 }
 
+::-webkit-scrollbar-track {
+  background: transparent; /* --- The track is completely invisible --- */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1); /* --- A very subtle, almost-not-there default state --- */
+  border-radius: 10px; /* --- Perfectly rounded for a modern, soft look --- */
+  border: 2px solid transparent; /* --- Creates padding around the thumb, making it look even thinner --- */
+  background-clip: content-box;
+  transition: background-color 0.3s ease-in-out; /* --- Smooth fade-in/out on hover --- */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.35); /* --- Becomes more visible on hover for easy grabbing --- */
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Ensure scrollbar is always visible space */
+html {
+  scrollbar-gutter: auto;
+}
+
+.scrollbar-spacing {
+  padding-right: 6px;
+}
+
+/* Ensure main content areas account for scrollbar */
+.main-content {
+  width: calc(100% - 6px);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin; /* --- Makes scrollbar thin --- */
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent; /* --- thumb color and track color --- */
+}

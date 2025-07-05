@@ -17,7 +17,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
   }, []);
 
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
-  
+
   const toggleDesktopSidebar = () => {
     setDesktopSidebarCollapsed(prevState => {
       const newState = !prevState;
@@ -74,11 +74,11 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
             </>
           )}
         </AnimatePresence>
-        
+
         {/* Main content area */}
         <main
-          className={`h-screen flex-1 overflow-y-auto transition-[padding-left] duration-300 ease-in-out
-                      ${isDesktopSidebarCollapsed ? 'lg:pl-14' : 'lg:pl-64'}`}
+          className={`h-full flex-1 transition-[padding-left] duration-300 ease-in-out
+              ${isDesktopSidebarCollapsed ? 'lg:pl-14' : 'lg:pl-64'}`}
         >
           {children}
         </main>

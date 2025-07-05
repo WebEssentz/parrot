@@ -216,8 +216,8 @@ export const Sidebar = () => {
         {
           "fixed top-0 left-0 z-50": isDesktop, // z-50 to match mobile panel
           "cursor-ew-resize": isDesktop,
-          "bg-[#F7F7F8] dark:bg-[#212121]": isDesktopSidebarCollapsed,
-          "bg-[#f9f9f9] dark:bg-[#212121]": !isDesktopSidebarCollapsed,
+          "bg-[#F7F7F8] dark:bg-[#1C1C1C] shadow border-r dark:border-r-[#333333]": isDesktopSidebarCollapsed,
+          "bg-[#f9f9f9] dark:bg-[#1E1E1E] dark:border-r-[#333333]": !isDesktopSidebarCollapsed,
           "w-64": !isDesktop, // Give it a static width on mobile
         }
       )}

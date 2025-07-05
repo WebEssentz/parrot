@@ -14,9 +14,7 @@ import { ChatScrollAnchor } from "./chat-scroll-anchor";
 import { useSidebar } from '@/lib/sidebar-context';
 import { motion } from "framer-motion";
 import { useChats } from '@/hooks/use-chats';
-import { useSWRConfig } from 'swr';
 
-// ... (GreetingBanner and useReconnectToClerk components are unchanged) ...
 function GreetingBanner() {
   const { user, isLoaded } = useUser();
   let displayName = "King";
@@ -52,8 +50,6 @@ function GreetingBanner() {
   );
 }
 
-
-
 // --- Network/Clerk reconnect logic ---
 function useReconnectToClerk() {
   const [offlineState, setOfflineState] = useState<'online' | 'reconnecting' | 'offline'>('online');
@@ -86,7 +82,6 @@ function useReconnectToClerk() {
   return offlineState;
 }
 
-
 export default function UserChat({ initialChat }: { initialChat?: any }) {
   const offlineState = useReconnectToClerk();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -105,12 +100,10 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const { mutateChats, updateChatTitle } = useChats();
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   // --- REF TO TRACK PREVIOUS STATUS ---
-  // This helps us detect the transition from 'streaming' to 'idle'
+  // This helps us detect the transition from 'streaming' to 'ready'
   const prevStatusRef = useRef<string | null>(null);
 
-
-  // ... (user info and sync logic are unchanged) ...
-    // --- Compose user info for backend ---
+  // --- Compose user info for backend ---
   const userInfo = isLoaded && user ? {
     firstName: user.firstName || user.username || '',
     email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || '',
@@ -325,20 +318,20 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
 
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle;
 
-  // ... (The rest of the JSX is unchanged) ...
     return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-background">
+    <div className="relative flex h-full w-full flex-col bg-background">
       <UserChatHeader />
 
       <main
         ref={containerRef}
-        className={`flex-1 w-full scroll-container ${hasSentMessage ? 'overflow-y-auto' : 'overflow-y-hidden'
-          }`}
+        className={"flex-1 overflow-y-auto"}
         style={{
-          paddingTop: '80px',
-          paddingBottom: hasSentMessage ? `calc(${inputAreaHeight}px)` : '0px',
+          paddingTop: '5rem',
+          marginTop: "0px",
+          paddingBottom: hasSentMessage ? `${inputAreaHeight + 16}px` : '0px',
         }}
       >
+        <div className="flex flex-col gap-3 p-4">
         {!hasSentMessage ? (
           // THIS IS THE FIX:
           // Mobile (default): `items-center` vertically centers the content.
@@ -378,7 +371,9 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
         <ChatScrollAnchor containerRef={containerRef} />
         {/* End ref for auto-scroll on send */}
         <div ref={endRef} />
+        </div>
       </main>
+      
 
       {/* The mobile input form is only rendered here, outside the main content flow */}
       {!isDesktop && !hasSentMessage && (
@@ -412,7 +407,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
             initial={false}
             ref={inputAreaRef}
             // Use Framer Motion's animate prop instead of className for the position
-            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '4rem' : '16rem') : '0rem' }}
+            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem', right: "6px"}}
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
             className="fixed bottom-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"
           >
@@ -438,11 +433,10 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           </motion.div>
           <motion.div
             initial={false}
-            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '4rem' : '16rem') : '0rem' }}
+            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem', right: "6px" }}
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
             className="fixed right-0 bottom-0 z-40 text-center pb-2 pointer-events-none"
           >
-
             <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none rounded-xl pointer-events-auto">
               Avurna uses AI. Double check response.
             </span>

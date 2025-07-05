@@ -42,7 +42,7 @@ export function useChats() {
 
   // --- PRESERVED AND ADAPTED LOGIC ---
   
-  // Your updateChatTitle function, now adapted for the paginated data structure.
+  // The updateChatTitle function, now adapted for the paginated data structure.
   const updateChatTitle = (chatId: string, newTitle: string) => {
     // The `mutate` function for useSWRInfinite works with an array of pages.
     // We need to map through the pages and then map through the chats within each page.

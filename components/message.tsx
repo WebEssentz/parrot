@@ -546,8 +546,8 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   const isWideUserMessage = part.text.length > 80;
 
   // Define the colors for the tail to match the bubble background
-  const bubbleBgColor = theme === 'dark' ? '#272727ff' : '#f4f4f4';
-  const tailBorderColor = theme === 'dark' ? '#363636ff' : '#efeff3ff'; // more visible in light mode
+  const bubbleBgColor = theme === 'dark' ? '#2A2A2A' : '#f4f4f4';
+  const tailBorderColor = theme === 'dark' ? '#2A2A2A' : '#efeff3ff'; // more visible in light mode
 
 
   return (
