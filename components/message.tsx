@@ -14,7 +14,6 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { GithubWorkflowAggregator } from './github-workflow-aggregator';
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
-import { ChatStatus } from './messages'; // <-- Import the centralized type
 import {
   Drawer,
   DrawerContent,

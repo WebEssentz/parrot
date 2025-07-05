@@ -2,7 +2,7 @@
 
 import React from "react";
 import { getDefaultModel } from "@/ai/providers";
-import { Message as TMessage, useChat } from "@ai-sdk/react"; // Import Message type
+import { Message as TMessage, useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { useUser } from "@clerk/nextjs";
@@ -13,12 +13,10 @@ import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
 import { useSidebar } from '@/lib/sidebar-context';
 import { motion } from "framer-motion";
-import { useChats, ChatSummary } from '@/hooks/use-chats';
-import { useRouter } from 'next/navigation';
+import { useChats } from '@/hooks/use-chats';
+import { useSWRConfig } from 'swr';
 
-
-
-// GreetingBanner component for personalized greeting
+// ... (GreetingBanner and useReconnectToClerk components are unchanged) ...
 function GreetingBanner() {
   const { user, isLoaded } = useUser();
   let displayName = "King";
@@ -56,24 +54,6 @@ function GreetingBanner() {
 
 
 
-// Robust title generation: only set title if backend says message is clear
-async function generateAndSetTitle(firstUserMessageContent: string) {
-  try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'generateTitle', messages: [{ role: 'user', content: firstUserMessageContent }] }),
-    });
-    if (!response.ok) throw new Error(`Title generation failed: ${response.statusText}`);
-    const data = await response.json();
-    if (data.title) {
-      document.title = data.title;
-    }
-  } catch (error) {
-    console.error("Error generating title:", error);
-  }
-}
-
 // --- Network/Clerk reconnect logic ---
 function useReconnectToClerk() {
   const [offlineState, setOfflineState] = useState<'online' | 'reconnecting' | 'offline'>('online');
@@ -106,33 +86,31 @@ function useReconnectToClerk() {
   return offlineState;
 }
 
+
 export default function UserChat({ initialChat }: { initialChat?: any }) {
   const offlineState = useReconnectToClerk();
   const containerRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>; // For auto-scroll on send
+  const endRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
   const { user, isLoaded, isSignedIn } = useUser();
   const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModel(!!isSignedIn));
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
   const inputAreaRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState<undefined | boolean>(undefined);
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false);
-  const [pendingMessages, setPendingMessages] = useState<any[]>([]);
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts();
-  const { isDesktopSidebarCollapsed } = useSidebar(); // <-- 2. Get the state from sidebar
+  const { isDesktopSidebarCollapsed } = useSidebar();
   const [chatId, setChatId] = useState<string | null>(initialChat?.id ?? null);
-  const [dbUser, setDbUser] = useState<any>(null); // State to hold our confirmed DB user 
-  const router = useRouter();
+  const [dbUser, setDbUser] = useState<any>(null);
   const [chatTitle, setChatTitle] = useState(initialChat?.title || "New Chat");
-
-  const { mutateChats } = useChats();
-  // --- THIS REF IS THE KEY TO THE FIX ---
-  // We'll use a ref to hold the generated title so onFinish can access it.
-  const generatedTitleRef = useRef<string | null>(null);
+  const { mutateChats, updateChatTitle } = useChats();
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
-  // This ref will hold the user's message that initiated the current stream
-  const lastUserMessageRef = useRef<TMessage | null>(null);
+  // --- REF TO TRACK PREVIOUS STATUS ---
+  // This helps us detect the transition from 'streaming' to 'idle'
+  const prevStatusRef = useRef<string | null>(null);
 
-  // --- Compose user info for backend ---
+
+  // ... (user info and sync logic are unchanged) ...
+    // --- Compose user info for backend ---
   const userInfo = isLoaded && user ? {
     firstName: user.firstName || user.username || '',
     email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || '',
@@ -163,25 +141,34 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     setSelectedModel(getDefaultModel(!!isSignedIn));
   }, [isSignedIn]);
 
- // Title generation (cleaned)
-  async function generateAndSetTitle(firstUserMessageContent: string) {
+  const generateAndSyncTitle = async (currentChatId: string, firstMessageContent: string) => {
     setIsGeneratingTitle(true);
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generateTitle', messages: [{ role: 'user', content: firstUserMessageContent }] }),
+        body: JSON.stringify({ action: 'generateTitle', messages: [{ role: 'user', content: firstMessageContent }] }),
       });
+      if (!response.ok) throw new Error('Title generation failed');
       const data = await response.json();
+      
       if (data.title) {
-        setChatTitle(data.title);
         document.title = data.title;
+        setChatTitle(data.title);
+        updateChatTitle(currentChatId, data.title);
+        
+        await fetch(`/api/chats/${currentChatId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: data.title }),
+        });
       }
-    } catch (e) {
-      toast.error("Error generating title");
+    } catch (error) {
+      console.error("Error generating and syncing title:", error);
+    } finally {
+      setIsGeneratingTitle(false);
     }
-    setIsGeneratingTitle(false);
-  }
+  };
 
   const {
     messages,
@@ -192,46 +179,14 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     setMessages,
     stop,
     append,
-    reload
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
     body: { selectedModel, user: dbUser ? { ...dbUser } : undefined },
     initialMessages: initialChat?.messages || [],
-    id: chatId ?? undefined, // Pass the chat ID to the hook (undefined if null)
-    // --- THIS IS THE NEW, UPGRADED onFinish HANDLER ---
-    onFinish: async (assistantMessage) => {
-      if (!dbUser?.id) return;
-      const userMessage = messages[messages.length - 1]; // Last user message
-      const finalMessages = [...messages, assistantMessage];
-      const finalTitle = chatTitle || "New Chat";
-      let response, newChatId = chatId;
-      try {
-        if (newChatId) {
-          response = await fetch(`/api/chats/${newChatId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: finalMessages, title: finalTitle }),
-          });
-        } else {
-          response = await fetch('/api/chats', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: finalMessages, userId: dbUser.id, title: finalTitle }),
-          });
-        }
-        if (!response.ok) throw new Error("Failed to save chat");
-        if (!newChatId) {
-          const newChat = await response.json();
-          newChatId = newChat.id;
-          setChatId(newChatId);
-          router.replace(`/chat/${newChatId}`, { scroll: false });
-        }
-        mutateChats();
-      } catch {
-        toast.error("Could not save chat");
-      }
-    },
+    id: chatId ?? undefined,
+    // --- REMOVED onFinish ---
+    // The new useEffect below is a more reliable way to handle saving the chat.
     onError: (error) => {
       toast.error(error.message || "An error occurred.", { position: "top-center", richColors: true });
       setSelectedModel(getDefaultModel(!!isSignedIn));
@@ -239,26 +194,39 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     },
   });
 
-  
-
-  // This effect handles the initial load AND a key change correctly.
+  // --- THIS IS THE FIX: Save the complete chat when the stream is finished ---
   useEffect(() => {
-    if (initialChat) {
-      setMessages(initialChat.messages || []);
-      setChatId(initialChat.id);
-      document.title = initialChat.title || 'Chat';
+    // We only want to save when the stream has just finished.
+    // The condition `prevStatusRef.current === 'streaming'` ensures this.
+    // The `useChat` hook status transitions from 'streaming' to 'ready' when complete.
+    if (prevStatusRef.current === 'streaming' && status === 'ready') {
+      // Guard against running on empty chats or before chatId is set.
+      // `messages.length < 2` ensures we have both user and AI message.
+      if (!chatId || messages.length < 2) {
+        return;
+      }
+      
+      const saveChat = async () => {
+        try {
+          await fetch(`/api/chats/${chatId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            // At this point, `messages` is guaranteed to contain the full assistant response.
+            body: JSON.stringify({ messages: messages, title: chatTitle }),
+          });
+          // Refresh the chat list in the sidebar to reflect the latest state.
+          mutateChats();
+        } catch {
+          toast.error("Could not save the conversation.");
+        }
+      };
+      
+      saveChat();
     }
-  }, [initialChat, setMessages]); // Add setMessages to dependency array
+    // Update the ref to the current status for the next render cycle.
+    prevStatusRef.current = status;
+  }, [status, messages, chatId, chatTitle, mutateChats]); // Dependencies ensure reactivity
 
-  // Set the chat ID state from the initial prop
-  useEffect(() => {
-    if (initialChat?.id) {
-      setChatId(initialChat.id);
-    }
-  }, [initialChat]);
-
-   // --- SIMPLIFIED handleSubmit ---
- // Prevent submit if not ready
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!dbUser?.id) {
@@ -267,15 +235,76 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     }
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
-    if (!chatId && messages.length === 0) {
-      await generateAndSetTitle(trimmedInput);
+
+    if (!chatId) {
+      // For a new chat, we need to create the chat in the DB first
+      // to get a persistent ID before appending to the AI SDK.
+      const userMessage: TMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: trimmedInput,
+      };
+      
+      const tempTitle = trimmedInput.substring(0, 50);
+
+      try {
+        // 1. Create the chat in the database immediately.
+        const response = await fetch('/api/chats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [userMessage], // Save the first user message
+            userId: dbUser.id,
+            title: tempTitle,
+          }),
+        });
+        if (!response.ok) throw new Error("Failed to create chat in database.");
+        
+        const newChat = await response.json();
+        const newPersistentId = newChat.id;
+
+        // 2. Update UI state with the real ID and title.
+        setChatId(newPersistentId);
+        setChatTitle(tempTitle);
+        document.title = tempTitle;
+        window.history.replaceState({}, '', `/chat/${newPersistentId}`);
+        
+        // 3. Optimistically update the sidebar with the placeholder title.
+        mutateChats((currentPagesData = []) => {
+          const newChatSummary = {
+            id: newPersistentId,
+            title: 'New Chat', // Use the placeholder title for the typewriter effect
+            isOptimistic: true,
+          };
+          const firstPage = currentPagesData[0] || { chats: [] };
+          const newFirstPage = {
+            ...firstPage,
+            chats: [newChatSummary, ...firstPage.chats],
+          };
+          return [newFirstPage, ...currentPagesData.slice(1)];
+        }, false);
+
+        // 4. Append the message to the AI SDK to trigger the stream.
+        // The `useChat` hook's `id` prop is now `newPersistentId`.
+        append(userMessage);
+        setInput('');
+
+        // 5. Generate the real title in the background.
+        await generateAndSyncTitle(newPersistentId, trimmedInput);
+
+      } catch (error) {
+        toast.error("Could not create new chat. Please try again.");
+        return; // Stop execution if chat creation fails.
+      }
+
+    } else {
+      // For existing chats, just append the message.
+      append({ id: crypto.randomUUID(), role: 'user', content: trimmedInput });
+      setInput('');
     }
-    append({ id: crypto.randomUUID(), role: 'user', content: trimmedInput, data: { imageUrl: user?.imageUrl || null } });
-    setInput('');
   };
 
-  const mergedMessages = [...messages, ...pendingMessages.map(msg => ({ id: msg.id, role: 'user' as const, content: msg.content, pending: true, status: msg.status || 'pending' }))];
-  const hasSentMessage = mergedMessages.length > 0;
+  const hasSentMessage = messages.length > 0;
 
   useEffect(() => {
     const element = inputAreaRef.current;
@@ -294,9 +323,10 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch;
+  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle;
 
-  return (
+  // ... (The rest of the JSX is unchanged) ...
+    return (
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-background">
       <UserChatHeader />
 
@@ -339,7 +369,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           </div>
         ) : (
           <Messages
-            messages={mergedMessages}
+            messages={messages}
             isLoading={uiIsLoading}
             status={status as any}
             endRef={endRef}
