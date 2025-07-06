@@ -216,7 +216,7 @@ export const Textarea = ({
                       </span>
                       {showTabBadge && (
                         <span 
-                          className="ml-1.5 flex-shrink-0 text-[10px] leading-tight text-zinc-400 dark:text-zinc-500 border border-zinc-300 dark:border-zinc-600 rounded-sm px-1 py-[1px] bg-transparent"
+                          className="ml-1.5 flex-shrink-0 text-[10px] leading-tight text-primary dark:text-white border border-zinc-300 dark:border-zinc-600 rounded-sm px-1 py-[1px] bg-transparent"
                           style={{ marginRight: '30px' }} // Space from the edge
                         >
                           TAB

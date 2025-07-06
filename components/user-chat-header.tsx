@@ -25,13 +25,13 @@ export const UserChatHeader = () => {
   
   const [showBorder, setShowBorder] = useState(false);
 
-  // useEffect(() => {
-  //   const onScroll = () => {
-  //     setShowBorder(window.scrollY > 2);
-  //   };
-  //   window.addEventListener("scroll", onScroll, { passive: true });
-  //   return () => window.removeEventListener("scroll", onScroll);
-  // }, []);
+  useEffect(() => {
+    const onScroll = () => {
+      setShowBorder(window.scrollY > 2);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   if (isDesktop === undefined) {
     return null;
@@ -47,12 +47,12 @@ export const UserChatHeader = () => {
       className={
         // --- THE FIX IS HERE ---
         // Lowered z-index from 40 to 30 to sit below the mobile sidebar.
-        `fixed right-0 w-full top-0 bg-background/80 backdrop-blur-sm dark:bg-background z-30 pr-[6px]` + 
+        `fixed right-0 top-0 bg-background/80 backdrop-blur-sm z-30` + 
         (showBorder ? " border-b border-border" : " border-b-transparent")
       }
-      style={{boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
+      style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
     >
-      <div className="flex h-full justify-between items-center p-4 py-2">
+      <div className="flex justify-between items-center p-4 py-2">
         <div className="flex flex-row items-center gap-2 shrink-0 ">
           <button onClick={toggleSidebar} className="mr-2 block lg:hidden">
               <Menu className="h-6 w-6 text-zinc-900 dark:text-zinc-100" />
