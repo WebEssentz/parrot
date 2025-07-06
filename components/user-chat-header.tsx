@@ -66,7 +66,7 @@ export const UserChatHeader = () => {
                 animate={{ opacity: 1, x: 0, transition: { delay: 0.2 } }}
                 exit={{ opacity: 0, x: -10, transition: { duration: 0.2 } }}
                 className={
-                  `text-[20px] font-leading select-none mt-2 font-medium text-zinc-900 dark:text-white`
+                  `text-[20px] font-leading select-none mt-0 font-medium text-zinc-900 dark:text-white`
                 }
                 style={{
                   lineHeight: '22px',
