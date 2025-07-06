@@ -1,89 +1,139 @@
-import { useUser } from '@clerk/nextjs';
-import useSWRInfinite from 'swr/infinite';
+"use client"
+
+import { useUser } from "@clerk/nextjs"
+import useSWRInfinite from "swr/infinite"
 
 export type ChatSummary = {
-  id: string;
-  title: string;
-  isOptimistic?: boolean;
-};
+  id: string
+  title: string
+  isOptimistic?: boolean
+}
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
-const PAGE_LIMIT = 20; // Number of chats to fetch per page
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+const PAGE_LIMIT = 20
+
+// Global state to prevent revalidation during rename operations
+let isRenamingInProgress = false
+
+export const setRenamingState = (state: boolean) => {
+  isRenamingInProgress = state
+}
+
+export const getRenamingState = () => isRenamingInProgress
 
 export function useChats() {
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded } = useUser()
 
-  // getKey tells useSWRInfinite how to generate the API URL for each page.
   const getKey = (pageIndex: number, previousPageData: any) => {
-    // If the previous page had no more data, we've reached the end.
-    if (previousPageData && !previousPageData.nextPage) return null;
+    // NEVER return null for existing data - just don't fetch new pages during rename
+    if (previousPageData && !previousPageData.nextPage) return null
+    if (!isLoaded || !user) return null
 
-    // If there's no user, don't fetch anything.
-    if (!isLoaded || !user) return null;
-    
-    // For the first page, pageIndex is 0.
-    if (pageIndex === 0) return `/api/chats?page=1&limit=${PAGE_LIMIT}`;
+    if (pageIndex === 0) return `/api/chats?page=1&limit=${PAGE_LIMIT}`
+    return `/api/chats?page=${previousPageData.nextPage}&limit=${PAGE_LIMIT}`
+  }
 
-    // For subsequent pages, use the `nextPage` cursor from the previous response.
-    return `/api/chats?page=${previousPageData.nextPage}&limit=${PAGE_LIMIT}`;
-  };
-
-  const { 
-    data,    // `data` is now an array of pages: [ {chats: [...]}, {chats: [...]} ]
-    error, 
-    isLoading: SWRIsLoading, 
-    size,    // The number of pages to fetch
-    setSize, // Function to set the number of pages
-    mutate   // The mutate function for this SWR key
+  const {
+    data,
+    error,
+    isLoading: SWRIsLoading,
+    size,
+    setSize,
+    mutate,
   } = useSWRInfinite(getKey, fetcher, {
+    // Keep the data during rename operations
     revalidateOnFocus: false,
-    revalidateFirstPage: false, // Prevents re-fetching the first page on focus
-  });
+    revalidateFirstPage: false,
+    revalidateOnReconnect: false,
+    revalidateIfStale: false,
+    revalidateOnMount: true,
+    refreshInterval: 0,
+    dedupingInterval: 60000,
+    revalidateAll: false,
+    // Keep the cache during operations
+    keepPreviousData: true,
+  })
 
-  // --- PRESERVED AND ADAPTED LOGIC ---
-  
-  // The updateChatTitle function, now adapted for the paginated data structure.
-  const updateChatTitle = (chatId: string, newTitle: string) => {
-    // The `mutate` function for useSWRInfinite works with an array of pages.
-    // We need to map through the pages and then map through the chats within each page.
-    mutate((currentPagesData = []) => {
-      return currentPagesData.map(page => ({
-        ...page, // Keep the nextPage cursor and other page data
-        chats: page.chats.map((chat: ChatSummary) => 
-          chat.id === chatId 
-            ? { ...chat, title: newTitle, isOptimistic: false } 
-            : chat
-        ),
-      }));
-    }, false); // `false` prevents an immediate revalidation, preserving the optimistic update.
-  };
-  
-  // --- FLATTENING AND STATE CALCULATION ---
+  // Enhanced updateChatTitle function with optimistic updates
+  const updateChatTitle = (chatId: string, newTitle: string, isOptimistic = false) => {
+    mutate(
+      (currentPagesData) => {
+        // Ensure we have data to work with
+        if (!currentPagesData || !Array.isArray(currentPagesData)) {
+          return currentPagesData
+        }
 
-  // Flatten the array of pages into a single, flat array of chats for the UI.
-  const chats: ChatSummary[] = data ? [].concat(...data.map(page => page.chats)) : [];
-  
-  // The initial load is when the first page is being fetched.
-  const isLoading = SWRIsLoading && !data && !error;
-  
-  // We are "loading more" if SWR is validating and we have pages.
-  const isLoadingMore = SWRIsLoading && (data?.length ?? 0) > 0;
-  
-  // We have more pages to load if the last fetched page had a `nextPage` cursor.
-  const hasMore = data ? data[data.length - 1]?.nextPage !== null : false;
+        return currentPagesData.map((page) => {
+          if (!page || !page.chats || !Array.isArray(page.chats)) {
+            return page
+          }
+
+          return {
+            ...page,
+            chats: page.chats.map((chat: ChatSummary) =>
+              chat.id === chatId ? { ...chat, title: newTitle, isOptimistic } : chat,
+            ),
+          }
+        })
+      },
+      { revalidate: false },
+    )
+  }
+
+  // Function to delete a chat with optimistic updates
+  const deleteChat = (chatId: string) => {
+    mutate(
+      (currentPagesData) => {
+        if (!currentPagesData || !Array.isArray(currentPagesData)) {
+          return currentPagesData
+        }
+
+        return currentPagesData.map((page) => {
+          if (!page || !page.chats || !Array.isArray(page.chats)) {
+            return page
+          }
+
+          return {
+            ...page,
+            chats: page.chats.filter((chat: ChatSummary) => chat.id !== chatId),
+          }
+        })
+      },
+      { revalidate: false },
+    )
+  }
+
+  // Function to manually revalidate when needed (not during rename)
+  const revalidateChats = () => {
+    if (!isRenamingInProgress) {
+      mutate()
+    }
+  }
+
+  // Safer setSize that respects rename state
+  const safeSetSize = (newSize: number) => {
+    if (!isRenamingInProgress) {
+      setSize(newSize)
+    }
+  }
+
+  const chats: ChatSummary[] = data ? [].concat(...data.map((page) => page.chats || [])) : []
+  const isLoading = SWRIsLoading && !data && !error
+  const isLoadingMore = SWRIsLoading && (data?.length ?? 0) > 0 && !isRenamingInProgress
+  const hasMore = data ? data[data.length - 1]?.nextPage !== null : false
 
   return {
-    // Original return values, now powered by useSWRInfinite
-    chats: chats,
-    isLoading: isLoading,
+    chats,
+    isLoading,
     isError: error,
     mutateChats: mutate,
-    updateChatTitle, // Your critical function is preserved
-
-    // New return values for infinite scrolling
+    revalidateChats,
+    updateChatTitle,
+    deleteChat,
     isLoadingMore,
     hasMore,
     size,
-    setSize,
-  };
+    setSize: safeSetSize,
+  }
 }
