@@ -509,7 +509,6 @@ export default function Chat() {
         }
         <div ref={endRef} />
       </div>
-
       {/* --- 6. Render the button here, outside the main scrollable area --- */}
       <ScrollToBottomButton
         isVisible={showScrollButton && hasSentMessage}
