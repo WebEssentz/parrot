@@ -464,13 +464,9 @@ export default function Chat() {
               {/* Use a flex row to align the avatar and cursor, just like a real message */}
               <div className="flex flex-row w-full items-start space-x-2 py-4">
                 {/* 1. The AI Avatar */}
-                <div className="flex-shrink-0 h-7 w-7 rounded-full bg-zinc-800 flex items-center justify-center font-semibold text-zinc-200 text-sm border border-zinc-700">
-                  A
-                </div>
-                {/* 2. The Blinking Cursor, vertically centered with the avatar */}
-                <div className="flex items-center h-7">
+                <div className="flex-shrink-0 h-7 w-7 mr-7 rounded-full flex items-center justify-center font-semibold text-zinc-200 text-sm">
                   <BlinkingCursor />
-                </div>
+                </div>              
               </div>
             </div>
           )}

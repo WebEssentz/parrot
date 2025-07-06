@@ -6,7 +6,7 @@ import { useSidebar } from "@/lib/sidebar-context";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser, UserButton } from "@clerk/nextjs";
-import { ChevronLeft, MessageSquarePlus } from "lucide-react";
+import { ChevronLeft, ChevronsRight, ChevronsLeft } from "lucide-react";
 import clsx from "clsx";
 import { useTheme } from "next-themes";
 import { dark } from "@clerk/themes";
@@ -257,10 +257,19 @@ export const Sidebar = () => {
               transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
               className={clsx(!isDesktopSidebarCollapsed && "absolute right-2 top-2")}
             >
+              {/* --- START OF THE FIX --- */}
               <SidebarIconButton
-                icon={PanelLeft}
+                // 2. Use a ternary operator to dynamically select the icon
+                icon={isDesktopSidebarCollapsed ? ChevronsRight : ChevronsLeft}
                 onClick={(e) => { e.stopPropagation(); toggleDesktopSidebar(); }}
-                className="pl-[0.68rem]"
+                // 3. Conditionally apply a class to adjust padding for the new icon
+                className={clsx(
+                  "cursor-pointer",
+                  {
+                    "pl-[0.68rem]": isDesktopSidebarCollapsed, // Padding for ChevronsRight
+                    "pl-[0.5rem]": !isDesktopSidebarCollapsed // Tighter padding for ChevronsLeft
+                  }
+                )}
               />
             </motion.div>
           </div>

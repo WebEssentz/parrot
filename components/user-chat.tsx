@@ -3,7 +3,7 @@
 import React from "react";
 import { getDefaultModel } from "@/ai/providers";
 import { Message as TMessage, useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { useUser } from "@clerk/nextjs";
 import { Messages } from "./messages";
@@ -429,9 +429,9 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
             <div className="w-full px-4 flex flex-col items-center gap-8 max-w-xl lg:max-w-[50rem]">
               <GreetingBanner />
               {isDesktop && (
-                <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto">
+                <div className="w-full max-w-4xl mx-auto">
                   <ChatInputArea {...chatInputAreaProps} />
-                </form>
+                </div>
               )}
             </div>
           </div>
@@ -450,45 +450,46 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
 
       {/* The mobile input form is only rendered here, outside the main content flow */}
       {!isDesktop && !hasSentMessage && (
-        <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
-          <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
-            <form onSubmit={handleSubmit} className="w-full relative z-10">
-              <ChatInputArea {...chatInputAreaProps} />
-            </form>
-          </div>
-        </div>
-      )}
-
+  <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
+    <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
+      {/* The outer form is removed. ChatInputArea handles its own submission. */}
+      {/* The div is kept for positioning if needed, but the form tag must go. */}
+      <div className="w-full relative z-10">
+        <ChatInputArea {...chatInputAreaProps} />
+      </div>
+    </div>
+  </div>
+)}
       {/* This input form is for when a message has been sent (on all screen sizes) */}
       {hasSentMessage && (
-        <>
-          <motion.div
-            initial={false}
-            ref={inputAreaRef}
-            // Use Framer Motion's animate prop instead of className for the position
-            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem' }}
-            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed bottom-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"
-          >
-            <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
-              <form onSubmit={handleSubmit} className="w-full relative z-10">
-                <ChatInputArea {...chatInputAreaProps} />
-              </form>
-            </div>
-          </motion.div>
-          <motion.div
-            initial={false}
-            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem' }}
-            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed right-0 bottom-0 z-40 text-center pb-2 pointer-events-none"
-          >
-
-            <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none rounded-xl pointer-events-auto">
-              Avurna uses AI. Double check response.
-            </span>
-          </motion.div>
-        </>
-      )}
+  <>
+    <motion.div
+      initial={false}
+      ref={inputAreaRef}
+      animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem' }}
+      transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
+      className="fixed bottom-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"
+    >
+      <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
+        {/*
+          FIX: Replace the two nested forms with the ChatInputArea component.
+          It already contains the form and all the necessary logic.
+        */}
+        <ChatInputArea {...chatInputAreaProps} />
+      </div>
+    </motion.div>
+    <motion.div
+      initial={false}
+      animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? '3.5rem' : '16rem') : '0rem' }}
+      transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
+      className="fixed right-0 bottom-0 z-40 text-center pb-2 pointer-events-none"
+    >
+      <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none rounded-xl pointer-events-auto">
+        Avurna uses AI. Double check response.
+      </span>
+    </motion.div>
+  </>
+)}
     </div>
   );
 }
