@@ -14,6 +14,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { GithubWorkflowAggregator } from './github-workflow-aggregator';
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
+import { BlinkingCursor } from './blinking-cursor';
 import {
   Drawer,
   DrawerContent,

@@ -2,6 +2,7 @@ import { smoothStream, streamText, UIMessage } from "ai";
 import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, exaSearchTool, githubTool } from "@/ai/tools";
+import { google } from "@ai-sdk/google";
 
 export const maxDuration = 60;
 
@@ -128,7 +129,8 @@ export async function POST(req: Request) {
     messages,
     selectedModel,
     action, // Expect 'action' in the request body
-    user // { firstName, email }
+    user, // { firstName, email }
+    input
   } = requestBody;
 
   // --- FILTER OUT EMPTY MESSAGES (prevents Gemini API error) ---

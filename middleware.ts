@@ -14,6 +14,11 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
+  if (!userId && (path.startsWith('/chat') || path.startsWith('/settings'))) {
+    // Block access to /chat and /settings for not signed in users
+    return NextResponse.redirect(new URL('/', req.url));
+  }
+
   // If signed in, block access to sign-in or sign-up pages (but NOT callback)
   if (
     userId &&

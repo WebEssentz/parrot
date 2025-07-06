@@ -47,10 +47,10 @@ export const UserChatHeader = () => {
       className={
         // --- THE FIX IS HERE ---
         // Lowered z-index from 40 to 30 to sit below the mobile sidebar.
-        `fixed w-full top-0 bg-background/80 backdrop-blur-sm dark:bg-background z-30` + 
+        `fixed right-0 w-full top-0 bg-background/80 backdrop-blur-sm dark:bg-background z-30 pr-[6px]` + 
         (showBorder ? " border-b border-border" : " border-b-transparent")
       }
-      style={{boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none', right: "0px", width: "auto"}}
+      style={{boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
     >
       <div className="flex h-full justify-between items-center p-4 py-2">
         <div className="flex flex-row items-center gap-2 shrink-0 ">

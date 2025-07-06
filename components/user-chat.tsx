@@ -12,7 +12,9 @@ import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts';
 import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
 import { useSidebar } from '@/lib/sidebar-context';
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { PredictivePrompts } from "./predictive-prompts";
+import { ChatInputArea } from "./chat-input-area";
 import { useChats } from '@/hooks/use-chats';
 
 function GreetingBanner() {
@@ -102,6 +104,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   // --- REF TO TRACK PREVIOUS STATUS ---
   // This helps us detect the transition from 'streaming' to 'ready'
   const prevStatusRef = useRef<string | null>(null);
+  const [predictivePrompts, setPredictivePrompts] = useState<string[]>([]);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [isPredictiveVisible, setIsPredictiveVisible] = useState(true);
+
+  const MAX_COMPLETION_INPUT_LENGTH = 90;
 
   // --- Compose user info for backend ---
   const userInfo = isLoaded && user ? {
@@ -186,40 +193,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
       setIsSubmittingSearch(false);
     },
   });
-
-  // --- THIS IS THE FIX: Save the complete chat when the stream is finished ---
-  useEffect(() => {
-    // We only want to save when the stream has just finished.
-    // The condition `prevStatusRef.current === 'streaming'` ensures this.
-    // The `useChat` hook status transitions from 'streaming' to 'ready' when complete.
-    if (prevStatusRef.current === 'streaming' && status === 'ready') {
-      // Guard against running on empty chats or before chatId is set.
-      // `messages.length < 2` ensures we have both user and AI message.
-      if (!chatId || messages.length < 2) {
-        return;
-      }
-      
-      const saveChat = async () => {
-        try {
-          await fetch(`/api/chats/${chatId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            // At this point, `messages` is guaranteed to contain the full assistant response.
-            body: JSON.stringify({ messages: messages, title: chatTitle }),
-          });
-          // Refresh the chat list in the sidebar to reflect the latest state.
-          mutateChats();
-        } catch {
-          toast.error("Could not save the conversation.");
-        }
-      };
-      
-      saveChat();
-    }
-    // Update the ref to the current status for the next render cycle.
-    prevStatusRef.current = status;
-  }, [status, messages, chatId, chatTitle, mutateChats]); // Dependencies ensure reactivity
-
+ 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!dbUser?.id) {
@@ -297,8 +271,73 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     }
   };
 
-  const hasSentMessage = messages.length > 0;
+  
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
+  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle;
+  
+  // Create a ref to "snapshot" whether this is an existing chat on the initial render.
+  // The `!!initialChat` converts the prop into a boolean.
+  const isExistingChat = useRef(!!initialChat);
+
+  useEffect(() => {
+    // Add a guard clause at the very top of the effect.
+    // If our ref says this is an existing chat, stop immediately.
+    if (isExistingChat.current) {
+      return;
+    }
+
+    if (!isDesktop) return;
+    
+    const controller = new AbortController();
+    
+    if (
+      !input.trim() ||
+      input.trim().length < 3 ||
+      input.trim().length > MAX_COMPLETION_INPUT_LENGTH
+    ) {
+      setPredictivePrompts([]);
+      return; // This now also stops the API call for long inputs
+    }
+    
+    const handler = setTimeout(async () => {
+      setIsPredicting(true);
+      try {
+        const response = await fetch('/api/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input }),
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('Failed to fetch completions');
+        const data = await response.json();
+        setPredictivePrompts(data.completions || []);
+        setIsPredictiveVisible(true);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error("Error fetching predictive prompts:", error);
+          setPredictivePrompts([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsPredicting(false);
+        }
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(handler);
+      controller.abort();
+    };
+  }, [input, isDesktop]);
+  
+  const hasSentMessage = messages.length > 0;
+  
   useEffect(() => {
     const element = inputAreaRef.current;
     if (!element) return;
@@ -309,14 +348,65 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     return () => observer.disconnect();
   }, [hasSentMessage]);
 
-  useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+  const chatInputAreaProps = {
+    handleSubmit,
+    predictivePrompts,
+    input,
+    setInput: (newInput: string) => {
+      setInput(newInput);
+      setPredictivePrompts([]);
+      setIsPredictiveVisible(true);
+    },
+    handleInputChange,
+    isPredicting,
+    uiIsLoading,
+    status,
+    stop,
+    hasSentMessage,
+    isDesktop: !!isDesktop,
+    selectedModel,
+    setSelectedModel,
+    dynamicSuggestedPrompts,
+    isPredictiveVisible,
+    setIsPredictiveVisible,
+    disabled: offlineState !== 'online',
+    offlineState: offlineState
+  };
 
-  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle;
+
+  // --- THIS IS THE FIX: Save the complete chat when the stream is finished ---
+  useEffect(() => {
+    // We only want to save when the stream has just finished.
+    // The condition `prevStatusRef.current === 'streaming'` ensures this.
+    // The `useChat` hook status transitions from 'streaming' to 'ready' when complete.
+    if (prevStatusRef.current === 'streaming' && status === 'ready') {
+      // Guard against running on empty chats or before chatId is set.
+      // `messages.length < 2` ensures we have both user and AI message.
+      if (!chatId || messages.length < 2) {
+        return;
+      }
+      
+      const saveChat = async () => {
+        try {
+          await fetch(`/api/chats/${chatId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            // At this point, `messages` is guaranteed to contain the full assistant response.
+            body: JSON.stringify({ messages: messages, title: chatTitle }),
+          });
+          // Refresh the chat list in the sidebar to reflect the latest state.
+          mutateChats();
+        } catch {
+          toast.error("Could not save the conversation.");
+        }
+      };
+      
+      saveChat();
+    }
+    // Update the ref to the current status for the next render cycle.
+    prevStatusRef.current = status;
+  }, [status, messages, chatId, chatTitle, mutateChats]); // Dependencies ensure reactivity
+
 
   // ... (The rest of the JSX is unchanged) ...
     return (
@@ -340,21 +430,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
               <GreetingBanner />
               {isDesktop && (
                 <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto">
-                  <CustomTextareaWrapper
-                    selectedModel={selectedModel}
-                    setSelectedModel={setSelectedModel}
-                    handleInputChange={handleInputChange}
-                    setInput={setInput}
-                    input={input}
-                    isLoading={uiIsLoading}
-                    status={status}
-                    stop={stop}
-                    hasSentMessage={hasSentMessage}
-                    isDesktop={!!isDesktop}
-                    disabled={offlineState !== 'online'}
-                    offlineState={offlineState}
-                    suggestedPrompts={dynamicSuggestedPrompts}
-                  />
+                  <ChatInputArea {...chatInputAreaProps} />
                 </form>
               )}
             </div>
@@ -377,21 +453,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
         <div ref={inputAreaRef} className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none">
           <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
             <form onSubmit={handleSubmit} className="w-full relative z-10">
-              <CustomTextareaWrapper
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                handleInputChange={handleInputChange}
-                setInput={setInput}
-                input={input}
-                isLoading={uiIsLoading}
-                status={status}
-                stop={stop}
-                hasSentMessage={hasSentMessage}
-                isDesktop={false}
-                disabled={offlineState !== 'online'}
-                offlineState={offlineState}
-                suggestedPrompts={dynamicSuggestedPrompts}
-              />
+              <ChatInputArea {...chatInputAreaProps} />
             </form>
           </div>
         </div>
@@ -410,21 +472,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           >
             <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
               <form onSubmit={handleSubmit} className="w-full relative z-10">
-                <CustomTextareaWrapper
-                  selectedModel={selectedModel}
-                  setSelectedModel={setSelectedModel}
-                  handleInputChange={handleInputChange}
-                  setInput={setInput}
-                  input={input}
-                  isLoading={uiIsLoading}
-                  status={status}
-                  stop={stop}
-                  hasSentMessage={hasSentMessage}
-                  isDesktop={!!isDesktop}
-                  disabled={offlineState !== 'online'}
-                  offlineState={offlineState}
-                  suggestedPrompts={dynamicSuggestedPrompts}
-                />
+                <ChatInputArea {...chatInputAreaProps} />
               </form>
             </div>
           </motion.div>

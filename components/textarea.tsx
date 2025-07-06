@@ -22,6 +22,7 @@ interface InputProps {
   disabled?: boolean;
   suggestedPrompts: string[];
   offlineState?: 'online' | 'reconnecting' | 'offline';
+  onFocus?: () => void;
 }
 
 export const Textarea = ({
@@ -32,6 +33,7 @@ export const Textarea = ({
   status,
   stop,
   selectedModel,
+  onFocus,
   setSelectedModel,
   hasSentMessage,
   isDesktop,
@@ -184,7 +186,7 @@ export const Textarea = ({
 
   return (
     <div className="relative flex w-full items-end px-3 py-3 ">
-      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-2 border-zinc-200 dark:border-transparent dark:shadow-black/20 bg-[#F7F7F8] dark:bg-[#2a2a2a]">
+      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-[1px] border-zinc-500/40 dark:border-transparent dark:shadow-black/20 bg-[#F7F7F8] dark:bg-[#2a2a2a] focus-within:ring-1 focus-within:ring-primary/10 transition-shadow">
         {shouldShowCustomPlaceholderElements && (
           <div 
               className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
@@ -230,6 +232,7 @@ export const Textarea = ({
             className="resize-none bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
             value={input}
             autoFocus
+            onFocus={onFocus}
             placeholder={
               offlineState === 'offline'
                 ? "You’re offline. Please reconnect to continue."
@@ -273,7 +276,7 @@ export const Textarea = ({
                     type="submit"
                     // Disable if loading, no input, or explicitly disabled
                     disabled={isLoading || !input.trim() || disabled}
-                    className={`rounded-3xl flex items-center justify-center transition-colors duration-300 ${
+                    className={`rounded-3xl flex items-center justify-center ${
                       isLoading || !input.trim() || disabled
                         ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                         : 'dark:bg-white bg-black hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
@@ -284,9 +287,9 @@ export const Textarea = ({
                       // Show spinner when isLoading is true
                       <SpinnerIcon className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-400" />
                     ) : hasSentMessage ? (
-                      <ArrowUp className="h-5 w-5 transition-colors duration-300 text-white dark:text-black" />
+                      <ArrowUp className="h-5 w-5 text-white dark:text-black" />
                     ) : (
-                      <ArrowRight className="h-5 w-5 transition-colors duration-300 text-white dark:text-black" />
+                      <ArrowRight className="h-5 w-5 text-white dark:text-black" />
                     )}
                   </button>
                 )}
@@ -295,11 +298,11 @@ export const Textarea = ({
                     type="button"
                     onClick={stop}
                     disabled={false}
-                    className={`rounded-3xl flex items-center justify-center transition-colors duration-300 bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer`}
+                    className={`rounded-3xl flex items-center justify-center bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer`}
                     title={status === "streaming" ? "Stop generating" : "Processing..."}
                     style={{ minWidth: 40, minHeight: 40, cursor: 'pointer' }}
                   >
-                    <PauseIcon size={28} className="h-6 w-6 transition-colors duration-300 text-white dark:text-black" />
+                    <PauseIcon size={28} className="h-6 w-6 text-white dark:text-black" />
                   </button>
                 )}
               </div>
