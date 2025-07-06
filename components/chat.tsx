@@ -4,8 +4,6 @@ import React from "react";
 import { getDefaultModel } from "@/ai/providers";
 import { useUser } from "@clerk/nextjs";
 import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts';
-import { useMobile } from "../hooks/use-mobile";
-import { defaultModel } from "@/ai/providers";
 import { useChat } from "@ai-sdk/react";
 import { useRef as useReactRef } from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -17,10 +15,10 @@ import { Messages } from "./messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "./header";
 import { toast } from "sonner";
-import { PredictivePrompts } from "./predictive-prompts";
 import { Github, LinkedInIcon, XIcon } from "./icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { BlinkingCursor } from "./blinking-cursor";
+import { ScrollToBottomButton } from "./ui/scroll-to-bottom-button";
 
 // Only call title generation if the message is not vague/unsupported
 function isVagueOrUnsupportedMessage(msg: string) {
@@ -77,10 +75,11 @@ export default function Chat() {
 
   const modelForCurrentSubmissionRef = useRef<string>(getDefaultModel(!!isSignedIn));
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts();
-  // --- NEW STATE FOR PREDICTIVE PROMPTS ---
   const [predictivePrompts, setPredictivePrompts] = useState<string[]>([]);
   const [isPredicting, setIsPredicting] = useState(false);
   const [isPredictiveVisible, setIsPredictiveVisible] = useState(true);
+
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   const MAX_COMPLETION_INPUT_LENGTH = 90;
 
@@ -350,6 +349,30 @@ export default function Chat() {
     }
   }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
 
+  // --- Add the scroll listener logic ---
+  useEffect(() => {
+    const mainEl = containerRef.current;
+    if (!mainEl) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = mainEl;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight <= 1;
+      setShowScrollButton(!isAtBottom);
+    };
+
+    mainEl.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Initial check
+
+    return () => {
+      mainEl.removeEventListener('scroll', handleScroll);
+    };
+  }, []); // Run only once
+
+  // --- 4. Create the click handler ---
+  const handleScrollToBottom = () => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const uiIsLoading = status === "streaming" || status === "submitted"
 
   // Create a props object to pass to the new component to avoid repetition
@@ -382,7 +405,10 @@ export default function Chat() {
   const inputAreaPadding = inputAreaHeight;
 
   return (
-    <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
+    <div 
+      className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background"
+      style={{ '--input-area-height': `${inputAreaHeight}px` } as React.CSSProperties}
+    >
       <Header />
       <div
         ref={containerRef}
@@ -401,54 +427,63 @@ export default function Chat() {
         }}
       >
         {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (
-          <div className="flex-1 flex flex-col justify-center mt-11 items-center pb-32">
-            <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[50rem] px-4">
-              <ProjectOverview />
-              {isDesktop && (
-                // The input area is now a direct child of the flex container
-                <div className="w-full max-w-3xl mx-auto mt-6 mb-4">
-                  <ChatInputArea {...chatInputAreaProps} />
-                </div>
-              )}
-
-              <AnimatePresence>
-                {isDesktop && !input && (
-                  <motion.div
-                    initial={{ opacity: 1, y: 0 }}
-                    // We can add a more pleasing exit animation
-                    exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
-                    className="mt-2 w-full max-w-4xl mx-auto"
-                  >
-                    <SuggestedPrompts onPromptClick={setInput} />
-                  </motion.div>
+          <>
+            <div className="flex-1 flex flex-col justify-center mt-11 items-center pb-32">
+              <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[50rem] px-4">
+                <ProjectOverview />
+                {isDesktop && (
+                  // The input area is now a direct child of the flex container
+                  <div className="w-full max-w-3xl mx-auto mt-6 mb-4">
+                    <ChatInputArea {...chatInputAreaProps} />
+                  </div>
                 )}
-              </AnimatePresence>
-            </div>
-            {/* Legal/Footer text is now positioned independently at the bottom */}
-            {isDesktop && (
-              <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
-                <span className="text-xs font-normal text-[#6c757d] dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
-                  By messaging Avurna, you agree to our{' '}
-                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
-                  {' '}and our{' '}
-                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Privacy Policy</a>.
-                </span>
+
+                <AnimatePresence>
+                  {isDesktop && !input && (
+                    <motion.div
+                      initial={{ opacity: 1, y: 0 }}
+                      // We can add a more pleasing exit animation
+                      exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                      transition={{ duration: 0.2 }}
+                      className="mt-2 w-full max-w-4xl mx-auto"
+                    >
+                      <SuggestedPrompts onPromptClick={setInput} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-              /* <div className="fixed left-4 bottom-0 z-30 py-2">
-                    <span className="text-xs font-normal text-zinc-600 dark:text-zinc-300 select-none">
-                      © {currentYear} Avocado
-                    </span>
-                  </div> */
-              /* <div className="fixed right-4 bottom-0 z-30 py-2">
-                <div className="inline-flex items-center gap-x-3">
-                  <a href="https://x.com/YourXProfile" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our X profile"><XIcon size={15} /></a>
-                  <a href="https://linkedin.com/company/YourLinkedIn" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn profile"><LinkedInIcon size={15} /></a>
-                  <a href="https://github.com/YourGithub" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our GitHub"><Github className="size-[15px]" /></a>
+              {/* Legal/Footer text is now positioned independently at the bottom */}
+              {isDesktop && (
+                <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
+                  <span className="text-xs font-normal text-[#6c757d] dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
+                    By messaging Avurna, you agree to our{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
+                    {' '}and our{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Privacy Policy</a>.
+                  </span>
                 </div>
-              </div> */
-            )}
-          </div>
+                /* <div className="fixed left-4 bottom-0 z-30 py-2">
+                      <span className="text-xs font-normal text-zinc-600 dark:text-zinc-300 select-none">
+                        © {currentYear} Avocado
+                      </span>
+                    </div> */
+                /* <div className="fixed right-4 bottom-0 z-30 py-2">
+                  <div className="inline-flex items-center gap-x-3">
+                    <a href="https://x.com/YourXProfile" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our X profile"><XIcon size={15} /></a>
+                    <a href="https://linkedin.com/company/YourLinkedIn" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn profile"><LinkedInIcon size={15} /></a>
+                    <a href="https://github.com/YourGithub" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our GitHub"><Github className="size-[15px]" /></a>
+                  </div>
+                </div> */
+                
+              )}
+            </div>
+            <div ref={endRef}/>
+            {/* --- 6. Render the button here, outside the main scrollable area --- */}
+      <ScrollToBottomButton
+        isVisible={showScrollButton && hasSentMessage}
+        onClick={handleScrollToBottom}
+      />
+          </>
         ) : <>
           {/* This is your existing Messages component. It is perfect. */}
           <Messages
@@ -472,7 +507,14 @@ export default function Chat() {
           )}
         </>
         }
+        <div ref={endRef} />
       </div>
+
+      {/* --- 6. Render the button here, outside the main scrollable area --- */}
+      <ScrollToBottomButton
+        isVisible={showScrollButton && hasSentMessage}
+        onClick={handleScrollToBottom}
+      />
 
       {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (
         !isDesktop ? (

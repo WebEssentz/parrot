@@ -1,14 +1,11 @@
-// src/components/chat-input-area.tsx
 "use client";
 
 import { AnimatePresence } from "framer-motion";
 import { PredictivePrompts } from "./predictive-prompts";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
-// --- 1. Import the hook and useRef ---
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
 import { useRef } from "react";
 
-// --- 2. Update the props interface ---
 interface ChatInputAreaProps {
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   predictivePrompts: string[];
@@ -24,7 +21,6 @@ interface ChatInputAreaProps {
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   dynamicSuggestedPrompts: string[];
-  // --- New Props for visibility ---
   isPredictiveVisible: boolean;
   setIsPredictiveVisible: (visible: boolean) => void;
 }
@@ -37,19 +33,15 @@ export function ChatInputArea({
   isPredicting,
   uiIsLoading,
   dynamicSuggestedPrompts,
-  // --- Destructure new props ---
   isPredictiveVisible,
   setIsPredictiveVisible,
   ...rest
 }: ChatInputAreaProps) {
-  // --- 3. Create a ref for the entire area ---
   const inputAreaRef = useRef<HTMLDivElement>(null);
 
-  // --- 4. Use the hook to set visibility to false on outside click ---
   useOnClickOutside(inputAreaRef, () => setIsPredictiveVisible(false));
 
   return (
-    // --- 5. Apply the ref to the root element ---
     <div ref={inputAreaRef} className="relative w-full">
       <form onSubmit={handleSubmit} className="w-full">
         <CustomTextareaWrapper
@@ -57,13 +49,11 @@ export function ChatInputArea({
           input={input}
           isLoading={uiIsLoading}
           suggestedPrompts={dynamicSuggestedPrompts}
-          // --- 6. Add onFocus handler to re-show prompts ---
           onFocus={() => setIsPredictiveVisible(true)}
           {...rest}
         />
       </form>
       <AnimatePresence>
-        {/* --- 7. Use the new visibility state in the condition --- */}
         {isPredictiveVisible && predictivePrompts.length > 0 && (
           <PredictivePrompts
             prompts={predictivePrompts}
@@ -71,6 +61,10 @@ export function ChatInputArea({
             onSelect={(prompt) => {
               setInput(prompt);
             }}
+            // --- THIS IS THE FIX ---
+            // Add the required onDismiss prop. This allows the child component
+            // to tell the parent to hide the prompts when the user presses Escape.
+            onDismiss={() => setIsPredictiveVisible(false)}
           />
         )}
       </AnimatePresence>

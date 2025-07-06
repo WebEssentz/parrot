@@ -13,7 +13,7 @@ import { UserChatHeader } from "./user-chat-header";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
 import { useSidebar } from '@/lib/sidebar-context';
 import { motion, AnimatePresence } from "framer-motion";
-import { PredictivePrompts } from "./predictive-prompts";
+import { ScrollToBottomButton } from './scroll-to-bottom-button';
 import { ChatInputArea } from "./chat-input-area";
 import { useChats } from '@/hooks/use-chats';
 
@@ -107,6 +107,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [predictivePrompts, setPredictivePrompts] = useState<string[]>([]);
   const [isPredicting, setIsPredicting] = useState(false);
   const [isPredictiveVisible, setIsPredictiveVisible] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   const MAX_COMPLETION_INPUT_LENGTH = 90;
 
@@ -407,10 +408,37 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     prevStatusRef.current = status;
   }, [status, messages, chatId, chatTitle, mutateChats]); // Dependencies ensure reactivity
 
+   // --- FIX #2: The Scroll Listener ---
+  useEffect(() => {
+    const mainEl = containerRef.current;
+    if (!mainEl) return;
 
-  // ... (The rest of the JSX is unchanged) ...
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = mainEl;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight <= 1;
+      // This is a much simpler and more robust way to set the state.
+      // It doesn't depend on the previous state, avoiding closure issues.
+      setShowScrollButton(!isAtBottom);
+    };
+
+    mainEl.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      mainEl.removeEventListener('scroll', handleScroll);
+    };
+    // The dependency array is now empty, so the listener is only attached once.
+  }, []);
+
+  const handleScrollToBottom = () => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
     return (
-    <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background">
+    <div 
+      className="relative flex h-screen w-full flex-col overflow-hidden bg-background"
+      style={{ '--input-area-height': `${inputAreaHeight}px` } as React.CSSProperties}
+    >
       <UserChatHeader />
 
       <main
@@ -444,7 +472,6 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           />
         )}
         <ChatScrollAnchor containerRef={containerRef} />
-        {/* End ref for auto-scroll on send */}
         <div ref={endRef} />
       </main>
 
@@ -476,6 +503,13 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           It already contains the form and all the necessary logic.
         */}
         <ChatInputArea {...chatInputAreaProps} />
+
+              {/* --- FIX #1: Render the button here, so it's fixed relative to the viewport --- */}
+      <ScrollToBottomButton
+        isVisible={showScrollButton && hasSentMessage}
+        onClick={handleScrollToBottom}
+      />
+
       </div>
     </motion.div>
     <motion.div

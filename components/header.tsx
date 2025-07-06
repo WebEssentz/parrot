@@ -37,7 +37,7 @@ export const Header = () => {
   return (
     <div
       className={
-      `fixed right-0 left-0 w-full top-0 bg-[#F7F7F8] dark:bg-[#1C1C1C] z-50` +
+      `fixed right-0 left-0 w-full top-0 bg-[#FFFFFF] dark:bg-[#1C1C1C] z-50` +
         (showBorder ? " border-b border-zinc-200 dark:border-zinc-800" : " border-b-0")
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}

@@ -474,6 +474,7 @@ if (action === 'getSuggestedPrompts') {
     system: systemPrompt,
     messages: messages as UIMessage[],
     experimental_transform: smoothStream({ delayInMs: 20, chunking: 'word' }),
+    temperature: 0,
     tools: wrappedTools,
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },

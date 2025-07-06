@@ -74,7 +74,7 @@ export function AttachButton({
           onClick={onClick}
           disabled={disabled}
           className={cn(
-            "inline-flex items-center cursor-pointer justify-center h-8 rounded-full text-zinc-500 dark:text-zinc-400 bg-[#F7F7F8] dark:bg-transparent font-medium px-2.5", // Adjusted dark bg and -ml
+            "inline-flex items-center cursor-pointer justify-center h-8 rounded-full text-zinc-500 dark:text-zinc-400 bg-[#ffffff] dark:bg-transparent font-medium px-2.5", // Adjusted dark bg and -ml
             "hover:bg-zinc-100 dark:hover:bg-zinc-700/70", // Adjusted dark hover bg
             disabled ? "opacity-50 cursor-not-allowed" : ""
           )}
