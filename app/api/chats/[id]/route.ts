@@ -3,6 +3,7 @@ import { chat } from "@/lib/db/schema"
 import { auth } from "@clerk/nextjs/server"
 import { eq, and } from "drizzle-orm"
 import { NextResponse } from "next/server"
+import z from "zod"
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const { userId } = await auth()
@@ -121,5 +122,72 @@ export async function GET(request: Request, { params }: { params: { id: string }
   } catch (error) {
     console.error(`Error fetching chat ${chatId}:`, error)
     return NextResponse.json({ error: "Failed to fetch chat" }, { status: 500 })
+  }
+}
+
+// We are adding a new PATCH handler.
+
+// Define a Zod schema for validating the incoming request body.
+// This ensures that only the fields we want to be updatable can be changed,
+// and that they have the correct data types.
+const patchChatSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  visibility: z.enum(['public', 'private']).optional(),
+  isLiveSynced: z.boolean().optional(),
+});
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // 1. Security: Authenticate the user.
+    const { userId } = await auth();
+    if (!userId) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    // Get the chat ID from the URL.
+    const chatId = params.id;
+
+    // 2. Validation: Parse and validate the request body.
+    const body = await request.json();
+    const validatedBody = patchChatSchema.safeParse(body);
+
+    if (!validatedBody.success) {
+      return new NextResponse('Invalid request body', { status: 400 });
+    }
+
+    // 3. Authorization & Update: Perform the database update.
+    // The `and(eq(chat.id, chatId), eq(chat.userId, userId))` clause is the
+    // critical security check. It ensures a user can ONLY update their own chats.
+    const updatedChats = await db
+      .update(chat)
+      .set({
+        ...validatedBody.data,
+        updatedAt: new Date(), // Always update the `updatedAt` timestamp
+      })
+      .where(and(eq(chat.id, chatId), eq(chat.userId, userId)))
+      .returning({
+        id: chat.id,
+        title: chat.title,
+        visibility: chat.visibility,
+        isLiveSynced: chat.isLiveSynced,
+      });
+
+    // 4. Handle Not Found / Forbidden cases.
+    // If the array is empty, it means either the chat didn't exist OR
+    // the user didn't have permission to update it. We return a 404
+    // to avoid leaking information about which chats exist.
+    if (updatedChats.length === 0) {
+      return new NextResponse('Chat not found or you do not have permission to edit it', { status: 404 });
+    }
+
+    // 5. Success: Return the updated chat data.
+    return NextResponse.json(updatedChats[0]);
+
+  } catch (error) {
+    console.error('[CHAT_PATCH_ERROR]', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

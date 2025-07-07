@@ -1,0 +1,342 @@
+"use client"
+
+import type React from "react"
+import { useEffect, useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { useTransformToArticle } from "@/hooks/use-transform-to-article"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Copy, Check, MessageSquareText, FileText, Mic, Scissors, Loader2 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { toast } from "sonner"
+import { useChats } from "@/hooks/use-chats"
+import { PublicChatView } from "./public-chat-view"
+import type { Message } from "@ai-sdk/react"
+import clsx from "clsx"
+import { Markdown } from "./markdown"
+
+type ShareFormat = "conversation" | "article" | "podcast" | "snippet"
+
+interface ShareChatModalProps {
+  isOpen: boolean
+  onClose: () => void
+  chatId: string
+  chatTitle: string
+  chat: {
+    messages: Message[]
+    user: {
+      username: string | null
+      profilePic: string | null
+    }
+    updatedAt: string
+    isLiveSynced: boolean
+    visibility: "public" | "private"
+  }
+}
+
+const SharePreview = ({
+  chat,
+  chatTitle,
+  format,
+  articleContent,
+  isTransforming,
+}: {
+  chat: ShareChatModalProps["chat"]
+  chatTitle: string
+  format: ShareFormat
+  articleContent: string
+  isTransforming: boolean
+}) => {
+  const [isHovered, setIsHovered] = useState(false)
+
+  const renderPreviewContent = () => {
+    if (isTransforming) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8">
+          <Loader2 className="w-16 h-16 animate-spin mb-4" />
+          <p className="text-lg font-medium text-center mb-2">Crafting Professional Article...</p>
+          <p className="text-sm text-center text-zinc-500">Converting your conversation into a Medium-style article</p>
+        </div>
+      )
+    }
+
+    switch (format) {
+      case "article":
+        return (
+          <div className="h-full overflow-y-auto">
+            {articleContent ? (
+              <div className="p-8 prose prose-lg dark:prose-invert max-w-none">
+                <Markdown>{articleContent}</Markdown>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8">
+                <FileText className="w-20 h-20 mb-6" />
+                <p className="text-lg font-medium text-center mb-2">Professional Article Preview</p>
+                <p className="text-sm text-center text-zinc-500 max-w-md">
+                  Your conversation will be transformed into a comprehensive, Medium-style technical article with proper
+                  structure, code examples, and professional formatting.
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      case "podcast":
+        return (
+          <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-4">
+            <Mic className="w-16 h-16" />
+            <p className="mt-4 text-sm font-medium text-center">Podcast controls will appear here</p>
+          </div>
+        )
+      case "snippet":
+        return (
+          <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-4">
+            <Scissors className="w-16 h-16" />
+            <p className="mt-4 text-sm font-medium text-center">Select messages to create a snippet</p>
+          </div>
+        )
+      case "conversation":
+      default:
+        return <PublicChatView chat={{ ...chat, id: "preview-id", title: chatTitle }} />
+    }
+  }
+
+  return (
+    <div
+      className="h-full w-full rounded-xl border bg-zinc-50 dark:bg-zinc-900 shadow-inner overflow-hidden relative cursor-pointer"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <motion.div
+        className="absolute top-0 left-0 origin-top-left"
+        style={{ width: "285.71%", height: "285.71%" }}
+        initial={{ scale: 0.35 }}
+        animate={{ scale: isHovered ? 0.38 : 0.35 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
+        {renderPreviewContent()}
+      </motion.div>
+      <div className="absolute inset-0" />
+      <AnimatePresence>
+        {!isHovered && !(format === "article" && (isTransforming || articleContent)) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          >
+            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300 bg-white/80 dark:bg-black/50 px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm">
+              Hover to preview
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: ShareChatModalProps) => {
+  const [isPublic, setIsPublic] = useState(chat.visibility === "public")
+  const [isLiveSynced, setIsLiveSynced] = useState(chat.isLiveSynced)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const { mutateChats } = useChats()
+  const [shareLink, setShareLink] = useState("")
+  const [shareFormat, setShareFormat] = useState<ShareFormat>("conversation")
+
+  const { article, isLoading: isTransforming, transform: transformToArticle, setArticle } = useTransformToArticle()
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setShareFormat("conversation")
+      setArticle("")
+      setShareLink(`${window.location.origin}/share/${chatId}`)
+    }
+  }, [isOpen, chatId, setArticle])
+
+  // Handle format changes and trigger transformations
+  useEffect(() => {
+    if (!isOpen) return
+
+    if (shareFormat === "article" && chat.messages.length > 0) {
+      console.log("🎯 Triggering professional article transformation...")
+      transformToArticle(chat.messages)
+    }
+  }, [shareFormat, isOpen, chat.messages, transformToArticle])
+
+  const handleCopy = () => {
+    if (!shareLink) return
+    navigator.clipboard.writeText(shareLink).then(() => {
+      setCopied(true)
+      toast.success("Link copied to clipboard!")
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const handleShareConfirm = async () => {
+    if (!chatId) {
+      toast.error("Cannot share: Chat ID is missing.")
+      return
+    }
+
+    setIsSubmitting(true)
+
+    const shareSettings = {
+      visibility: isPublic ? "public" : "private",
+      isLiveSynced: isPublic ? isLiveSynced : false,
+    }
+
+    try {
+      const response = await fetch(`/api/chats/${chatId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(shareSettings),
+      })
+
+      if (!response.ok) throw new Error("Failed to update sharing settings.")
+
+      await response.json()
+      toast.success("Sharing settings updated!")
+      mutateChats()
+      onClose()
+    } catch (error) {
+      console.error("Sharing update failed:", error)
+      toast.error("Could not update sharing settings.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const formatOptions: { id: ShareFormat; label: string; icon: React.ElementType; description: string }[] = [
+    { id: "conversation", label: "Conversation", icon: MessageSquareText, description: "Share as chat format" },
+    { id: "article", label: "Article", icon: FileText, description: "Professional Medium-style article" },
+    { id: "podcast", label: "Podcast", icon: Mic, description: "Audio format (coming soon)" },
+    { id: "snippet", label: "Snippet", icon: Scissors, description: "Selected highlights" },
+  ]
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-5xl h-[85vh] flex flex-col p-0 bg-white/90 dark:bg-[#202020]/90 backdrop-blur-lg shadow-2xl rounded-2xl border-zinc-200/50 dark:border-zinc-700/50">
+        <DialogHeader className="p-6 pb-4 border-b border-zinc-200 dark:border-zinc-700/50">
+          <div className="flex justify-between items-center">
+            <DialogTitle className="text-lg text-zinc-900 dark:text-neutral-50">Share "{chatTitle}"</DialogTitle>
+            <div className="flex items-center space-x-2">
+              <Switch id="public-link-toggle" checked={isPublic} onCheckedChange={setIsPublic} />
+              <Label htmlFor="public-link-toggle" className="text-sm">
+                Public Link
+              </Label>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 overflow-hidden">
+          <div className="h-full min-h-[400px]">
+            <SharePreview
+              chat={chat}
+              chatTitle={chatTitle}
+              format={shareFormat}
+              articleContent={article}
+              isTransforming={isTransforming}
+            />
+          </div>
+
+          <div className="flex flex-col gap-6 overflow-y-auto">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium text-zinc-800 dark:text-zinc-100">Format</h3>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Choose how to present this conversation.</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {formatOptions.map(({ id, label, icon: Icon, description }) => (
+                  <button
+                    key={id}
+                    onClick={() => setShareFormat(id)}
+                    className={clsx("flex items-center p-4 rounded-lg border transition-all duration-200 text-left", {
+                      "bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400": shareFormat === id,
+                      "bg-zinc-100/50 hover:bg-zinc-100 dark:bg-zinc-800/50 hover:dark:bg-zinc-800 border-transparent":
+                        shareFormat !== id,
+                    })}
+                  >
+                    <Icon className="w-5 h-5 mr-3 flex-shrink-0" />
+                    <div>
+                      <div className="font-medium">{label}</div>
+                      <div className="text-xs opacity-70">{description}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {isPublic && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4 border-t border-zinc-200/80 dark:border-zinc-700/50 pt-6"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="share-link" className="font-medium text-zinc-800 dark:text-zinc-100">
+                      Shareable Link
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input id="share-link" value={shareLink} readOnly className="bg-zinc-100 dark:bg-zinc-800" />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 bg-transparent"
+                        onClick={handleCopy}
+                        disabled={isSubmitting}
+                      >
+                        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 pt-2">
+                    <Checkbox
+                      id="live-sync"
+                      checked={isLiveSynced}
+                      onCheckedChange={() => setIsLiveSynced(!isLiveSynced)}
+                      disabled={!isPublic}
+                      className="mt-0.5"
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <Label htmlFor="live-sync" className="font-medium cursor-pointer">
+                        Live Sync
+                      </Label>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                        When enabled, any new messages in this chat will automatically appear on the public page.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        <DialogFooter className="p-6 pt-4 border-t border-zinc-200 dark:border-zinc-700/50">
+          <Button type="button" variant="ghost" className="rounded-full" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="rounded-full bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+            onClick={handleShareConfirm}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Done"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

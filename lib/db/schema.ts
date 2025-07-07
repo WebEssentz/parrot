@@ -1,4 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
+import { relations } from 'drizzle-orm';
 import {
   pgTable,
   varchar,
@@ -36,6 +37,9 @@ export const chat = pgTable('Chat', {
   visibility: varchar('visibility', { enum: ['public', 'private'] })
     .notNull()
     .default('private'),
+  // This supports the "Live Sync" feature.
+  // It defaults to `false` for safety, so chats are static by default.
+  isLiveSynced: boolean('is_live_synced').notNull().default(false),
 },
   (table) => {
   return {
@@ -186,3 +190,41 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+// --- RELATIONS DEFINITIONS ---
+
+// A user can have many chats.
+export const userRelations = relations(user, ({ many }) => ({
+  chats: many(chat),
+}));
+
+// A chat belongs to one user and can have many messages and votes.
+export const chatRelations = relations(chat, ({ one, many }) => ({
+  user: one(user, {
+    fields: [chat.userId],
+    references: [user.id],
+  }),
+  messages: many(message),
+  votes: many(vote),
+}));
+
+// A message belongs to one chat and can have many votes.
+export const messageRelations = relations(message, ({ one, many }) => ({
+  chat: one(chat, {
+    fields: [message.chatId],
+    references: [chat.id],
+  }),
+  votes: many(vote),
+}));
+
+// A vote belongs to one message and one chat.
+export const voteRelations = relations(vote, ({ one }) => ({
+  chat: one(chat, {
+    fields: [vote.chatId],
+    references: [chat.id],
+  }),
+  message: one(message, {
+    fields: [vote.messageId],
+    references: [message.id],
+  }),
+}));

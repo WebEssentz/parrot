@@ -55,12 +55,12 @@ export const ChatHistoryList = () => {
 
   if (isError) {
     return (
-      <div className="p-4 mt-10 text-center text-sm">
+      <div className="p-4 mt-20 text-center text-sm">
         <p className="text-red-500">Failed to load chats.</p>
         <button
           onClick={handleRetry}
           disabled={getRenamingState()}
-          className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-primary dark:hover:bg-zinc-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-primary dark:hover:bg-zinc-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCcw className="w-3.5 h-3.5" />
           Retry
