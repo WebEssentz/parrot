@@ -28,6 +28,7 @@ import { common, createLowlight } from "lowlight"
 import { markdownToHtml } from "@/lib/markdown-converter"
 import { initSmoothScrolling, smoothScrollConfig } from "@/lib/smooth-scroll"
 import { VideoLinkModal } from "./video-link-modal"
+import { DraggableContentBlock } from "./draggable-content-block"
 import { SimpleColorPicker } from "./color-picker"
 import { FontSelector } from "./font-selector"
 import { MobileCommandBar } from "./mobile-command-bar"
@@ -62,7 +63,6 @@ import {
 } from "lucide-react"
 import TextStyle from "@tiptap/extension-text-style"
 import { VideoProcessor } from "@/lib/video-processor"
-import { MobileDraggableBlock } from "./mobile-draggable-block"
 
 // Create lowlight instance
 const lowlight = createLowlight(common)
@@ -70,7 +70,7 @@ const lowlight = createLowlight(common)
 // The props for our component
 interface ArticleEditorProps {
   initialArticle: Article & {
-    author: { firstName: string | null; imageUrl: string | null } | null
+    author: { firstName: string | null } | null
   }
 }
 
@@ -791,7 +791,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
     }
   }, [editor])
 
-  // Handle video insertion with proper DOM insertion and forced re-render
+  // Handle video insertion with proper DOM insertion
   const handleVideoInsert = useCallback(
     async (url: string, platform: string) => {
       if (editor) {
@@ -800,19 +800,13 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
           const result = await VideoProcessor.processVideoUrl(url, detectedPlatform)
 
           if (result) {
-            // Insert the video HTML directly into the editor with proper spacing
-            const videoContent = `<p></p>${result.html}<p></p>`
-            editor.chain().focus().insertContent(videoContent).run()
+            // Insert the video HTML directly into the editor
+            editor.chain().focus().insertContent(result.html).run()
 
-            // Force multiple re-renders to ensure the video appears
+            // Force a re-render to ensure the video appears
             setTimeout(() => {
               editor.commands.focus()
-              editor.view.updateState(editor.view.state)
             }, 100)
-
-            setTimeout(() => {
-              editor.view.updateState(editor.view.state)
-            }, 300)
 
             toast.success(
               `${result.platform.charAt(0).toUpperCase() + result.platform.slice(1)} video inserted successfully!`,
@@ -989,16 +983,8 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
 
               {/* User Avatar */}
               <div className="hidden md:flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center overflow-hidden">
-                  {initialArticle.author?.imageUrl ? (
-                    <img
-                      src={initialArticle.author.imageUrl || "/placeholder.svg"}
-                      alt={initialArticle.author.firstName || "User"}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-4 h-4 text-white dark:text-zinc-900" />
-                  )}
+                <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
+                  <User className="w-4 h-4 text-white dark:text-zinc-900" />
                 </div>
                 <span className="text-zinc-400">/</span>
               </div>
@@ -1100,7 +1086,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
                     </span>
                   </div>
                   {contentBlocks.map((block, index) => (
-                    <MobileDraggableBlock
+                    <DraggableContentBlock
                       key={block.id}
                       id={block.id}
                       content={block.content}
