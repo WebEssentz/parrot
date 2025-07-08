@@ -180,6 +180,200 @@ body.loading-prevent-scroll {
   max-width: 100%;
 }
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Existing styles... */
+
+/* Syntax highlighting for code blocks */
+@import "highlight.js/styles/atom-one-dark.css";
+
+/* Custom code block styling */
+.ProseMirror pre {
+  background: #282c34 !important;
+  color: #abb2bf !important;
+  font-family: "JetBrains Mono", "Fira Code", "Monaco", "Cascadia Code", "Roboto Mono", monospace;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  position: relative;
+}
+
+.ProseMirror pre code {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Language label for code blocks */
+.ProseMirror pre::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #abb2bf;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Highlight colors */
+mark[data-color="#fef08a"] {
+  background-color: #fef08a;
+  color: #92400e;
+}
+
+mark[data-color="#bbf7d0"] {
+  background-color: #bbf7d0;
+  color: #065f46;
+}
+
+mark[data-color="#bfdbfe"] {
+  background-color: #bfdbfe;
+  color: #1e40af;
+}
+
+mark[data-color="#e9d5ff"] {
+  background-color: #e9d5ff;
+  color: #7c3aed;
+}
+
+mark[data-color="#fbcfe8"] {
+  background-color: #fbcfe8;
+  color: #be185d;
+}
+
+mark[data-color="#fed7aa"] {
+  background-color: #fed7aa;
+  color: #c2410c;
+}
+
+mark[data-color="#fecaca"] {
+  background-color: #fecaca;
+  color: #dc2626;
+}
+
+mark[data-color="#e5e7eb"] {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+
+/* Syntax highlighting for code blocks */
+@import "highlight.js/styles/atom-one-dark.css";
+
+/* Custom code block styling */
+.ProseMirror pre {
+  background: #282c34 !important;
+  color: #abb2bf !important;
+  font-family: "JetBrains Mono", "Fira Code", "Monaco", "Cascadia Code", "Roboto Mono", monospace;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  position: relative;
+}
+
+.ProseMirror pre code {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Language label for code blocks */
+.ProseMirror pre::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #abb2bf;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Highlight colors - Updated for proper TipTap integration */
+mark[data-color="#fef08a"],
+.ProseMirror mark[style*="background-color: rgb(254, 240, 138)"] {
+  background-color: #fef08a !important;
+  color: #92400e !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#bbf7d0"],
+.ProseMirror mark[style*="background-color: rgb(187, 247, 208)"] {
+  background-color: #bbf7d0 !important;
+  color: #065f46 !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#bfdbfe"],
+.ProseMirror mark[style*="background-color: rgb(191, 219, 254)"] {
+  background-color: #bfdbfe !important;
+  color: #1e40af !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#e9d5ff"],
+.ProseMirror mark[style*="background-color: rgb(233, 213, 255)"] {
+  background-color: #e9d5ff !important;
+  color: #7c3aed !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#fbcfe8"],
+.ProseMirror mark[style*="background-color: rgb(251, 207, 232)"] {
+  background-color: #fbcfe8 !important;
+  color: #be185d !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#fed7aa"],
+.ProseMirror mark[style*="background-color: rgb(254, 215, 170)"] {
+  background-color: #fed7aa !important;
+  color: #c2410c !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#fecaca"],
+.ProseMirror mark[style*="background-color: rgb(254, 202, 202)"] {
+  background-color: #fecaca !important;
+  color: #dc2626 !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#e5e7eb"],
+.ProseMirror mark[style*="background-color: rgb(229, 231, 235)"] {
+  background-color: #e5e7eb !important;
+  color: #374151 !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+/* Default highlight styling */
+.ProseMirror mark {
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+
 /* 
   --- FINAL SOURCE HIGHLIGHT AND BUTTON STYLES (Robust Pointer-Events Method) --- 
 */

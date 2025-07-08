@@ -191,21 +191,82 @@ export const stream = pgTable(
 
 export type Stream = InferSelectModel<typeof stream>;
 
+// This table stores the polished, Medium-style articles generated from chats.
+export const article = pgTable(
+  'Article',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    authorId: varchar('authorId', { length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sourceChatId: uuid('sourceChatId')
+      .notNull()
+      .references(() => chat.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull(),
+    title: text('title').notNull(),
+    content_md: text('content_md').notNull(),
+    status: varchar('status', { enum: ['draft', 'published'] })
+      .notNull()
+      .default('draft'),
+    createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => {
+    return {
+      // Ensures that a user cannot have two articles with the same slug.
+      authorSlugUnique: index('author_slug_unique_idx').on(table.authorId, table.slug),
+    };
+  },
+);
+
+export type Article = InferSelectModel<typeof article>;
+
+// --- NEW TABLE: Snippet ---
+// This table stores collections of selected messages for quick sharing.
+export const snippet = pgTable(
+  'Snippet',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    authorId: varchar('authorId', { length: 255 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sourceChatId: uuid('sourceChatId')
+      .notNull()
+      .references(() => chat.id, { onDelete: 'cascade' }),
+    // Using jsonb to store an array of message_v2 IDs.
+    // jsonb is indexed and more performant for queries than standard json.
+    selectedMessageIds: json('selected_message_ids').notNull(),
+    createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => {
+    return {
+      // Speeds up fetching all snippets for a given author.
+      authorIdx: index('snippet_author_id_idx').on(table.authorId),
+    };
+  },
+);
+
+export type Snippet = InferSelectModel<typeof snippet>;
+
 // --- RELATIONS DEFINITIONS ---
 
-// A user can have many chats.
+// A user can have many chats, articles and snippets.
 export const userRelations = relations(user, ({ many }) => ({
   chats: many(chat),
+  articles: many(article),
+  snippets: many(snippet),
 }));
 
-// A chat belongs to one user and can have many messages and votes.
+// A chat belongs to one user and can have many messages, votes, articles, and snippets.
 export const chatRelations = relations(chat, ({ one, many }) => ({
   user: one(user, {
     fields: [chat.userId],
     references: [user.id],
   }),
-  messages: many(message),
+  messages: many(message), // Assuming we use message_v2
   votes: many(vote),
+  articles: many(article), // NEW
+  snippets: many(snippet), // NEW
 }));
 
 // A message belongs to one chat and can have many votes.
@@ -226,5 +287,29 @@ export const voteRelations = relations(vote, ({ one }) => ({
   message: one(message, {
     fields: [vote.messageId],
     references: [message.id],
+  }),
+}));
+
+// An article belongs to one author (user) and one source chat.
+export const articleRelations = relations(article, ({ one }) => ({
+  author: one(user, {
+    fields: [article.authorId],
+    references: [user.id],
+  }),
+  sourceChat: one(chat, {
+    fields: [article.sourceChatId],
+    references: [chat.id],
+  }),
+}));
+
+// A snippet belongs to one author (user) and one source chat.
+export const snippetRelations = relations(snippet, ({ one }) => ({
+  author: one(user, {
+    fields: [snippet.authorId],
+    references: [user.id],
+  }),
+  sourceChat: one(chat, {
+    fields: [snippet.sourceChatId],
+    references: [chat.id],
   }),
 }));

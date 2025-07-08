@@ -1,69 +1,66 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import type { Message } from "ai"
 import { toast } from "sonner"
 import { readDataStream } from "@/lib/read-data-stream"
+
+interface ArticleArtifact {
+  id: string
+  slug: string
+}
 
 export const useTransformToArticle = () => {
   const [article, setArticle] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const [artifact, setArtifact] = useState<ArticleArtifact | null>(null)
 
-  const transform = useCallback(async (messages: Message[]) => {
-    console.log("🚀 [ARTICLE HOOK] Starting transformation...")
-    console.log("📝 Messages to transform:", messages.length)
+  const transform = useCallback(async (chatId: string) => {
+    if (!chatId) {
+      toast.error("Cannot transform: Chat ID is missing.")
+      return
+    }
+
+    console.log(`🚀 [ARTICLE HOOK] Starting transformation for chat: ${chatId}`)
 
     setIsLoading(true)
     setArticle("")
     setError(null)
+    setArtifact(null)
 
     try {
-      // Prepare and validate messages
-      const validMessages = messages
-        .filter((msg) => {
-          const hasContent = msg.content && typeof msg.content === "string" && msg.content.trim().length > 0
-          if (!hasContent) {
-            console.warn("Filtering out invalid message:", msg)
-          }
-          return hasContent
-        })
-        .map((msg) => ({
-          role: msg.role,
-          content: typeof msg.content === "string" ? msg.content.trim() : String(msg.content).trim(),
-        }))
-
-      console.log("✅ Valid messages:", validMessages.length)
-
-      if (validMessages.length === 0) {
-        throw new Error("No valid messages found to transform into an article")
-      }
-
-      // Log first few messages for debugging
-      console.log("📋 Sample messages:", validMessages.slice(0, 2))
-
-      const response = await fetch("/api/transform/article", {
+      const response = await fetch("/api/articles", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages: validMessages }),
+        body: JSON.stringify({ chatId }),
       })
 
-      console.log("📡 API Response status:", response.status)
-      console.log("📡 API Response headers:", Object.fromEntries(response.headers.entries()))
+      console.log("📡 [ARTICLE HOOK] API Response status:", response.status)
+      console.log("📡 [ARTICLE HOOK] API Response headers:", Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("❌ API Error:", errorText)
+        console.error("❌ [ARTICLE HOOK] API Error:", errorText)
         throw new Error(`API returned ${response.status}: ${errorText}`)
       }
+
+      const articleId = response.headers.get("X-Article-Id")
+      const articleSlug = response.headers.get("X-Article-Temp-Slug")
+
+      if (!articleId || !articleSlug) {
+        throw new Error("API response is missing required article headers.")
+      }
+
+      setArtifact({ id: articleId, slug: articleSlug })
+      console.log(`✅ [ARTICLE HOOK] Artifact created: ID=${articleId}, Slug=${articleSlug}`)
 
       if (!response.body) {
         throw new Error("No response body received from API")
       }
 
-      console.log("📖 Starting to read stream...")
+      console.log("📖 [ARTICLE HOOK] Starting to read stream for real-time preview...")
 
       let totalContent = ""
       let chunkCount = 0
@@ -74,35 +71,47 @@ export const useTransformToArticle = () => {
           if (textChunk && textChunk.length > 0) {
             chunkCount++
             totalContent += textChunk
-
-            // Update state with each chunk for real-time display
             setArticle(totalContent)
 
             // Log progress every 2 seconds or every 20 chunks
             const now = Date.now()
             if (now - lastLogTime > 2000 || chunkCount % 20 === 0) {
-              console.log(`📖 Progress: ${chunkCount} chunks, ${totalContent.length} chars`)
-              console.log(`📖 Latest chunk: "${textChunk.substring(0, 50)}..."`)
+              console.log(`📖 [ARTICLE HOOK] Progress: ${chunkCount} chunks, ${totalContent.length} chars`)
+              console.log(`📖 [ARTICLE HOOK] Latest chunk: "${textChunk.substring(0, 50)}..."`)
               lastLogTime = now
             }
           }
         }
       } catch (streamError) {
-        console.error("❌ Stream reading error:", streamError)
+        console.error("❌ [ARTICLE HOOK] Stream reading error:", streamError)
         throw new Error(`Failed to read response stream: ${streamError}`)
       }
 
       if (!totalContent || totalContent.trim().length === 0) {
-        console.error("❌ No content received after processing stream")
+        console.error("❌ [ARTICLE HOOK] No content received after processing stream")
         throw new Error("No article content was generated")
       }
 
-      console.log("✅ Article generation completed!")
-      console.log(`📊 Final stats: ${chunkCount} chunks, ${totalContent.length} characters`)
-      console.log(`📄 Article preview: "${totalContent.substring(0, 200)}..."`)
+      console.log("✅ [ARTICLE HOOK] Article stream completed!")
+      console.log(`📊 [ARTICLE HOOK] Final stats: ${chunkCount} chunks, ${totalContent.length} characters`)
+
+      // After stream completes, get the updated article info using the article ID
+      try {
+        const updatedResponse = await fetch(`/api/articles/${articleId}`)
+        if (updatedResponse.ok) {
+          const updatedArticle = await updatedResponse.json()
+          setArtifact({
+            id: updatedArticle.id,
+            slug: updatedArticle.slug,
+          })
+          console.log(`🔄 [ARTICLE HOOK] Updated artifact with final slug: ${updatedArticle.slug}`)
+        }
+      } catch (error) {
+        console.warn("Could not fetch updated article info:", error)
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : "Unknown error occurred"
-      console.error("❌ Article transformation failed:", errorMessage)
+      console.error("❌ [ARTICLE HOOK] Article transformation failed:", errorMessage)
       setError(errorMessage)
       toast.error(`Article generation failed: ${errorMessage}`)
     } finally {
@@ -116,5 +125,6 @@ export const useTransformToArticle = () => {
     error,
     transform,
     setArticle,
+    artifact,
   }
 }

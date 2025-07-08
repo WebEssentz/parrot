@@ -1,6 +1,8 @@
 "use client"
 
 import type React from "react"
+// --- 1. IMPORT useRouter ---
+import { useRouter } from "next/navigation"
 
 import { Trash2, Edit3, MoreHorizontal, Share, Archive } from "lucide-react" // Added Archive icon
 import clsx from "clsx"
@@ -17,6 +19,7 @@ import {
 import { toast } from "sonner"
 import { setRenamingState } from "@/hooks/use-chats"
 import { DeleteChatModal } from "./delete-chat-modal"
+import { ShareChatModal } from "./share-chat-modal";
 
 interface Chat {
   id: string
@@ -24,8 +27,7 @@ interface Chat {
   isOptimistic?: boolean
 }
 
-// NOTE: All hooks and logic functions (useTypewriter, handleRename, handleDelete, etc.) remain unchanged.
-// The changes are purely stylistic in the JSX.
+// NOTE: All hooks and logic functions (useTypewriter, etc.) remain unchanged.
 const useTypewriter = (text: string, speed = 30) => {
   const [displayText, setDisplayText] = useState("")
   useEffect(() => {
@@ -53,11 +55,16 @@ interface ChatHistoryItemProps {
 }
 
 export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, deleteChat }: ChatHistoryItemProps) => {
+  // --- 2. INITIALIZE useRouter ---
+  const router = useRouter()
+
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState(chat.title)
   const inputRef = useRef<HTMLInputElement>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false);
+
 
   useEffect(() => {
     if (!isEditing) setTitle(chat.title)
@@ -126,13 +133,25 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
     setIsDeleting(true)
     setRenamingState(true)
     try {
+      // Optimistically delete from UI first
       deleteChat(chat.id)
+      // --- 3. PUSH to "/" route immediately ---
+      router.push("/")
+      // Then, make the API call
       const response = await fetch(`/api/chats/${chat.id}`, { method: "DELETE" })
-      if (!response.ok) throw new Error("Failed to delete chat")
+      if (!response.ok) {
+        // If the API call fails, we can show an error, but the user is already on the new page.
+        // The optimistic deletion will need to be reverted by your global state management if this happens.
+        throw new Error("Failed to delete chat")
+      }
+      toast.success("Chat deleted successfully.")
       setShowDeleteModal(false)
     } catch (error) {
-      toast.error("Failed to delete chat")
+      // You might want to enhance error handling here, e.g., by restoring the chat
+      // if the API call fails, though that can be complex.
+      toast.error("Failed to delete chat on the server.")
     } finally {
+      // These state changes are local to the component, which is about to be unmounted anyway, but it's good practice.
       setIsDeleting(false)
       setRenamingState(false)
     }
@@ -180,7 +199,7 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
               />
             </motion.div>
           ) : (
-             <motion.button
+            <motion.button
               key="normal-view"
               onClick={onClick}
               initial={{ opacity: 0 }}
@@ -191,8 +210,6 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
             >
               <span className="flex-grow truncate px-3 pr-10">{finalTitle}</span>
               <div
-                // --- THIS IS THE FIX ---
-                // The menu is now visible if the item is active OR on hover.
                 className={clsx(
                   "absolute right-1 top-0 h-full flex items-center transition-opacity",
                   {
@@ -212,16 +229,12 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
-                    // FIX: Alignment is now 'start' to open towards the right.
                     align="start"
-                    // FIX: Offset increased for better spacing.
                     sideOffset={8}
-                    // FIX: Taller (p-2) and more rounded (rounded-2xl)
                     className="w-36 bg-white dark:bg-[#282828] p-2 shadow-xl border border-zinc-200/80 dark:border-zinc-700/80 rounded-3xl"
                   >
                     <DropdownMenuItem
-                      onSelect={handleShare}
-                      // FIX: Taller items (py-2) with more rounded hover state
+                      onClick={() => setShowShareModal(true)}
                       className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
                     >
                       <Share size={15} className="text-zinc-500" />

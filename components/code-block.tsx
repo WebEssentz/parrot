@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { ChevronsUpDown, CopyIcon, Download as DownloadIcon } from "lucide-react";
+import { ChevronsUpDown, Copy, CopyIcon, Download, Download as DownloadIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -195,6 +195,7 @@ import xl from 'highlight.js/lib/languages/xl';
 import xml from 'highlight.js/lib/languages/xml';
 import xquery from 'highlight.js/lib/languages/xquery';
 import zephir from 'highlight.js/lib/languages/zephir';
+import { toast } from "sonner";
 
 hljs.registerLanguage('abnf', abnf);
 hljs.registerLanguage('accesslog', accesslog);
@@ -507,6 +508,9 @@ interface CodeBlockProps {
   children: any;
 }
 
+// A list of "languages" that should be treated as plain text diagrams
+const DIAGRAM_LANGUAGES = ['plaintext', 'text', 'ascii', 'diagram', 'tree'];
+
 export function CodeBlock({
   node,
   inline,
@@ -551,29 +555,9 @@ export function CodeBlock({
 
   // Extract language from className (e.g., language-js)
   const match = /language-(\w+)/.exec(className || "");
-  const language = match ? match[1] : "";
   const codeString = String(children).replace(/\n$/, "");
 
-  // Language auto-detection if not specified
-  let detectedLanguage = language;
-  if (!detectedLanguage) {
-    try {
-      const result = hljs.highlightAuto(codeString);
-      detectedLanguage = result.language || "text";
-    } catch {
-      detectedLanguage = "text";
-    }
-  }
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(codeString);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      setCopied(false);
-    }
-  };
 
   // TODO: WIP MOVE ALL CUSTOM ICON SVG TO THE ICONS.TSX FILE AND IMPORT BACK TO FILE.
   // Count code lines for collapse message
@@ -775,104 +759,152 @@ export function CodeBlock({
     zephir: ["zep"],
   };
 
-  // Download code as file
+   // --- THIS IS THE FIX ---
+  // Step 1: Extract language explicitly provided (e.g., ```javascript)
+  const explicitLangMatch = /language-(\w+)/.exec(className || "");
+  const explicitLang = explicitLangMatch ? explicitLangMatch[1].toLowerCase() : null;
+
+  // Step 2: Determine the final language. Use explicit if available, otherwise auto-detect.
+  const language = explicitLang || (() => {
+    try {
+      // Auto-detect only if no language was specified
+      const result = hljs.highlightAuto(codeString);
+      return result.language || 'plaintext';
+    } catch {
+      return 'plaintext';
+    }
+  })();
+
+    // Language auto-detection if not specified
+  let detectedLanguage = language;
+  if (!detectedLanguage) {
+    try {
+      const result = hljs.highlightAuto(codeString);
+      detectedLanguage = result.language || "text";
+    } catch {
+      detectedLanguage = "text";
+    }
+  }
+  
+  // Step 3: Decide if it's a diagram based on the FINAL language.
+  const isDiagram = DIAGRAM_LANGUAGES.includes(language);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(codeString);
+      setCopied(true);
+      toast.success("Copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy.");
+      setCopied(false);
+    }
+  };
+
   const handleDownload = () => {
-    const blob = new Blob([codeString], { type: "text/plain" });
-    const exts = LANGUAGE_EXTENSIONS[detectedLanguage] || [detectedLanguage] || ["txt"];
-    const ext = Array.isArray(exts) ? exts[0] : "txt";
-    // Use Avurna watermark in filename for branding
-    const filename = `avurna-ai-codeblock.${ext}`;
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const blob = new Blob([codeString], { type: "text/plain" });
+      const ext = language === 'plaintext' ? 'txt' : language;
+      const filename = `avurna-ai-codeblock.${ext}`;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch {
+       toast.error("Download failed.");
+    }
   };
 
    if (inline) {
     return (
-      <code className="relative rounded bg-zinc-500/10 dark:bg-zinc-400/10 px-[0.4em] py-[0.2em] font-mono text-sm break-words">
+      <code className="relative rounded bg-zinc-200 dark:bg-zinc-700/50 px-[0.4rem] py-[0.2rem] font-mono text-sm break-words">
         {children}
       </code>
     );
   }
+  
+  const syntaxTheme = theme === 'dark' ? oneDark : solarizedlight;
+  const containerBgColor = syntaxTheme.hasOwnProperty('pre[class*="language-"]') 
+    // @ts-ignore
+    ? String(syntaxTheme['pre[class*="language-"]'].background) 
+    : '#2d2d2d';
 
   return (
     <TooltipProvider>
-      {/* 1. Unified container with rounded edges and overflow hidden */}
       <div
-        className="not-prose relative my-4 rounded-lg overflow-hidden"
-        style={{ backgroundColor: THEMES[themeIndex].value.background as string }}
+        className="not-prose relative my-4 rounded-xl border border-zinc-200/50 dark:border-zinc-700/50 overflow-hidden"
+        style={{ backgroundColor: containerBgColor }}
       >
-        {/* 2. Header with same background, language left, buttons right */}
-        <div className="flex items-center justify-between px-4 py-2 text-zinc-300">
-          <span className="text-xs font-sans text-zinc-400 select-none">
-            {detectedLanguage}
+        <div className="flex items-center justify-between px-4 py-1.5 bg-black/10">
+          <span className="text-xs font-sans text-zinc-400 select-none capitalize">
+            {language}
           </span>
-
-          {/* 3. Buttons are always visible */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <button onClick={handleCopy} className="flex cursor-pointer items-center gap-1.5 p-1 rounded hover:bg-white/10 transition-colors">
-                  <CopyIcon className="size-3.5" />
-                  <span className="text-xs font-medium">{copied ? 'Copied!' : 'Copy'}</span>
+                <button onClick={handleCopy} className="p-1.5 rounded-md hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+                  <span className="sr-only">Copy code</span>
+                  <Copy className="size-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Copy code</TooltipContent>
+              <TooltipContent>{copied ? 'Copied!' : 'Copy to clipboard'}</TooltipContent>
             </Tooltip>
-
             <Tooltip>
               <TooltipTrigger asChild>
-                <button onClick={handleDownload} className="flex cursor-pointer items-center gap-1.5 p-1 rounded hover:bg-white/10 transition-colors">
-                  <DownloadIcon className="size-3.5" />
-                  <span className="text-xs font-medium">Download</span>
+                <button onClick={handleDownload} className="p-1.5 rounded-md hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+                   <span className="sr-only">Download code</span>
+                  <Download className="size-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Download file</TooltipContent>
+              <TooltipContent>Download as .{language === 'plaintext' ? 'txt' : language}</TooltipContent>
             </Tooltip>
-
              <Tooltip>
               <TooltipTrigger asChild>
-                <button onClick={() => setCollapsed(!collapsed)} className="flex cursor-pointer items-center gap-1.5 p-1 rounded hover:bg-white/10 transition-colors">
+                <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 rounded-md hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+                  <span className="sr-only">{collapsed ? 'Expand code' : 'Collapse code'}</span>
                   <ChevronsUpDown className="size-3.5" />
-                  <span className="text-xs font-medium">{collapsed ? 'Expand' : 'Collapse'}</span>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>{collapsed ? 'Expand code' : 'Collapse code'}</TooltipContent>
+              <TooltipContent>{collapsed ? `Show ${codeLines} lines` : 'Collapse code'}</TooltipContent>
             </Tooltip>
           </div>
         </div>
 
-        {/* Code Body */}
-        {!collapsed && (
-          <div className={styles.codeBlockScroll}>
-            <SyntaxHighlighter
-              language={detectedLanguage}
-              style={THEMES[themeIndex].value}
-              customStyle={{
-                // IMPORTANT: Make highlighter background transparent to show parent's color
-                background: 'transparent',
-                backgroundColor: 'transparent',
-                margin: 0,
-                // Add padding inside the scroll container
-                padding: '0 1rem 1rem 1rem',
-                fontSize: '14px',
-              }}
-              codeTagProps={{
-                className: "font-mono text-sm",
-              }}
-              {...props}
-            >
-              {codeString}
-            </SyntaxHighlighter>
-          </div>
-        )}
+        <div className={styles.codeBlockScroll}>
+          {!collapsed && (
+            isDiagram ? (
+              <pre className="p-4 font-mono text-sm leading-relaxed">
+                <code>{codeString}</code>
+              </pre>
+            ) : (
+              <SyntaxHighlighter
+                language={language}
+                style={syntaxTheme}
+                showLineNumbers={false}
+                wrapLines={false}
+                customStyle={{
+                  margin: 0,
+                  padding: '1rem',
+                  backgroundColor: 'transparent',
+                  fontSize: '14px',
+                  lineHeight: '1.5',
+                }}
+                codeTagProps={{
+                  className: "font-mono",
+                }}
+                {...props}
+              >
+                {codeString}
+              </SyntaxHighlighter>
+            )
+          )}
+        </div>
         
         {collapsed && (
             <div className="italic text-xs text-zinc-500 text-center select-none py-4 border-t border-white/5">
-              {codeLines} lines hidden
+              {codeLines} lines hidden...
             </div>
         )}
       </div>

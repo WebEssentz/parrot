@@ -27,7 +27,7 @@ import { DeleteChatModal } from "./delete-chat-modal";
 import { RenameChatModal } from "./rename-chat-modal";
 import { useChats } from '@/hooks/use-chats';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
-import router from "next/router";
+import { useRouter } from "next/navigation";
 import { ShareChatModal } from "./share-chat-modal";
 
 function GreetingBanner() {
@@ -98,6 +98,7 @@ function useReconnectToClerk() {
 }
 
 export default function UserChat({ initialChat }: { initialChat?: any }) {
+  const router = useRouter();
   const offlineState = useReconnectToClerk();
   const containerRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
@@ -130,7 +131,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  
+
 
   const MAX_COMPLETION_INPUT_LENGTH = 90;
 
@@ -366,6 +367,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const authorInfo = {
     username: user?.username || user?.firstName || 'Anonymous',
     profilePic: user?.imageUrl || null,
+    firstname: user?.firstName
   };
 
   useEffect(() => {
@@ -463,26 +465,43 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // This function is called when the user clicks "Delete" in the modal.
   const handleDelete = async () => {
     if (!chatId) return;
+
+    // Set the button state to "Deleting..."
     setIsDeleting(true);
+
+    // --- IMMEDIATE ACTIONS (OPTIMISTIC UI) ---
+    // 1. Instantly navigate the user to the root page. This is the top priority.
+    router.push('/chat');
+
+    // 2. Optimistically remove the chat from the sidebar list.
+    deleteChat(chatId);
+
+    // 3. Close the modal (though the component is unmounting anyway).
+    setShowDeleteModal(false);
+
+    // --- BACKGROUND ACTION (SERVER) ---
+    // The user has already been redirected. This happens silently.
     try {
-      // This logic can be reused from the sidebar item
-      deleteChat(chatId);
       const response = await fetch(`/api/chats/${chatId}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to delete chat');
-      setShowDeleteModal(false);
-      router.push('/chat');
+      if (!response.ok) {
+        // We can still show an error toast if the server fails.
+        // Your `useChats` hook should handle reverting the optimistic state if needed.
+        toast.error('Server failed to delete chat. It may reappear on refresh.');
+      } else {
+        toast.success("Chat deleted successfully.");
+      }
     } catch (error) {
-      toast.error("Failed to delete chat.");
-    } finally {
-      setIsDeleting(false);
+      toast.error("An error occurred while deleting the chat on the server.");
     }
+    // No 'finally' block needed to reset isDeleting, as the component is gone.
   };
 
   const handleRename = async (newTitle: string) => {
     if (!chatId) return;
-    
+
     setIsRenaming(true);
     const originalTitle = chatTitle; // Store original title for rollback
 
@@ -593,7 +612,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           </AnimatePresence>
         )}
       </UserChatHeader>
-
+      
       {/* --- FIX: RENDER THE DELETE MODAL --- */}
       <DeleteChatModal
         isOpen={showDeleteModal}
@@ -687,10 +706,6 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
             className="fixed bottom-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"
           >
             <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto" style={{ marginBottom: '12px' }}>
-              {/*
-          FIX: Replace the two nested forms with the ChatInputArea component.
-          It already contains the form and all the necessary logic.
-        */}
               <ChatInputArea {...chatInputAreaProps} />
 
               {/* --- FIX #1: Render the button here, so it's fixed relative to the viewport --- */}
@@ -698,7 +713,6 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
                 isVisible={showScrollButton && hasSentMessage}
                 onClick={handleScrollToBottom}
               />
-
             </div>
           </motion.div>
           <motion.div

@@ -5,11 +5,12 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { useRouter } from "next/navigation"
 import { useTransformToArticle } from "@/hooks/use-transform-to-article"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Copy, Check, MessageSquareText, FileText, Mic, Scissors, Loader2 } from "lucide-react"
+import { Copy, Check, MessageSquareText, FileText, Mic, Scissors, Loader2, ArrowRight } from "lucide-react" 
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import { useChats } from "@/hooks/use-chats"
@@ -30,6 +31,7 @@ interface ShareChatModalProps {
     user: {
       username: string | null
       profilePic: string | null
+      firstName: string | null
     }
     updatedAt: string
     isLiveSynced: boolean
@@ -43,12 +45,14 @@ const SharePreview = ({
   format,
   articleContent,
   isTransforming,
+  artifact,
 }: {
   chat: ShareChatModalProps["chat"]
   chatTitle: string
   format: ShareFormat
   articleContent: string
-  isTransforming: boolean
+  isTransforming: boolean,
+  artifact: { slug: string } | null
 }) => {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -68,8 +72,21 @@ const SharePreview = ({
         return (
           <div className="h-full overflow-y-auto">
             {articleContent ? (
-              <div className="p-8 prose prose-lg dark:prose-invert max-w-none">
+              <div className="p-8 prose prose-lg dark:prose-invert max-w-none relative">
                 <Markdown>{articleContent}</Markdown>
+                {/* {artifact && (
+                  <div className="absolute top-4 right-4">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        window.open(`/${chat.user.firstName}/articles/${artifact.slug}/edit`, "_blank")
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Edit article
+                    </Button>
+                  </div>
+                )} */}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8">
@@ -139,6 +156,7 @@ const SharePreview = ({
 }
 
 export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: ShareChatModalProps) => {
+  const router = useRouter();
   const [isPublic, setIsPublic] = useState(chat.visibility === "public")
   const [isLiveSynced, setIsLiveSynced] = useState(chat.isLiveSynced)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -147,26 +165,46 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
   const [shareLink, setShareLink] = useState("")
   const [shareFormat, setShareFormat] = useState<ShareFormat>("conversation")
 
-  const { article, isLoading: isTransforming, transform: transformToArticle, setArticle } = useTransformToArticle()
+  const {
+    article,
+    isLoading: isTransforming,
+    transform: transformToArticle,
+    setArticle,
+    artifact,
+  } = useTransformToArticle()
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setShareFormat("conversation")
       setArticle("")
-      setShareLink(`${window.location.origin}/share/${chatId}`)
+      // --- CHANGE 5: The initial share link is always for the conversation ---
+      if (chat.visibility === 'public') {
+        setShareLink(`${window.location.origin}/share/${chatId}`)
+      } else {
+        setShareLink("")
+      }
     }
-  }, [isOpen, chatId, setArticle])
+  }, [isOpen, chatId, setArticle, chat.visibility])
 
   // Handle format changes and trigger transformations
   useEffect(() => {
     if (!isOpen) return
-
-    if (shareFormat === "article" && chat.messages.length > 0) {
-      console.log("🎯 Triggering professional article transformation...")
-      transformToArticle(chat.messages)
+    // --- CHANGE 6: Call transformToArticle with chatId, not the messages array ---
+    if (shareFormat === "article" && chatId) {
+      console.log("🎯 Triggering article transformation for chat:", chatId)
+      transformToArticle(chatId)
     }
-  }, [shareFormat, isOpen, chat.messages, transformToArticle])
+  }, [shareFormat, isOpen, chatId, transformToArticle])
+
+  // --- Update the shareable link when a new article artifact is created ---
+  useEffect(() => {
+    if (artifact && chat.user.firstName) {
+        const articleUrl = `${window.location.origin}/${chat.user.firstName}/articles/${artifact.slug}`
+        setShareLink(articleUrl)
+        setIsPublic(true) // An article is inherently public
+    }
+  }, [artifact, chat.user.firstName])
 
   const handleCopy = () => {
     if (!shareLink) return
@@ -213,6 +251,18 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
     }
   }
 
+  const handleGoToArticle = () => {
+    if (!artifact || !chat.user.firstName) {
+      toast.error("Could not navigate to article. Information is missing.")
+      return
+    }
+    // --- CHANGE 2: Use firstName to build the URL ---
+    const editUrl = `/${chat.user.firstName}/articles/${artifact.slug}/edit`
+    console.log(`Navigating to editor: ${editUrl}`)
+    router.push(editUrl)
+    onClose() 
+  }
+
   const formatOptions: { id: ShareFormat; label: string; icon: React.ElementType; description: string }[] = [
     { id: "conversation", label: "Conversation", icon: MessageSquareText, description: "Share as chat format" },
     { id: "article", label: "Article", icon: FileText, description: "Professional Medium-style article" },
@@ -243,6 +293,7 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
               format={shareFormat}
               articleContent={article}
               isTransforming={isTransforming}
+              artifact={artifact}
             />
           </div>
 
@@ -277,46 +328,54 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
             <AnimatePresence>
               {isPublic && (
                 <motion.div
+                  key={shareFormat === "article" && artifact ? "article-cta" : "share-link"}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="space-y-4 border-t border-zinc-200/80 dark:border-zinc-700/50 pt-6"
                 >
-                  <div className="space-y-2">
-                    <Label htmlFor="share-link" className="font-medium text-zinc-800 dark:text-zinc-100">
-                      Shareable Link
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input id="share-link" value={shareLink} readOnly className="bg-zinc-100 dark:bg-zinc-800" />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="shrink-0 bg-transparent"
-                        onClick={handleCopy}
-                        disabled={isSubmitting}
-                      >
-                        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2 pt-2">
-                    <Checkbox
-                      id="live-sync"
-                      checked={isLiveSynced}
-                      onCheckedChange={() => setIsLiveSynced(!isLiveSynced)}
-                      disabled={!isPublic}
-                      className="mt-0.5"
-                    />
-                    <div className="grid gap-1.5 leading-none">
-                      <Label htmlFor="live-sync" className="font-medium cursor-pointer">
-                        Live Sync
+                  {shareFormat === 'article' && artifact ? (
+                    // The new state: Show "View & Edit" button
+                    <div className="space-y-3">
+                       <Label className="font-medium text-zinc-800 dark:text-zinc-100">
+                        Article Created
                       </Label>
                       <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        When enabled, any new messages in this chat will automatically appear on the public page.
+                        Your article draft has been saved. You can now edit and publish it.
                       </p>
+                      <Button
+                        onClick={handleGoToArticle}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        View & Edit Article <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
                     </div>
-                  </div>
+                  ) : (
+                    // The original state: Show share link and live-sync
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="share-link" className="font-medium text-zinc-800 dark:text-zinc-100">
+                          Shareable Link
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Input id="share-link" value={shareLink} readOnly className="bg-zinc-100 dark:bg-zinc-800" />
+                          <Button variant="outline" size="icon" className="shrink-0 bg-transparent" onClick={handleCopy} disabled={isSubmitting}>
+                            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start space-x-2 pt-2">
+                        <Checkbox id="live-sync" checked={isLiveSynced} onCheckedChange={() => setIsLiveSynced(!isLiveSynced)} disabled={!isPublic} className="mt-0.5" />
+                        <div className="grid gap-1.5 leading-none">
+                          <Label htmlFor="live-sync" className="font-medium cursor-pointer">Live Sync</Label>
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                            When enabled, any new messages in this chat will automatically appear on the public page.
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -331,7 +390,7 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
             type="button"
             className="rounded-full bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
             onClick={handleShareConfirm}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isTransforming}
           >
             {isSubmitting ? "Saving..." : "Done"}
           </Button>

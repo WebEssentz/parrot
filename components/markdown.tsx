@@ -1,21 +1,19 @@
 // src/components/Markdown.tsx
 
-import Link from "next/link"
-import React, { memo } from "react"
-import ReactMarkdown, { type Components } from "react-markdown"
-import rehypeRaw from "rehype-raw"
-import remarkGfm from "remark-gfm"
-import remarkMath from "remark-math"
-import rehypeKatex from "rehype-katex"
-import "katex/dist/katex.min.css"
-import { CodeBlock } from "./code-block"
-import { cn } from "@/lib/utils"
-// 🚀 MODIFIED: Use a named type import for the KaTeX options type.
-import type { KatexOptions } from "katex"
+import Link from "next/link";
+import React, { memo } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
+import { CodeBlock } from "./code-block";
+import { cn } from "@/lib/utils";
+import type { KatexOptions } from "katex";
 
-// The components object remains the same...
 const components: Partial<Components> = {
-  // ... all your existing component overrides (blockquote, code, etc.)
+  // ... other components like blockquote, p, ul, etc. remain the same ...
   blockquote: ({ node, children, ...props }) => (
     <blockquote
       className="relative my-4 border-l-4 border-zinc-300 dark:border-zinc-700 rounded"
@@ -52,12 +50,15 @@ const components: Partial<Components> = {
       })}
     </blockquote>
   ),
-  code(props) {
-    const { children, className, node, ...rest } = props
-    const match = /language-(\w+)/.exec(className || "")
-    const isInline = !match && node?.position?.start?.line === node?.position?.end?.line
 
-    if (!isInline && match) {
+  // --- THIS IS THE FIX ---
+  code(props) {
+    const { children, className, node, ...rest } = props;
+    const match = /language-(\w+)/.exec(className || "");
+
+    // If 'match' exists, it's a block-level code snippet (```).
+    // It should be rendered by our full-featured <CodeBlock> component.
+    if (match) {
       return (
         <CodeBlock
           node={node}
@@ -67,21 +68,25 @@ const components: Partial<Components> = {
         >
           {String(children).replace(/\n$/, "")}
         </CodeBlock>
-      )
-    } else {
-      return (
-        <code
-          className={cn(
-            "relative rounded bg-zinc-200/50 dark:bg-zinc-700/50 px-[0.4em] py-[0.2em] font-mono text-[0.9em]",
-            className,
-          )}
-          {...rest}
-        >
-          {children}
-        </code>
-      )
+      );
     }
+
+    // Otherwise, it's an inline code snippet (`code`).
+    // Render it with a simple, styled <code> tag.
+    return (
+      <code
+        className={cn(
+          // Consistent styling for inline code
+          "relative rounded bg-zinc-200 dark:bg-zinc-700/50 px-[0.4rem] py-[0.2rem] font-mono text-[0.9em]",
+          className,
+        )}
+        {...rest}
+      >
+        {children}
+      </code>
+    );
   },
+  // ... other components like p, pre, ol, etc. remain the same ...
   p: ({ node, children, ...props }) => (
     <p className="mb-2 leading-relaxed" style={{ fontSize: "16px" }} {...props}>
       {children}
@@ -104,9 +109,9 @@ const components: Partial<Components> = {
     </li>
   ),
   strong: ({ node, children, ...props }) => (
-    <span className="font-semibold" {...props}>
+    <strong className="font-semibold" {...props}>
       {children}
-    </span>
+    </strong>
   ),
   em: ({ node, children, ...props }) => (
     <em className="italic" {...props}>
@@ -129,8 +134,7 @@ const components: Partial<Components> = {
     );
 
     return (
-      // @ts-expect-error
-      <Link className={linkClasses} target="_blank" rel="noreferrer" {...props}>
+      <Link href={props.href || ''} className={linkClasses} target="_blank" rel="noreferrer" {...props}>
         {children}
       </Link>
     );
@@ -222,23 +226,22 @@ const components: Partial<Components> = {
   },
 }
 
-const remarkPlugins = [remarkGfm, remarkMath]
+const remarkPlugins = [remarkGfm, remarkMath];
 
 const katexOptions: KatexOptions = {
   trust: true,
   throwOnError: false,
-  
-}
+};
 
 function stripSourcesBlock(markdown: string): string {
-  const start = markdown.indexOf("<!-- AVURNA_SOURCES_START -->")
-  const end = markdown.indexOf("<!-- AVURNA_SOURCES_END -->")
-  if (start === -1 || end === -1 || end < start) return markdown
-  return markdown.slice(0, start) + markdown.slice(end + "<!-- AVURNA_SOURCES_END -->".length)
+  const start = markdown.indexOf("<!-- AVURNA_SOURCES_START -->");
+  const end = markdown.indexOf("<!-- AVURNA_SOURCES_END -->");
+  if (start === -1 || end === -1 || end < start) return markdown;
+  return markdown.slice(0, start) + markdown.slice(end + "<!-- AVURNA_SOURCES_END -->".length);
 }
 
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {
-  const clean = typeof children === "string" ? stripSourcesBlock(children) : children
+  const clean = typeof children === "string" ? stripSourcesBlock(children) : children;
   return (
     <ReactMarkdown
       remarkPlugins={remarkPlugins}
@@ -247,7 +250,7 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
     >
       {clean}
     </ReactMarkdown>
-  )
-}
+  );
+};
 
-export const Markdown = memo(NonMemoizedMarkdown, (prevProps, nextProps) => prevProps.children === nextProps.children)
+export const Markdown = memo(NonMemoizedMarkdown, (prevProps, nextProps) => prevProps.children === nextProps.children);
