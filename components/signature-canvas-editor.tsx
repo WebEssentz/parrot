@@ -1092,7 +1092,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
               <SaveStatusIndicator />
               <button
                 onClick={handleShare}
-                className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+                className="hidden md:flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
               >
                 <Share className="w-4 h-4" />
                 Share
@@ -1102,7 +1102,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
                 disabled={status === "saving"}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-4 py-1.5 text-sm font-medium text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 transition-colors"
+                className="px-4 py-1.5 cursor-pointer text-sm font-medium text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 transition-colors"
               >
                 Publish
               </motion.button>

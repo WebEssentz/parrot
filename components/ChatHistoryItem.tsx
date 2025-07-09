@@ -2,8 +2,7 @@
 
 import type React from "react"
 import { useRouter } from "next/navigation"
-
-import { Trash2, Edit3, MoreHorizontal, Share, Archive } from "lucide-react" 
+import { Trash2, Edit3, MoreHorizontal, Share, Archive } from "lucide-react"
 import clsx from "clsx"
 import { useEffect, useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -18,29 +17,29 @@ import {
 import { toast } from "sonner"
 import { setRenamingState } from "@/hooks/use-chats"
 import { DeleteChatModal } from "./delete-chat-modal"
-import { ShareChatModal } from "./share-chat-modal";
+import { ShareChatModal } from "./share-chat-modal"
 
 interface Chat {
   id: string
   title: string
   isOptimistic?: boolean
+  messages?: any[]
+  user?: any
+  visibility?: "private" | "public"
+  isLiveSynced?: boolean
+  updatedAt?: string
 }
 
 // --- BUG FIX 1: Make the typewriter hook more robust ---
-// This new version uses text.slice() instead of relying on the previous state.
-// This is not vulnerable to state update race conditions.
 const useTypewriter = (text: string, speed = 30) => {
   const [displayText, setDisplayText] = useState("")
 
   useEffect(() => {
-    // When the text to be typed changes, reset the animation.
     setDisplayText("")
-    
+
     let i = 0
     const typingInterval = setInterval(() => {
       if (i < text.length) {
-        // Use slice to build the string from the source text directly.
-        // It's more reliable than appending to a previous state.
         setDisplayText(text.slice(0, i + 1))
         i++
       } else {
@@ -48,7 +47,6 @@ const useTypewriter = (text: string, speed = 30) => {
       }
     }, speed)
 
-    // Cleanup function to stop the interval when the component unmounts or text changes.
     return () => clearInterval(typingInterval)
   }, [text, speed])
 
@@ -65,13 +63,14 @@ interface ChatHistoryItemProps {
 
 export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, deleteChat }: ChatHistoryItemProps) => {
   const router = useRouter()
-
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState(chat.title)
   const inputRef = useRef<HTMLInputElement>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [showShareModal, setShowShareModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [isFetchingForShare, setIsFetchingForShare] = useState(false)
+  const [fullChatData, setFullChatData] = useState<Chat | null>(null)
 
   useEffect(() => {
     if (!isEditing) setTitle(chat.title)
@@ -81,7 +80,6 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
   const prevTitleRef = useRef<string | null>(null)
   const [isAnimating, setIsAnimating] = useState(false)
 
-  // This effect STARTs the animation when the title changes from "New Chat".
   useEffect(() => {
     const previousTitle = prevTitleRef.current
     const currentTitle = chat.title
@@ -93,16 +91,14 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
 
   const typedTitle = useTypewriter(chat.title)
 
-  // This effect STOPs the animation only when it's complete.
   useEffect(() => {
     if (isAnimating && typedTitle === chat.title) {
       setIsAnimating(false)
     }
   }, [isAnimating, typedTitle, chat.title])
 
-  // Determine the final title to display.
   const finalTitle = isActive ? chat.title : isAnimating ? typedTitle : chat.title
-  
+
   useEffect(() => {
     if (isEditing) {
       inputRef.current?.focus()
@@ -117,6 +113,7 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
       setTitle(chat.title)
       return
     }
+
     setRenamingState(true)
     try {
       updateChatTitle(chat.id, trimmedTitle, true)
@@ -166,12 +163,36 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
     }
   }
 
-  const handleShare = () => {
-    toast.info("Share feature coming soon!")
+  // --- ENHANCED: Function to handle Share click ---
+  const handleShare = async () => {
+    setIsFetchingForShare(true)
+    const toastId = toast.loading("Loading chat details...")
+
+    try {
+      const response = await fetch(`/api/chats/${chat.id}`)
+      if (!response.ok) throw new Error("Could not load chat.")
+
+      const data: Chat = await response.json()
+      setFullChatData(data) // Store the full data
+      setShowShareModal(true) // Open the modal
+      toast.dismiss(toastId)
+      toast.success("Chat loaded successfully!")
+    } catch (error) {
+      toast.error("Failed to load chat for sharing.")
+      toast.dismiss(toastId)
+    } finally {
+      setIsFetchingForShare(false)
+    }
   }
 
   const handleArchive = () => {
     toast.info("Archive feature coming soon!")
+  }
+
+  // --- ENHANCED: Close modal handler ---
+  const handleCloseShareModal = () => {
+    setShowShareModal(false)
+    setFullChatData(null) // Clear the data when closing
   }
 
   return (
@@ -219,13 +240,10 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
             >
               <span className="flex-grow truncate px-3 pr-10">{finalTitle}</span>
               <div
-                className={clsx(
-                  "absolute right-1 top-0 h-full flex items-center transition-opacity",
-                  {
-                    "opacity-100": isActive,
-                    "opacity-0 group-hover:opacity-100": !isActive,
-                  },
-                )}
+                className={clsx("absolute right-1 top-0 h-full flex items-center transition-opacity", {
+                  "opacity-100": isActive,
+                  "opacity-0 group-hover:opacity-100": !isActive,
+                })}
                 onClick={(e) => e.stopPropagation()}
               >
                 <DropdownMenu>
@@ -243,11 +261,12 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
                     className="w-36 bg-white dark:bg-[#282828] p-2 shadow-xl border border-zinc-200/80 dark:border-zinc-700/80 rounded-3xl"
                   >
                     <DropdownMenuItem
-                      onClick={() => setShowShareModal(true)}
+                      onSelect={handleShare}
+                      disabled={isFetchingForShare}
                       className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
                     >
                       <Share size={15} className="text-zinc-500" />
-                      <span>Share</span>
+                      <span>{isFetchingForShare ? "Loading..." : "Share"}</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() => setIsEditing(true)}
@@ -278,6 +297,7 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
           )}
         </AnimatePresence>
       </div>
+
       <DeleteChatModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
@@ -285,6 +305,27 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
         chatTitle={chat.title}
         isDeleting={isDeleting}
       />
+
+      {/* ENHANCED: ShareChatModal with better data handling and event handling */}
+      <AnimatePresence>
+        {showShareModal && fullChatData && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <ShareChatModal
+              isOpen={showShareModal}
+              onClose={handleCloseShareModal}
+              chatId={fullChatData.id}
+              chatTitle={fullChatData.title}
+              chat={{
+                messages: fullChatData.messages || [],
+                user: fullChatData.user || { firstName: "Anonymous" },
+                visibility: fullChatData.visibility || "private",
+                isLiveSynced: fullChatData.isLiveSynced || false,
+                updatedAt: fullChatData.updatedAt || new Date().toISOString(),
+              }}
+            />
+          </div>
+        )}
+      </AnimatePresence>
     </TooltipProvider>
   )
 }
