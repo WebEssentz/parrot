@@ -33,6 +33,7 @@ import { SimpleColorPicker } from "./color-picker"
 import { FontSelector } from "./font-selector"
 import { MobileCommandBar } from "./mobile-command-bar"
 import { useUser } from "@clerk/nextjs"; 
+import { MobileDraggableBlock } from "./mobile-draggable-block"
 import {
   Loader2,
   CheckCircle,
@@ -52,9 +53,10 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
+  Code as CodeBlockIcon,
+  Code2 as InlineCodeIcon,
   Play,
   Layers,
-  Code,
   Minus,
   Eraser,
   LinkIcon,
@@ -262,6 +264,13 @@ const EditorToolbar = ({
           currentColor={getCurrentHighlightColor()}
           isHighlightAvailable={isHighlightAvailable}
         />
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          isActive={editor.isActive("code")}
+          title="Inline Code (Ctrl+E)"
+        >
+          <InlineCodeIcon className="w-4 h-4" />
+        </ToolbarButton>
       </div>
 
       <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-2" />
@@ -342,7 +351,7 @@ const EditorToolbar = ({
           isActive={editor.isActive("codeBlock")}
           title="Code Block (Ctrl+Alt+C)"
         >
-          <Code className="w-4 h-4" />
+          <CodeBlockIcon className="w-4 h-4" />
         </ToolbarButton>
         <ToolbarButton onClick={handleHorizontalRule} isActive={false} title="Horizontal Rule">
           <Minus className="w-4 h-4" />
@@ -544,7 +553,7 @@ const BubbleMenuBar = ({ editor, isHighlightAvailable }: { editor: Editor | null
     }
   }
 
-  return (
+    return (
     <BubbleMenu
       editor={editor}
       tippyOptions={{
@@ -552,54 +561,70 @@ const BubbleMenuBar = ({ editor, isHighlightAvailable }: { editor: Editor | null
         animation: "shift-away",
         placement: "top",
       }}
-      className="flex items-center gap-1 p-2 bg-white/95 dark:bg-zinc-800/95 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl backdrop-blur-md"
+      className="flex items-center gap-1 p-2 bg-white/95 dark:bg-zinc-800/95 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl backdrop-blur-md min-w-fit"
     >
-      <TextFormatDropdown editor={editor} />
-      <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-      <BubbleButton
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        isActive={editor.isActive("bold")}
-        title="Bold (Ctrl+B)"
-      >
-        <Bold className="w-4 h-4" />
-      </BubbleButton>
-      <BubbleButton
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        isActive={editor.isActive("italic")}
-        title="Italic (Ctrl+I)"
-      >
-        <Italic className="w-4 h-4" />
-      </BubbleButton>
-      <BubbleButton
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-        isActive={editor.isActive("strike")}
-        title="Strikethrough (Ctrl+Shift+S)"
-      >
-        <Strikethrough className="w-4 h-4" />
-      </BubbleButton>
-      <SimpleColorPicker
-        onColorSelect={handleHighlight}
-        currentColor={getCurrentHighlightColor()}
-        isHighlightAvailable={isHighlightAvailable}
-      />
-      <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-      <BubbleButton onClick={handleLink} isActive={editor.isActive("link")} title="Insert Link">
-        <LinkIcon className="w-4 h-4" />
-      </BubbleButton>
-      <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-      {alignmentOptions.map((alignment) => (
+      <div className="flex items-center gap-1">
+        <TextFormatDropdown editor={editor} />
+        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+
         <BubbleButton
-          key={alignment.value}
-          onClick={() => editor.chain().focus().setTextAlign(alignment.value).run()}
-          isActive={editor.isActive({ textAlign: alignment.value })}
-          title={alignment.label}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          isActive={editor.isActive("bold")}
+          title="Bold"
         >
-          <alignment.icon className="w-4 h-4" />
+          <Bold className="w-4 h-4" />
         </BubbleButton>
-      ))}
+        <BubbleButton
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          isActive={editor.isActive("italic")}
+          title="Italic"
+        >
+          <Italic className="w-4 h-4" />
+        </BubbleButton>
+        <BubbleButton
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          isActive={editor.isActive("strike")}
+          title="Strikethrough"
+        >
+          <Strikethrough className="w-4 h-4" />
+        </BubbleButton>
+        <BubbleButton
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          isActive={editor.isActive("code")}
+          title="Inline Code"
+        >
+          <InlineCodeIcon className="w-4 h-4" />
+        </BubbleButton>
+
+        <SimpleColorPicker
+          onColorSelect={handleHighlight}
+          currentColor={getCurrentHighlightColor()}
+          isHighlightAvailable={isHighlightAvailable}
+        />
+
+        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+
+        <BubbleButton onClick={handleLink} isActive={editor.isActive("link")} title="Insert Link">
+          <LinkIcon className="w-4 h-4" />
+        </BubbleButton>
+
+        <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+
+        {alignmentOptions.map((alignment) => (
+          <BubbleButton
+            key={alignment.value}
+            onClick={() => editor.chain().focus().setTextAlign(alignment.value).run()}
+            isActive={editor.isActive({ textAlign: alignment.value })}
+            title={alignment.label}
+          >
+            <alignment.icon className="w-4 h-4" />
+          </BubbleButton>
+        ))}
+      </div>
     </BubbleMenu>
   )
 }
+
 
 // Link tooltip component
 const LinkTooltip = ({ editor }: { editor: Editor | null }) => {
@@ -628,6 +653,29 @@ const LinkTooltip = ({ editor }: { editor: Editor | null }) => {
   )
 }
 
+// This hook detects if the screen width is mobile/tablet size.
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // The check function
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+
+    // Run on mount
+    checkScreenSize();
+
+    // Add resize event listener
+    window.addEventListener("resize", checkScreenSize);
+
+    // Cleanup listener on unmount
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, [breakpoint]);
+
+  return isMobile;
+};
+
 // Main Article Editor Component
 export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
   const [title, setTitle] = useState(initialArticle.title)
@@ -641,6 +689,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
 
   const debouncedTitle = useDebounce(title, 1500)
   const debouncedContent = useDebounce(content, 1500)
+  const isMobile = useIsMobile();
   const { user } = useUser(); 
 
   const userFullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "User";
@@ -804,13 +853,19 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
           const result = await VideoProcessor.processVideoUrl(url, detectedPlatform)
 
           if (result) {
-            // Insert the video HTML directly into the editor
-            editor.chain().focus().insertContent(result.html).run()
+            // Insert the video HTML directly into the editor with proper spacing
+            const videoContent = `<p></p>${result.html}<p></p>`
+            editor.chain().focus().insertContent(videoContent).run()
 
-            // Force a re-render to ensure the video appears
+            // Force multiple re-renders to ensure the video appears
             setTimeout(() => {
               editor.commands.focus()
+              editor.view.updateState(editor.view.state)
             }, 100)
+
+            setTimeout(() => {
+              editor.view.updateState(editor.view.state)
+            }, 300)
 
             toast.success(
               `${result.platform.charAt(0).toUpperCase() + result.platform.slice(1)} video inserted successfully!`,
@@ -827,24 +882,24 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
     [editor],
   )
 
-  // Convert content to blocks for drag and drop mode
+ // Convert content to blocks for drag and drop mode
   const convertToBlocks = useCallback(() => {
-    if (!editor) return
+    if (!editor) return;
 
-    const html = editor.getHTML()
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, "text/html")
-    const elements = Array.from(doc.body.children)
+    const html = editor.getHTML();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const elements = Array.from(doc.body.children);
 
     const blocks: ContentBlock[] = elements.map((element, index) => ({
-      id: `block-${index}`,
+      id: `block-${Date.now()}-${index}`, // Use a more unique ID
       content: element.outerHTML,
       type: element.tagName.toLowerCase() as "paragraph" | "heading" | "list",
-    }))
+    }));
 
-    setContentBlocks(blocks)
-    setShowBlockMode(true)
-  }, [editor])
+    setContentBlocks(blocks);
+    setShowBlockMode(true);
+  }, [editor]);
 
   // Convert blocks back to editor content
   const convertFromBlocks = useCallback(() => {
@@ -1100,20 +1155,37 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
                       Arrange Mode: Drag and drop to reorder content
                     </span>
                   </div>
-                  {contentBlocks.map((block, index) => (
-                    <DraggableContentBlock
-                      key={block.id}
-                      id={block.id}
-                      content={block.content}
-                      index={index}
-                      moveBlock={moveBlock}
-                      onDelete={deleteBlock}
-                      onEdit={editBlock}
-                      isEditing={editingBlockId === block.id}
-                      onEditStart={setEditingBlockId}
-                      onEditEnd={() => setEditingBlockId(null)}
-                    />
-                  ))}
+                   {contentBlocks.map((block, index) =>
+                    isMobile ? (
+                      // On mobile, render the mobile-optimized component
+                      <MobileDraggableBlock
+                        key={block.id}
+                        id={block.id}
+                        content={block.content}
+                        index={index}
+                        moveBlock={moveBlock}
+                        onDelete={deleteBlock}
+                        onEdit={editBlock}
+                        isEditing={editingBlockId === block.id}
+                        onEditStart={setEditingBlockId}
+                        onEditEnd={() => setEditingBlockId(null)}
+                      />
+                    ) : (
+                      // On desktop, render the desktop-optimized component
+                      <DraggableContentBlock
+                        key={block.id}
+                        id={block.id}
+                        content={block.content}
+                        index={index}
+                        moveBlock={moveBlock}
+                        onDelete={deleteBlock}
+                        onEdit={editBlock}
+                        isEditing={editingBlockId === block.id}
+                        onEditStart={setEditingBlockId}
+                        onEditEnd={() => setEditingBlockId(null)}
+                      />
+                    )
+                  )}
                 </motion.div>
               ) : (
                 <motion.div
