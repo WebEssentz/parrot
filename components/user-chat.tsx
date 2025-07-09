@@ -367,7 +367,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const authorInfo = {
     username: user?.username || user?.firstName || 'Anonymous',
     profilePic: user?.imageUrl || null,
-    firstname: user?.firstName
+    firstName: user?.firstName ?? null,
   };
 
   useEffect(() => {
