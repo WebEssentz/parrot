@@ -506,6 +506,12 @@ mark[data-color="#e5e7eb"],
   }
   body {
     @apply bg-background text-foreground;
+    /* 
+      --- THIS IS THE KEY ---
+      Use a variable `--font-main` for the application's font.
+      It falls back to `--font-sans` (which is your default, e.g., Inter).
+    */
+    font-family: var(--font-main, var(--font-sans));
   }
 }
 

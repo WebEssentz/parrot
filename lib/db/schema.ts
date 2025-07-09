@@ -205,6 +205,8 @@ export const article = pgTable(
     slug: text('slug').notNull(),
     title: text('title').notNull(),
     content_md: text('content_md').notNull(),
+    // Stores the CSS variable for the font, e.g., 'var(--font-inter)'
+    fontFamily: text('font_family'), // Nullable, as older articles might not have this set.
     status: varchar('status', { enum: ['draft', 'published'] })
       .notNull()
       .default('draft'),

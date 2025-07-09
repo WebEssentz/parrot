@@ -51,20 +51,15 @@ export function MobileDraggableBlock({
     },
     hover(item: DragItem, monitor: DropTargetMonitor) {
       if (!ref.current) return
-
       const dragIndex = item.index
       const hoverIndex = index
-
       if (dragIndex === hoverIndex) return
-
       const hoverBoundingRect = ref.current?.getBoundingClientRect()
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
       const clientOffset = monitor.getClientOffset()
       const hoverClientY = clientOffset!.y - hoverBoundingRect.top
-
       if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return
       if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return
-
       moveBlock(dragIndex, hoverIndex)
       item.index = hoverIndex
     },
@@ -99,7 +94,6 @@ export function MobileDraggableBlock({
 
   const handlePan = (event: any, info: PanInfo) => {
     setDragOffset(info.offset.x)
-
     // Swipe to delete (swipe left more than 100px)
     if (info.offset.x < -100) {
       setShowDeleteMenu(true)
@@ -158,12 +152,12 @@ export function MobileDraggableBlock({
         }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className={`group relative bg-white dark:bg-zinc-800 rounded-lg border-2 transition-all duration-200 ${
+        className={`group relative rounded-xl border transition-all duration-200 backdrop-blur-sm ${
           isDragging
-            ? "border-zinc-500 shadow-lg"
+            ? "border-blue-400 shadow-xl shadow-blue-500/20 bg-white/95 dark:bg-zinc-800/95 scale-[1.02]"
             : isHovered || showDeleteMenu
-              ? "border-zinc-300 dark:border-zinc-600 shadow-md"
-              : "border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
+              ? "border-blue-500/60 shadow-lg shadow-blue-500/10 bg-white/90 dark:bg-zinc-800/90"
+              : "border-zinc-200 dark:border-zinc-700/50 hover:border-zinc-300 dark:hover:border-zinc-600/70 bg-white/80 dark:bg-zinc-800/80 hover:bg-white/90 dark:hover:bg-zinc-800/90"
         }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -185,17 +179,17 @@ export function MobileDraggableBlock({
               className="absolute -left-8 top-1/2 transform -translate-y-1/2 flex flex-col gap-1"
             >
               <button
-                className="p-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors cursor-grab active:cursor-grabbing"
+                className="p-1 bg-zinc-800 border border-zinc-600 rounded shadow-sm hover:bg-zinc-700 hover:border-blue-500/50 transition-all duration-200 cursor-grab active:cursor-grabbing"
                 title="Drag to reorder"
               >
-                <GripVertical className="w-4 h-4 text-zinc-400" />
+                <GripVertical className="w-4 h-4 text-zinc-400 hover:text-blue-500 transition-colors" />
               </button>
               <button
                 onClick={() => onDelete(id)}
-                className="p-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-sm hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 transition-colors"
+                className="p-1 bg-zinc-800 border border-zinc-600 rounded shadow-sm hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-400 transition-all duration-200"
                 title="Delete block"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4 text-zinc-400 hover:text-red-400 transition-colors" />
               </button>
             </motion.div>
           )}
@@ -208,13 +202,13 @@ export function MobileDraggableBlock({
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="absolute inset-0 bg-red-500/10 dark:bg-red-500/20 rounded-lg flex items-center justify-center z-10"
+              className="absolute inset-0 bg-red-500/10 backdrop-blur-sm rounded-lg flex items-center justify-center z-10"
             >
               <motion.button
                 onClick={handleDelete}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg font-medium shadow-lg"
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium shadow-lg transition-colors"
               >
                 Delete Block
               </motion.button>
@@ -228,20 +222,20 @@ export function MobileDraggableBlock({
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full p-3 border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:border-transparent bg-white dark:bg-zinc-700 resize-none"
+                className="w-full p-4 border border-zinc-300 dark:border-zinc-600 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 resize-none transition-all duration-200 shadow-sm hover:shadow-md font-mono text-sm leading-relaxed min-h-[120px]"
                 rows={4}
                 autoFocus
               />
               <div className="flex gap-2">
                 <button
                   onClick={handleSave}
-                  className="px-3 py-1.5 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-md hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors text-sm"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow-md"
                 >
                   Save
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors text-sm"
+                  className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all duration-200 text-sm shadow-sm hover:shadow-md"
                 >
                   Cancel
                 </button>
@@ -249,7 +243,7 @@ export function MobileDraggableBlock({
             </motion.div>
           ) : (
             <div
-              className="prose prose-sm dark:prose-invert max-w-none cursor-pointer"
+              className="prose prose-sm prose-invert max-w-none cursor-pointer hover:prose-headings:text-blue-400 transition-colors duration-200"
               onClick={() => onEditStart(id)}
               dangerouslySetInnerHTML={{ __html: content }}
             />
@@ -257,14 +251,14 @@ export function MobileDraggableBlock({
         </div>
 
         {/* Mobile gesture hint */}
-        <div className="md:hidden absolute bottom-2 right-2 text-xs text-zinc-400">
+        <div className="md:hidden absolute bottom-2 right-2 text-xs text-zinc-500">
           <MoreHorizontal className="w-4 h-4" />
         </div>
 
         <motion.div
           initial={{ scaleX: 0 }}
           animate={{ scaleX: isHovered || showDeleteMenu ? 1 : 0 }}
-          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-zinc-500 to-zinc-700 origin-left"
+          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 origin-left"
         />
       </motion.div>
 
@@ -275,7 +269,7 @@ export function MobileDraggableBlock({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 md:hidden"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 md:hidden"
             onClick={() => {
               setIsLongPress(false)
               setShowDeleteMenu(false)
@@ -285,16 +279,16 @@ export function MobileDraggableBlock({
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-white dark:bg-zinc-800 rounded-xl p-6 mx-4 shadow-2xl"
+              className="bg-zinc-800 border border-zinc-700 rounded-xl p-6 mx-4 shadow-2xl"
             >
-              <h3 className="font-semibold mb-2">Block Actions</h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">Swipe left to delete, or drag to reorder</p>
+              <h3 className="font-semibold mb-2 text-zinc-100">Block Actions</h3>
+              <p className="text-sm text-zinc-400 mb-4">Swipe left to delete, or drag to reorder</p>
               <button
                 onClick={() => {
                   setIsLongPress(false)
                   setShowDeleteMenu(false)
                 }}
-                className="w-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 py-2 rounded-lg"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg transition-colors font-medium"
               >
                 Got it
               </button>

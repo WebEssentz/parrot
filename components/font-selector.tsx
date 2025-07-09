@@ -1,3 +1,4 @@
+// FontSelector.tsx
 "use client"
 
 import { useState, useRef, useEffect } from "react"
@@ -6,34 +7,36 @@ import { Type, ChevronDown } from "lucide-react"
 
 interface FontSelectorProps {
   onFontSelect: (font: string) => void
-  currentFont?: string
+  currentFont: string // The `fontFamily` string from Tiptap, e.g., "Roboto, sans-serif"
 }
 
+// --- REVERT to using font-family strings as values ---
 const fontFamilies = [
-  { name: "Default", value: "", class: "font-sans" },
-  { name: "Inter", value: "Inter, sans-serif", class: "font-sans" },
-  { name: "Roboto", value: "Roboto, sans-serif", class: "font-sans" },
-  { name: "Open Sans", value: "'Open Sans', sans-serif", class: "font-sans" },
-  { name: "Lato", value: "Lato, sans-serif", class: "font-sans" },
-  { name: "Montserrat", value: "Montserrat, sans-serif", class: "font-sans" },
-  { name: "Poppins", value: "Poppins, sans-serif", class: "font-sans" },
-  { name: "Source Sans Pro", value: "'Source Sans Pro', sans-serif", class: "font-sans" },
-  { name: "Nunito", value: "Nunito, sans-serif", class: "font-sans" },
-  { name: "Playfair Display", value: "'Playfair Display', serif", class: "font-serif" },
-  { name: "Merriweather", value: "Merriweather, serif", class: "font-serif" },
-  { name: "Lora", value: "Lora, serif", class: "font-serif" },
-  { name: "Crimson Text", value: "'Crimson Text', serif", class: "font-serif" },
-  { name: "PT Serif", value: "'PT Serif', serif", class: "font-serif" },
-  { name: "JetBrains Mono", value: "'JetBrains Mono', monospace", class: "font-mono" },
-  { name: "Fira Code", value: "'Fira Code', monospace", class: "font-mono" },
-  { name: "Source Code Pro", value: "'Source Code Pro', monospace", class: "font-mono" },
-  { name: "Roboto Mono", value: "'Roboto Mono', monospace", class: "font-mono" },
+  { name: "Default", value: "" }, // An empty value will be used to unset the font
+  { name: "Inter", value: "Inter, sans-serif" },
+  { name: "Roboto", value: "Roboto, sans-serif" },
+  { name: "Open Sans", value: "'Open Sans', sans-serif" },
+  { name: "Lato", value: "Lato, sans-serif" },
+  { name: "Montserrat", value: "Montserrat, sans-serif" },
+  { name: "Poppins", value: "Poppins, sans-serif" },
+  { name: "Source Sans Pro", value: "'Source Sans Pro', sans-serif" },
+  { name: "Nunito", value: "Nunito, sans-serif" },
+  { name: "Playfair Display", value: "'Playfair Display', serif" },
+  { name: "Merriweather", value: "Merriweather, serif" },
+  { name: "Lora", value: "Lora, serif" },
+  { name: "Crimson Text", value: "'Crimson Text', serif" },
+  { name: "PT Serif", value: "'PT Serif', serif" },
+  { name: "JetBrains Mono", value: "'JetBrains Mono', monospace" },
+  { name: "Fira Code", value: "'Fira Code', monospace" },
+  { name: "Source Code Pro", value: "'Source Code Pro', monospace" },
+  { name: "Roboto Mono", value: "'Roboto Mono', monospace" },
 ]
 
 export function FontSelector({ onFontSelect, currentFont }: FontSelectorProps) {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
+  // It now finds the current font based on the prop
   const currentFontObj = fontFamilies.find((font) => font.value === currentFont) || fontFamilies[0]
 
   useEffect(() => {
@@ -47,6 +50,7 @@ export function FontSelector({ onFontSelect, currentFont }: FontSelectorProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
+  // This component is now very simple. It just calls the function passed by its parent.
   const handleFontSelect = (font: string) => {
     onFontSelect(font)
     setIsOpen(false)
@@ -63,7 +67,7 @@ export function FontSelector({ onFontSelect, currentFont }: FontSelectorProps) {
         className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all cursor-pointer"
       >
         <Type className="w-4 h-4" />
-        <span className="hidden sm:inline" style={{ fontFamily: currentFontObj.value || "inherit" }}>
+        <span className="hidden sm:inline" style={{ fontFamily: currentFontObj.value }}>
           {currentFontObj.name}
         </span>
         <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
@@ -82,7 +86,7 @@ export function FontSelector({ onFontSelect, currentFont }: FontSelectorProps) {
           >
             {fontFamilies.map((font, index) => (
               <motion.button
-                key={font.value || "default"}
+                key={font.value}
                 onClick={() => handleFontSelect(font.value)}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}

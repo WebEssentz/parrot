@@ -1,6 +1,6 @@
-"use client"
+"use-client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { readDataStream } from "@/lib/read-data-stream"
 
@@ -15,11 +15,22 @@ export const useTransformToArticle = () => {
   const [error, setError] = useState<string | null>(null)
   const [artifact, setArtifact] = useState<ArticleArtifact | null>(null)
 
+  // --- CHANGE 1: Add a ref to hold the AbortController for the current request ---
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  // --- CHANGE 2: The 'transform' function now handles cancellation ---
   const transform = useCallback(async (chatId: string) => {
     if (!chatId) {
       toast.error("Cannot transform: Chat ID is missing.")
       return
     }
+    
+    // Cancel any previous, ongoing transformation before starting a new one
+    abortControllerRef.current?.abort()
+
+    // Create a new controller for this specific request
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     console.log(`🚀 [ARTICLE HOOK] Starting transformation for chat: ${chatId}`)
 
@@ -35,16 +46,22 @@ export const useTransformToArticle = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ chatId }),
+        // Pass the AbortSignal to the fetch request
+        signal: controller.signal,
       })
 
       console.log("📡 [ARTICLE HOOK] API Response status:", response.status)
       console.log("📡 [ARTICLE HOOK] API Response headers:", Object.fromEntries(response.headers.entries()))
+      
+      if (controller.signal.aborted) return // Check if cancelled before proceeding
 
       if (!response.ok) {
         const errorText = await response.text()
         console.error("❌ [ARTICLE HOOK] API Error:", errorText)
         throw new Error(`API returned ${response.status}: ${errorText}`)
       }
+      
+      // ... (The rest of your logic remains largely the same)
 
       const articleId = response.headers.get("X-Article-Id")
       const articleSlug = response.headers.get("X-Article-Temp-Slug")
@@ -59,33 +76,33 @@ export const useTransformToArticle = () => {
       if (!response.body) {
         throw new Error("No response body received from API")
       }
-
+      
       console.log("📖 [ARTICLE HOOK] Starting to read stream for real-time preview...")
 
       let totalContent = ""
       let chunkCount = 0
       let lastLogTime = Date.now()
 
-      try {
-        for await (const textChunk of readDataStream(response.body)) {
+      // The for-await-of loop will automatically throw an AbortError if the stream is cancelled.
+      for await (const textChunk of readDataStream(response.body)) {
+          if (controller.signal.aborted) {
+             console.log("🛑 [ARTICLE HOOK] Stream reading aborted.")
+             break; // Exit the loop if cancelled.
+          }
           if (textChunk && textChunk.length > 0) {
             chunkCount++
             totalContent += textChunk
             setArticle(totalContent)
 
-            // Log progress every 2 seconds or every 20 chunks
             const now = Date.now()
             if (now - lastLogTime > 2000 || chunkCount % 20 === 0) {
               console.log(`📖 [ARTICLE HOOK] Progress: ${chunkCount} chunks, ${totalContent.length} chars`)
-              console.log(`📖 [ARTICLE HOOK] Latest chunk: "${textChunk.substring(0, 50)}..."`)
               lastLogTime = now
             }
           }
         }
-      } catch (streamError) {
-        console.error("❌ [ARTICLE HOOK] Stream reading error:", streamError)
-        throw new Error(`Failed to read response stream: ${streamError}`)
-      }
+      
+      if (controller.signal.aborted) return; // Exit if cancelled after stream processing
 
       if (!totalContent || totalContent.trim().length === 0) {
         console.error("❌ [ARTICLE HOOK] No content received after processing stream")
@@ -93,29 +110,35 @@ export const useTransformToArticle = () => {
       }
 
       console.log("✅ [ARTICLE HOOK] Article stream completed!")
-      console.log(`📊 [ARTICLE HOOK] Final stats: ${chunkCount} chunks, ${totalContent.length} characters`)
 
-      // After stream completes, get the updated article info using the article ID
-      try {
-        const updatedResponse = await fetch(`/api/articles/${articleId}`)
-        if (updatedResponse.ok) {
-          const updatedArticle = await updatedResponse.json()
-          setArtifact({
-            id: updatedArticle.id,
-            slug: updatedArticle.slug,
-          })
-          console.log(`🔄 [ARTICLE HOOK] Updated artifact with final slug: ${updatedArticle.slug}`)
-        }
-      } catch (error) {
-        console.warn("Could not fetch updated article info:", error)
-      }
     } catch (e) {
+      // --- This is the key change to gracefully handle cancellation ---
+      // When fetch is aborted, it throws a DOMException with the name 'AbortError'.
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        console.log("✅ [ARTICLE HOOK] Transformation successfully cancelled by user.")
+        // Don't set an error or toast, this is an expected action.
+        return;
+      }
+      
       const errorMessage = e instanceof Error ? e.message : "Unknown error occurred"
       console.error("❌ [ARTICLE HOOK] Article transformation failed:", errorMessage)
       setError(errorMessage)
       toast.error(`Article generation failed: ${errorMessage}`)
     } finally {
-      setIsLoading(false)
+      // Only set loading to false if the request wasn't aborted by a *new* request.
+      // This prevents a race condition.
+      if (!controller.signal.aborted) {
+        setIsLoading(false)
+      }
+    }
+  }, [])
+
+  // --- CHANGE 3: Expose a 'cancel' function to be called from the component ---
+  const cancel = useCallback(() => {
+    if (abortControllerRef.current) {
+      console.log("🛑 [ARTICLE HOOK] Manually cancelling transformation.")
+      abortControllerRef.current.abort()
+      setIsLoading(false) // Immediately update UI to reflect cancellation
     }
   }, [])
 
@@ -126,5 +149,6 @@ export const useTransformToArticle = () => {
     transform,
     setArticle,
     artifact,
+    cancel, // <-- Expose the new function
   }
 }

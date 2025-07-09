@@ -17,7 +17,7 @@ import { Header } from "./header";
 import { toast } from "sonner";
 import { Github, LinkedInIcon, XIcon } from "./icons";
 import { motion, AnimatePresence } from "framer-motion";
-import { BlinkingCursor } from "./blinking-cursor";
+import { BlinkingCursor } from "./ui/blinking-cursor";
 import { ScrollToBottomButton } from "./ui/scroll-to-bottom-button";
 
 // Only call title generation if the message is not vague/unsupported

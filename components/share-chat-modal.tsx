@@ -57,44 +57,30 @@ const SharePreview = ({
   const [isHovered, setIsHovered] = useState(false)
 
   const renderPreviewContent = () => {
-    if (isTransforming) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8">
-          <Loader2 className="w-16 h-16 animate-spin mb-4" />
-          <p className="text-lg font-medium text-center mb-2">Crafting Professional Article...</p>
-          <p className="text-sm text-center text-zinc-500">Converting your conversation into a Medium-style article</p>
-        </div>
-      )
-    }
-
+    // --- BUG FIX 1: The loading state should only show for the 'article' format. ---
     switch (format) {
       case "article":
+        if (isTransforming) {
+          return (
+            <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8">
+              <Loader2 className="w-16 h-16 animate-spin mb-4" />
+              <p className="text-lg font-medium text-center mb-2">Crafting Professional Article...</p>
+              <p className="text-sm text-center text-zinc-500">Converting your conversation into a Medium-style article</p>
+            </div>
+          );
+        }
         return (
           <div className="h-full overflow-y-auto">
             {articleContent ? (
               <div className="p-8 prose prose-lg dark:prose-invert max-w-none relative">
                 <Markdown>{articleContent}</Markdown>
-                {/* {artifact && (
-                  <div className="absolute top-4 right-4">
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        window.open(`/${chat.user.firstName}/articles/${artifact.slug}/edit`, "_blank")
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Edit article
-                    </Button>
-                  </div>
-                )} */}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-8">
                 <FileText className="w-20 h-20 mb-6" />
                 <p className="text-lg font-medium text-center mb-2">Professional Article Preview</p>
                 <p className="text-sm text-center text-zinc-500 max-w-md">
-                  Your conversation will be transformed into a comprehensive, Medium-style technical article with proper
-                  structure, code examples, and professional formatting.
+                  Your conversation will be transformed into a comprehensive, Medium-style technical article.
                 </p>
               </div>
             )}
@@ -171,40 +157,54 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
     transform: transformToArticle,
     setArticle,
     artifact,
+    cancel: cancelArticleTransform, // Assume the hook provides a cancel function
   } = useTransformToArticle()
 
-  // Reset state when modal opens
+  // Reset component state when the modal opens
   useEffect(() => {
     if (isOpen) {
-      setShareFormat("conversation")
-      setArticle("")
-      // --- CHANGE 5: The initial share link is always for the conversation ---
-      if (chat.visibility === 'public') {
-        setShareLink(`${window.location.origin}/share/${chatId}`)
-      } else {
-        setShareLink("")
-      }
+      setShareFormat("conversation");
+      setArticle("");
+      setIsPublic(chat.visibility === "public");
+      setIsLiveSynced(chat.isLiveSynced);
     }
-  }, [isOpen, chatId, setArticle, chat.visibility])
-
-  // Handle format changes and trigger transformations
+  }, [isOpen, setArticle, chat.visibility, chat.isLiveSynced]);
+  
+  // --- BUG FIX 2: Handle API cancellation. ---
+  // This effect now triggers the transformation AND handles cancellation
+  // when the user switches away from the 'Article' format or closes the modal.
   useEffect(() => {
-    if (!isOpen) return
-    // --- CHANGE 6: Call transformToArticle with chatId, not the messages array ---
-    if (shareFormat === "article" && chatId) {
-      console.log("🎯 Triggering article transformation for chat:", chatId)
-      transformToArticle(chatId)
-    }
-  }, [shareFormat, isOpen, chatId, transformToArticle])
+    if (isOpen && shareFormat === 'article' && chatId) {
+      transformToArticle(chatId);
 
-  // --- Update the shareable link when a new article artifact is created ---
-  useEffect(() => {
-    if (artifact && chat.user.firstName) {
-        const articleUrl = `${window.location.origin}/${chat.user.firstName}/articles/${artifact.slug}`
-        setShareLink(articleUrl)
-        setIsPublic(true) // An article is inherently public
+      // Return a cleanup function. React runs this when dependencies change
+      // (e.g., user selects another format) or when the component unmounts.
+      return () => {
+        if (cancelArticleTransform) {
+          cancelArticleTransform();
+        }
+      };
     }
-  }, [artifact, chat.user.firstName])
+  }, [isOpen, shareFormat, chatId, transformToArticle, cancelArticleTransform]);
+  
+  // Declaratively update the shareable link based on the current state
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (shareFormat === 'article' && artifact && chat.user.firstName) {
+        const articleUrl = `${window.location.origin}/${chat.user.firstName}/articles/${artifact.slug}`;
+        setShareLink(articleUrl);
+        setIsPublic(true); // An article is inherently public
+    } else {
+        // For all other formats, use the standard chat link if public
+        if (isPublic) {
+            setShareLink(`${window.location.origin}/share/${chatId}`);
+        } else {
+            setShareLink('');
+        }
+    }
+  }, [isOpen, shareFormat, isPublic, artifact, chatId, chat.user.firstName]);
+
 
   const handleCopy = () => {
     if (!shareLink) return
@@ -256,7 +256,6 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
       toast.error("Could not navigate to article. Information is missing.")
       return
     }
-    // --- CHANGE 2: Use firstName to build the URL ---
     const editUrl = `/${chat.user.firstName}/articles/${artifact.slug}/edit`
     console.log(`Navigating to editor: ${editUrl}`)
     router.push(editUrl)
@@ -335,7 +334,6 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
                   className="space-y-4 border-t border-zinc-200/80 dark:border-zinc-700/50 pt-6"
                 >
                   {shareFormat === 'article' && artifact ? (
-                    // The new state: Show "View & Edit" button
                     <div className="space-y-3">
                        <Label className="font-medium text-zinc-800 dark:text-zinc-100">
                         Article Created
@@ -351,7 +349,6 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
                       </Button>
                     </div>
                   ) : (
-                    // The original state: Show share link and live-sync
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="share-link" className="font-medium text-zinc-800 dark:text-zinc-100">

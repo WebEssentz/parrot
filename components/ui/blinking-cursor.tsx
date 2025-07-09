@@ -1,4 +1,5 @@
-// src/components/blinking-cursor.tsx
+// src/components/ui/blinking-cursor.tsx
+
 "use client";
 import { motion } from "framer-motion";
 

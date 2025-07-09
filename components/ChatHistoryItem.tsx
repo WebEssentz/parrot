@@ -1,10 +1,9 @@
 "use client"
 
 import type React from "react"
-// --- 1. IMPORT useRouter ---
 import { useRouter } from "next/navigation"
 
-import { Trash2, Edit3, MoreHorizontal, Share, Archive } from "lucide-react" // Added Archive icon
+import { Trash2, Edit3, MoreHorizontal, Share, Archive } from "lucide-react" 
 import clsx from "clsx"
 import { useEffect, useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -27,22 +26,32 @@ interface Chat {
   isOptimistic?: boolean
 }
 
-// NOTE: All hooks and logic functions (useTypewriter, etc.) remain unchanged.
+// --- BUG FIX 1: Make the typewriter hook more robust ---
+// This new version uses text.slice() instead of relying on the previous state.
+// This is not vulnerable to state update race conditions.
 const useTypewriter = (text: string, speed = 30) => {
   const [displayText, setDisplayText] = useState("")
+
   useEffect(() => {
-    let i = 0
+    // When the text to be typed changes, reset the animation.
     setDisplayText("")
+    
+    let i = 0
     const typingInterval = setInterval(() => {
       if (i < text.length) {
-        setDisplayText((prev) => prev + text.charAt(i))
+        // Use slice to build the string from the source text directly.
+        // It's more reliable than appending to a previous state.
+        setDisplayText(text.slice(0, i + 1))
         i++
       } else {
         clearInterval(typingInterval)
       }
     }, speed)
+
+    // Cleanup function to stop the interval when the component unmounts or text changes.
     return () => clearInterval(typingInterval)
   }, [text, speed])
+
   return displayText
 }
 
@@ -55,7 +64,6 @@ interface ChatHistoryItemProps {
 }
 
 export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, deleteChat }: ChatHistoryItemProps) => {
-  // --- 2. INITIALIZE useRouter ---
   const router = useRouter()
 
   const [isEditing, setIsEditing] = useState(false)
@@ -65,27 +73,36 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
   const [isDeleting, setIsDeleting] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false);
 
-
   useEffect(() => {
     if (!isEditing) setTitle(chat.title)
   }, [chat.title, isEditing])
 
+  // --- BUG FIX 2: Correctly manage the animation lifecycle ---
   const prevTitleRef = useRef<string | null>(null)
-  const [shouldAnimate, setShouldAnimate] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+
+  // This effect STARTs the animation when the title changes from "New Chat".
   useEffect(() => {
     const previousTitle = prevTitleRef.current
     const currentTitle = chat.title
     if (currentTitle !== previousTitle && previousTitle === "New Chat" && currentTitle !== "New Chat") {
-      setShouldAnimate(true)
-    } else {
-      setShouldAnimate(false)
+      setIsAnimating(true)
     }
     prevTitleRef.current = currentTitle
   }, [chat.title])
 
   const typedTitle = useTypewriter(chat.title)
-  const finalTitle = isActive ? chat.title : shouldAnimate ? typedTitle : chat.title
 
+  // This effect STOPs the animation only when it's complete.
+  useEffect(() => {
+    if (isAnimating && typedTitle === chat.title) {
+      setIsAnimating(false)
+    }
+  }, [isAnimating, typedTitle, chat.title])
+
+  // Determine the final title to display.
+  const finalTitle = isActive ? chat.title : isAnimating ? typedTitle : chat.title
+  
   useEffect(() => {
     if (isEditing) {
       inputRef.current?.focus()
@@ -133,25 +150,17 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
     setIsDeleting(true)
     setRenamingState(true)
     try {
-      // Optimistically delete from UI first
       deleteChat(chat.id)
-      // --- 3. PUSH to "/" route immediately ---
       router.push("/")
-      // Then, make the API call
       const response = await fetch(`/api/chats/${chat.id}`, { method: "DELETE" })
       if (!response.ok) {
-        // If the API call fails, we can show an error, but the user is already on the new page.
-        // The optimistic deletion will need to be reverted by your global state management if this happens.
         throw new Error("Failed to delete chat")
       }
       toast.success("Chat deleted successfully.")
       setShowDeleteModal(false)
     } catch (error) {
-      // You might want to enhance error handling here, e.g., by restoring the chat
-      // if the API call fails, though that can be complex.
       toast.error("Failed to delete chat on the server.")
     } finally {
-      // These state changes are local to the component, which is about to be unmounted anyway, but it's good practice.
       setIsDeleting(false)
       setRenamingState(false)
     }

@@ -32,7 +32,7 @@ import { DraggableContentBlock } from "./draggable-content-block"
 import { SimpleColorPicker } from "./color-picker"
 import { FontSelector } from "./font-selector"
 import { MobileCommandBar } from "./mobile-command-bar"
-import { useUser } from "@clerk/nextjs"; 
+import { useUser } from "@clerk/nextjs"
 import { MobileDraggableBlock } from "./mobile-draggable-block"
 import {
   Loader2,
@@ -53,8 +53,8 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
-  Code as CodeBlockIcon,
-  Code2 as InlineCodeIcon,
+  CodeIcon as CodeBlockIcon,
+  CodeIcon as InlineCodeIcon,
   Play,
   Layers,
   Minus,
@@ -155,6 +155,21 @@ const EditorToolbar = ({
     </motion.button>
   )
 
+  // --- THIS IS THE NEW LOGIC FOR INLINE FONT CHANGES ---
+  const handleFontChange = (fontFamily: string) => {
+    // Unset the mark if 'Default' is chosen, otherwise set the font family.
+    if (fontFamily) {
+      editor.chain().focus().setMark("textStyle", { fontFamily }).run()
+    } else {
+      editor.chain().focus().unsetMark("textStyle").run()
+    }
+  }
+
+  const getCurrentFont = () => {
+    // Ask Tiptap for the `fontFamily` of the currently selected text.
+    return editor.getAttributes("textStyle").fontFamily || ""
+  }
+
   const handleCodeBlock = () => {
     editor.chain().focus().toggleCodeBlock().run()
   }
@@ -198,28 +213,6 @@ const EditorToolbar = ({
     }
   }
 
-  const handleFontChange = (fontFamily: string) => {
-    try {
-      if (fontFamily) {
-        editor.chain().focus().setMark("textStyle", { fontFamily }).run()
-      } else {
-        editor.chain().focus().unsetMark("textStyle").run()
-      }
-    } catch (error) {
-      console.error("Font change error:", error)
-      toast.error("Failed to change font")
-    }
-  }
-
-  const getCurrentFont = () => {
-    try {
-      const attributes = editor.getAttributes("textStyle")
-      return attributes.fontFamily || ""
-    } catch (error) {
-      return ""
-    }
-  }
-
   const handleLink = () => {
     const url = window.prompt("Enter URL:")
     if (url) {
@@ -232,7 +225,7 @@ const EditorToolbar = ({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={smoothScrollConfig}
-      className="hidden md:flex flex-wrap items-center gap-2 p-3 mb-6 sticky top-[73px] z-10 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-lg mx-auto w-fit"
+      className="hidden md:flex flex-wrap items-center gap-2 p-3 mb-6 sticky top-[73px] z-10 bg-white/90 dark:bg-[#1C1C1C]/90 backdrop-blur-md rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-lg mx-auto w-fit"
     >
       {/* Font and Basic Formatting */}
       <div className="flex items-center gap-1">
@@ -272,7 +265,6 @@ const EditorToolbar = ({
           <InlineCodeIcon className="w-4 h-4" />
         </ToolbarButton>
       </div>
-
       <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-2" />
 
       {/* Headings */}
@@ -299,7 +291,6 @@ const EditorToolbar = ({
           <Heading3 className="w-4 h-4" />
         </ToolbarButton>
       </div>
-
       <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-2" />
 
       {/* Lists */}
@@ -319,7 +310,6 @@ const EditorToolbar = ({
           <ListOrdered className="w-4 h-4" />
         </ToolbarButton>
       </div>
-
       <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-2" />
 
       {/* Alignment */}
@@ -335,7 +325,6 @@ const EditorToolbar = ({
           </ToolbarButton>
         ))}
       </div>
-
       <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-2" />
 
       {/* Media & Special */}
@@ -432,7 +421,6 @@ const TextFormatDropdown = ({ editor }: { editor: Editor }) => {
         setIsOpen(false)
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
@@ -453,7 +441,6 @@ const TextFormatDropdown = ({ editor }: { editor: Editor }) => {
           <ChevronDown className="w-3 h-3" />
         </motion.div>
       </motion.button>
-
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -553,7 +540,7 @@ const BubbleMenuBar = ({ editor, isHighlightAvailable }: { editor: Editor | null
     }
   }
 
-    return (
+  return (
     <BubbleMenu
       editor={editor}
       tippyOptions={{
@@ -561,12 +548,11 @@ const BubbleMenuBar = ({ editor, isHighlightAvailable }: { editor: Editor | null
         animation: "shift-away",
         placement: "top",
       }}
-      className="flex items-center gap-1 p-2 bg-white/95 dark:bg-zinc-800/95 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl backdrop-blur-md min-w-fit"
+      className="flex items-center gap-1 p-2 bg-white/95 dark:bg-[#1C1C1C]/95 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl backdrop-blur-md min-w-fit"
     >
       <div className="flex items-center gap-1">
         <TextFormatDropdown editor={editor} />
         <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-
         <BubbleButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive("bold")}
@@ -595,21 +581,16 @@ const BubbleMenuBar = ({ editor, isHighlightAvailable }: { editor: Editor | null
         >
           <InlineCodeIcon className="w-4 h-4" />
         </BubbleButton>
-
         <SimpleColorPicker
           onColorSelect={handleHighlight}
           currentColor={getCurrentHighlightColor()}
           isHighlightAvailable={isHighlightAvailable}
         />
-
         <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-
         <BubbleButton onClick={handleLink} isActive={editor.isActive("link")} title="Insert Link">
           <LinkIcon className="w-4 h-4" />
         </BubbleButton>
-
         <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-
         {alignmentOptions.map((alignment) => (
           <BubbleButton
             key={alignment.value}
@@ -624,7 +605,6 @@ const BubbleMenuBar = ({ editor, isHighlightAvailable }: { editor: Editor | null
     </BubbleMenu>
   )
 }
-
 
 // Link tooltip component
 const LinkTooltip = ({ editor }: { editor: Editor | null }) => {
@@ -644,7 +624,7 @@ const LinkTooltip = ({ editor }: { editor: Editor | null }) => {
         const linkMark = $from.marks().find((mark) => mark.type.name === "link")
         return !!linkMark
       }}
-      className="px-3 py-2 bg-zinc-800 dark:bg-zinc-700 text-white text-xs rounded-md shadow-lg"
+      className="px-3 py-2 bg-zinc-800 dark:bg-[#1E1E1E] text-white text-xs rounded-md shadow-lg"
     >
       <div className="flex items-center gap-2">
         <span>Ctrl+Click to follow link</span>
@@ -655,26 +635,26 @@ const LinkTooltip = ({ editor }: { editor: Editor | null }) => {
 
 // This hook detects if the screen width is mobile/tablet size.
 const useIsMobile = (breakpoint = 768) => {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     // The check function
     const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < breakpoint);
-    };
+      setIsMobile(window.innerWidth < breakpoint)
+    }
 
     // Run on mount
-    checkScreenSize();
+    checkScreenSize()
 
     // Add resize event listener
-    window.addEventListener("resize", checkScreenSize);
+    window.addEventListener("resize", checkScreenSize)
 
     // Cleanup listener on unmount
-    return () => window.removeEventListener("resize", checkScreenSize);
-  }, [breakpoint]);
+    return () => window.removeEventListener("resize", checkScreenSize)
+  }, [breakpoint])
 
-  return isMobile;
-};
+  return isMobile
+}
 
 // Main Article Editor Component
 export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
@@ -687,12 +667,31 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
   const [isHighlightAvailable, setIsHighlightAvailable] = useState(false)
 
+  // 1. Add state to manage the currently selected font for the entire article.
+  // Initialize it with the article's saved font or a default.
+  const [articleFont, setArticleFont] = useState<string>(initialArticle.fontFamily || "var(--font-sans)")
+
   const debouncedTitle = useDebounce(title, 1500)
   const debouncedContent = useDebounce(content, 1500)
-  const isMobile = useIsMobile();
-  const { user } = useUser(); 
+  const isMobile = useIsMobile()
+  const { user } = useUser()
+  const userFullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "User"
 
-  const userFullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "User";
+  // 2. Create a handler function to update the font state and the CSS variable.
+  const handleFontSelect = (fontVariable: string) => {
+    setArticleFont(fontVariable)
+    document.documentElement.style.setProperty("--font-main", fontVariable)
+  }
+
+  // 3. Apply the initial font when the component mounts.
+  useEffect(() => {
+    document.documentElement.style.setProperty("--font-main", articleFont)
+
+    // Optional cleanup: reset to default when the component unmounts
+    return () => {
+      document.documentElement.style.setProperty("--font-main", "var(--font-sans)")
+    }
+  }, [articleFont]) // This effect runs when articleFont changes
 
   // Initialize smooth scrolling
   useEffect(() => {
@@ -713,7 +712,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
         openOnClick: false,
         HTMLAttributes: {
           class:
-            "text-zinc-900 dark:text-zinc-100 underline underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300",
+            "text-zinc-700 dark:text-zinc-200 underline underline-offset-2 decoration-zinc-400/60 dark:decoration-blue-300/60 hover:text-blue-600 dark:hover:text-blue-400 hover:decoration-blue-600 dark:hover:decoration-blue-400 transition-all duration-200",
           rel: "noopener noreferrer",
           target: "_blank",
         },
@@ -776,7 +775,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
           "[&_pre]:bg-zinc-900 [&_pre]:text-zinc-100 [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-6",
           "[&_pre_code]:bg-transparent [&_pre_code]:text-inherit [&_pre_code]:p-0",
           "[&_table]:my-6 [&_table]:w-full [&_table]:border-collapse",
-          "[&_th]:py-2 [&_th]:pr-4 [&_th]:text-left [&_th]:font-semibold [&_th]:border-b [&_th]:border-zinc-200 [&_th]:dark:border-zinc-700",
+          "[&_th]:py-2 [&_th]:pr-4 [&_th]:border-collapse [&_th]:text-left [&_th]:font-semibold [&_th]:border-b [&_th]:border-zinc-200 [&_th]:dark:border-zinc-700",
           "[&_td]:py-2 [&_td]:pr-4 [&_td]:border-b [&_td]:border-zinc-200 [&_td]:dark:border-zinc-700",
           "[&_.ProseMirror-selectednode]:outline-2 [&_.ProseMirror-selectednode]:outline-zinc-500",
           "[&_ul[data-type='taskList']]:list-none [&_li[data-type='taskItem']]:flex [&_li[data-type='taskItem']]:items-start [&_li[data-type='taskItem']]:gap-2",
@@ -818,6 +817,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
           editor.commands.setContent(initialArticle.content_md)
         }
       }
+
       convertAndLoad()
     }
   }, [editor, initialArticle.content_md])
@@ -851,22 +851,18 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
         try {
           const detectedPlatform = platform === "auto" ? VideoProcessor.detectPlatform(url) : platform
           const result = await VideoProcessor.processVideoUrl(url, detectedPlatform)
-
           if (result) {
             // Insert the video HTML directly into the editor with proper spacing
             const videoContent = `<p></p>${result.html}<p></p>`
             editor.chain().focus().insertContent(videoContent).run()
-
             // Force multiple re-renders to ensure the video appears
             setTimeout(() => {
               editor.commands.focus()
               editor.view.updateState(editor.view.state)
             }, 100)
-
             setTimeout(() => {
               editor.view.updateState(editor.view.state)
             }, 300)
-
             toast.success(
               `${result.platform.charAt(0).toUpperCase() + result.platform.slice(1)} video inserted successfully!`,
             )
@@ -882,29 +878,25 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
     [editor],
   )
 
- // Convert content to blocks for drag and drop mode
+  // Convert content to blocks for drag and drop mode
   const convertToBlocks = useCallback(() => {
-    if (!editor) return;
-
-    const html = editor.getHTML();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
-    const elements = Array.from(doc.body.children);
-
+    if (!editor) return
+    const html = editor.getHTML()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, "text/html")
+    const elements = Array.from(doc.body.children)
     const blocks: ContentBlock[] = elements.map((element, index) => ({
       id: `block-${Date.now()}-${index}`, // Use a more unique ID
       content: element.outerHTML,
       type: element.tagName.toLowerCase() as "paragraph" | "heading" | "list",
-    }));
-
-    setContentBlocks(blocks);
-    setShowBlockMode(true);
-  }, [editor]);
+    }))
+    setContentBlocks(blocks)
+    setShowBlockMode(true)
+  }, [editor])
 
   // Convert blocks back to editor content
   const convertFromBlocks = useCallback(() => {
     if (!editor) return
-
     const html = contentBlocks.map((block) => block.content).join("")
     editor.commands.setContent(html)
     setShowBlockMode(false)
@@ -931,12 +923,16 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
     setContentBlocks((prev) => prev.map((block) => (block.id === id ? { ...block, content: newContent } : block)))
   }, [])
 
-  // Auto-save functionality
+  // Auto-save functionality (MODIFIED to include font)
   const handleAutoSave = useCallback(async () => {
-    if (debouncedContent === initialArticle.content_md && debouncedTitle === initialArticle.title) {
+    // Now also checks if the font has changed
+    if (
+      debouncedContent === initialArticle.content_md &&
+      debouncedTitle === initialArticle.title &&
+      articleFont === (initialArticle.fontFamily || "var(--font-sans)")
+    ) {
       return
     }
-
     setStatus("saving")
     try {
       await fetch(`/api/articles/${initialArticle.id}`, {
@@ -945,6 +941,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
         body: JSON.stringify({
           title: debouncedTitle,
           content_md: debouncedContent,
+          fontFamily: articleFont, // --- ADD FONT TO THE PAYLOAD ---
         }),
       })
       setStatus("saved")
@@ -953,11 +950,11 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
       toast.error("Failed to save changes.")
       setStatus("idle")
     }
-  }, [debouncedContent, debouncedTitle, initialArticle])
+  }, [debouncedContent, debouncedTitle, articleFont, initialArticle]) // Add articleFont dependency
 
   useEffect(() => {
     handleAutoSave()
-  }, [debouncedContent, debouncedTitle, handleAutoSave])
+  }, [debouncedContent, debouncedTitle, articleFont, handleAutoSave]) // Add articleFont dependency
 
   // Handle publishing
   const handlePublish = async () => {
@@ -1024,13 +1021,13 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="min-h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 smooth-scroll"
+        className="min-h-screen bg-white dark:bg-[#1C1C1C] text-zinc-900 dark:text-zinc-50 smooth-scroll"
       >
         {/* New Header: Three-Zone Command Center */}
         <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="sticky top-0 z-20 w-full bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800"
+          className="sticky top-0 z-20 w-full bg-white/80 dark:bg-[#1C1C1C]/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             {/* Zone 1: Identity (Left) */}
@@ -1039,7 +1036,6 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
               <button className="md:hidden p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
                 <ChevronLeft className="w-5 h-5" />
               </button>
-
               {/* --- STEP 2: APPLY THE TOOLTIP --- */}
               <div
                 className="hidden md:flex items-center gap-3"
@@ -1047,7 +1043,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
               >
                 {user?.imageUrl ? (
                   <img
-                    src={user.imageUrl}
+                    src={user.imageUrl || "/placeholder.svg"}
                     alt={userFullName} // Use the full name for better accessibility
                     className="w-8 h-8 rounded-full object-cover"
                   />
@@ -1058,7 +1054,6 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
                 )}
                 <span className="text-zinc-400">/</span>
               </div>
-
               {/* Editable Title */}
               <input
                 value={title}
@@ -1072,9 +1067,9 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
             <div className="hidden md:flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1">
               <button
                 onClick={showBlockMode ? convertFromBlocks : () => setShowBlockMode(false)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                   !showBlockMode
-                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm"
+                    ? "bg-white dark:bg-[#1C1C1C] text-zinc-900 dark:text-zinc-100 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400"
                 }`}
               >
@@ -1082,9 +1077,9 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
               </button>
               <button
                 onClick={showBlockMode ? () => {} : convertToBlocks}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                   showBlockMode
-                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm"
+                    ? "bg-white dark:bg-[#1C1C1C] text-zinc-900 dark:text-zinc-100 shadow-sm"
                     : "text-zinc-600 dark:text-zinc-400"
                 }`}
               >
@@ -1155,7 +1150,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
                       Arrange Mode: Drag and drop to reorder content
                     </span>
                   </div>
-                   {contentBlocks.map((block, index) =>
+                  {contentBlocks.map((block, index) =>
                     isMobile ? (
                       // On mobile, render the mobile-optimized component
                       <MobileDraggableBlock
@@ -1184,7 +1179,7 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
                         onEditStart={setEditingBlockId}
                         onEditEnd={() => setEditingBlockId(null)}
                       />
-                    )
+                    ),
                   )}
                 </motion.div>
               ) : (

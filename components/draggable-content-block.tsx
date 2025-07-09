@@ -46,20 +46,15 @@ export function DraggableContentBlock({
     },
     hover(item: DragItem, monitor: DropTargetMonitor) {
       if (!ref.current) return
-
       const dragIndex = item.index
       const hoverIndex = index
-
       if (dragIndex === hoverIndex) return
-
       const hoverBoundingRect = ref.current?.getBoundingClientRect()
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
       const clientOffset = monitor.getClientOffset()
       const hoverClientY = clientOffset!.y - hoverBoundingRect.top
-
       if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return
       if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return
-
       moveBlock(dragIndex, hoverIndex)
       item.index = hoverIndex
     },
@@ -93,12 +88,12 @@ export function DraggableContentBlock({
       animate={{ opacity: isDragging ? 0.5 : 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ type: "spring", damping: 25, stiffness: 300 }}
-      className={`group relative bg-white dark:bg-zinc-800 rounded-lg border-2 transition-all duration-200 ${
+      className={`group relative rounded-lg border-2 transition-all duration-200  ${
         isDragging
-          ? "border-blue-500 shadow-lg"
+          ? "bg-zinc-50"
           : isHovered
-            ? "border-blue-300 dark:border-blue-600 shadow-md"
-            : "border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
+            ? "border-zinc-200"
+            : "border-zinc-200 border-[1px] bg-zinc-50 dark:bg-zinc-800/50 dark:border-zinc-700"
       }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -113,17 +108,17 @@ export function DraggableContentBlock({
             className="absolute -left-8 top-1/2 transform -translate-y-1/2 flex flex-col gap-1"
           >
             <button
-              className="p-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-sm hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors cursor-grab active:cursor-grabbing"
+              className="p-1 bg-zinc-50 border border-zinc-600 rounded shadow-sm transition-all duration-200 cursor-grab active:cursor-grabbing"
               title="Drag to reorder"
             >
-              <GripVertical className="w-4 h-4 text-zinc-400" />
+              <GripVertical className="w-4 h-4 text-zinc-400 hover:text-blue-500 transition-colors" />
             </button>
             <button
               onClick={() => onDelete(id)}
-              className="p-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded shadow-sm hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 transition-colors"
+              className="p-1 bg-red-500 border border-zinc-600 rounded hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-400 transition-all duration-200"
               title="Delete block"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-4 h-4 text-white hover:text-red-400 transition-colors" />
             </button>
           </motion.div>
         )}
@@ -135,20 +130,20 @@ export function DraggableContentBlock({
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="w-full p-3 border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-zinc-700 resize-none"
+              className="w-full p-4 border border-zinc-300 dark:border-zinc-600 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 dark:placeholder-zinc-400 resize-none transition-all duration-200 shadow-sm hover:shadow-md font-mono text-sm leading-relaxed"
               rows={4}
               autoFocus
             />
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow-md"
               >
                 Save
               </button>
               <button
                 onClick={handleCancel}
-                className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors text-sm"
+                className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all duration-200 text-sm shadow-sm hover:shadow-md"
               >
                 Cancel
               </button>
@@ -156,17 +151,16 @@ export function DraggableContentBlock({
           </motion.div>
         ) : (
           <div
-            className="prose prose-sm dark:prose-invert max-w-none cursor-pointer"
+            className="prose prose-sm prose-invert max-w-none cursor-pointer hover:prose-headings:text-blue-400 transition-colors duration-200"
             onClick={() => onEditStart(id)}
             dangerouslySetInnerHTML={{ __html: content }}
           />
         )}
       </div>
-
       <motion.div
         initial={{ scaleX: 0 }}
         animate={{ scaleX: isHovered ? 1 : 0 }}
-        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 origin-left"
+        className="absolute bottom-0 left-0 right-0 h-0.5 origin-left"
       />
     </motion.div>
   )

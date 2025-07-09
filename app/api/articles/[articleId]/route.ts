@@ -48,6 +48,7 @@ const updateArticleSchema = z.object({
   title: z.string().min(3).optional(),
   content_md: z.string().optional(),
   status: z.enum(['draft', 'published']).optional(),
+  fontFamily: z.string().optional(),
 });
 
 export async function PATCH(
