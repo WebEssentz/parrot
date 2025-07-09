@@ -32,6 +32,7 @@ import { DraggableContentBlock } from "./draggable-content-block"
 import { SimpleColorPicker } from "./color-picker"
 import { FontSelector } from "./font-selector"
 import { MobileCommandBar } from "./mobile-command-bar"
+import { useUser } from "@clerk/nextjs"; 
 import {
   Loader2,
   CheckCircle,
@@ -640,6 +641,9 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
 
   const debouncedTitle = useDebounce(title, 1500)
   const debouncedContent = useDebounce(content, 1500)
+  const { user } = useUser(); 
+
+  const userFullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "User";
 
   // Initialize smooth scrolling
   useEffect(() => {
@@ -981,11 +985,22 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
                 <ChevronLeft className="w-5 h-5" />
               </button>
 
-              {/* User Avatar */}
-              <div className="hidden md:flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
-                  <User className="w-4 h-4 text-white dark:text-zinc-900" />
-                </div>
+              {/* --- STEP 2: APPLY THE TOOLTIP --- */}
+              <div
+                className="hidden md:flex items-center gap-3"
+                title={userFullName} // The `title` attribute creates the native browser tooltip.
+              >
+                {user?.imageUrl ? (
+                  <img
+                    src={user.imageUrl}
+                    alt={userFullName} // Use the full name for better accessibility
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
+                    <User className="w-4 h-4 text-white dark:text-zinc-900" />
+                  </div>
+                )}
                 <span className="text-zinc-400">/</span>
               </div>
 
