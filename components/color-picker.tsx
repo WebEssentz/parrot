@@ -59,9 +59,10 @@ export function SimpleColorPicker({ onColorSelect, currentColor, isHighlightAvai
         whileTap={{ scale: 0.98 }}
         className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-all cursor-pointer ${
           currentColor
-            ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900"
+            ? `bg-[${currentColor}] dark:bg-[${currentColor}]`
             : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
         }`}
+        style={currentColor ? { backgroundColor: currentColor, color: currentColorObj.textColor } : {}}
       >
         <div className="relative">
           <Palette className="w-4 h-4" />
@@ -85,7 +86,7 @@ export function SimpleColorPicker({ onColorSelect, currentColor, isHighlightAvai
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden"
+            className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-[#1E1E1E]/95 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden"
           >
             {highlightColors.map((color, index) => (
               <motion.button
