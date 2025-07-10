@@ -455,7 +455,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     }
 
     setIsFetchingForShare(true)
-    const toastId = toast.loading("Preparing chat for sharing...")
+    // const toastId = toast.loading("Preparing chat for sharing...")
 
     try {
       // If we already have initialChat data, use it, otherwise fetch fresh data
@@ -466,7 +466,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           user: authorInfo,
         })
         setShowShareModal(true)
-        toast.dismiss(toastId)
+        // toast.dismiss(toastId)
         toast.success("Chat ready to share!")
       } else {
         // Fetch fresh data if we don't have it
@@ -480,12 +480,12 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           user: authorInfo,
         })
         setShowShareModal(true)
-        toast.dismiss(toastId)
+        // toast.dismiss(toastId)
         toast.success("Chat ready to share!")
       }
     } catch (error) {
       toast.error("Failed to prepare chat for sharing.")
-      toast.dismiss(toastId)
+      // toast.dismiss(toastId)
     } finally {
       setIsFetchingForShare(false)
     }

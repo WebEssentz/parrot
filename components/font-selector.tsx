@@ -82,7 +82,7 @@ export function FontSelector({ onFontSelect, currentFont }: FontSelectorProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="absolute top-full left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl z-50"
+            className="absolute top-full left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white dark:bg-[#1E1E1E]/95 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl z-50"
           >
             {fontFamilies.map((font, index) => (
               <motion.button

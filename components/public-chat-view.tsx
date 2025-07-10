@@ -28,11 +28,11 @@ export const PublicChatView = ({ chat }: { chat: PublicChatData }) => {
 
   return (
     // A deep, dark background for a premium, focused feel.
-    <div className="bg-white dark:bg-[#121212] min-h-screen text-zinc-800 dark:text-zinc-200">
+    <div className="bg-white dark:bg-[#1C1C1C] min-h-screen text-zinc-800 dark:text-zinc-200">
       
       {/* --- Ultra-Minimalist Header --- */}
       {/* The header is now extremely subtle, aligning with the content width. */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-[#121212]">
+      <header className="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-[#1C1C1C]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-14">
             

@@ -314,10 +314,10 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
                       key={id}
                       onClick={() => setShareFormat(id)}
                       className={clsx(
-                        "flex items-center p-3 sm:p-4 rounded-lg border transition-all duration-200 text-left",
+                        "flex items-center p-3 sm:p-4 rounded-lg border transition-all duration-200 text-left hover:cursor-pointer",
                         {
                           "bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400": shareFormat === id,
-                          "bg-zinc-100/50 hover:bg-zinc-100 dark:bg-zinc-800/50 hover:dark:bg-zinc-800 border-transparent":
+                          "bg-zinc-100/50 hover:bg-zinc-100 dark:bg-zinc-800/50 hover:dark:bg-zinc-800 border-transparent cursor-pointer":
                             shareFormat !== id,
                         },
                       )}
@@ -336,7 +336,7 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
               <AnimatePresence>
                 {isPublic && (
                   <motion.div
-                    key={shareFormat === "article" && artifact ? "article-cta" : "share-link"}
+                  key={shareFormat === "article" && artifact ? "article-cta" : "share-link"}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
@@ -408,7 +408,7 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
             <Button
               type="button"
               variant="ghost"
-              className="rounded-full flex-1 sm:flex-none"
+              className="rounded-full flex-1 sm:flex-none cursor-pointer"
               onClick={onClose}
               disabled={isSubmitting}
             >
@@ -416,7 +416,7 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
             </Button>
             <Button
               type="button"
-              className="rounded-full bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200 flex-1 sm:flex-none"
+              className="rounded-full cursor-pointer bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200 flex-1 sm:flex-none"
               onClick={handleShareConfirm}
               disabled={isSubmitting || isTransforming}
             >

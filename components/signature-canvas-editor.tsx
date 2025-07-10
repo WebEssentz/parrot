@@ -28,12 +28,10 @@ import { common, createLowlight } from "lowlight"
 import { markdownToHtml } from "@/lib/markdown-converter"
 import { initSmoothScrolling, smoothScrollConfig } from "@/lib/smooth-scroll"
 import { VideoLinkModal } from "./video-link-modal"
-import { DraggableContentBlock } from "./draggable-content-block"
 import { SimpleColorPicker } from "./color-picker"
 import { FontSelector } from "./font-selector"
 import { MobileCommandBar } from "./mobile-command-bar"
 import { useUser } from "@clerk/nextjs"
-import { MobileDraggableBlock } from "./mobile-draggable-block"
 import {
   Loader2,
   CheckCircle,
@@ -56,16 +54,28 @@ import {
   CodeIcon as CodeBlockIcon,
   CodeIcon as InlineCodeIcon,
   Play,
-  Layers,
   Minus,
   Eraser,
   LinkIcon,
   User,
   Share,
   ChevronLeft,
+  MoreHorizontal,
+  Trash2,
 } from "lucide-react"
 import TextStyle from "@tiptap/extension-text-style"
 import { VideoProcessor } from "@/lib/video-processor"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { History, Tag } from "lucide-react"
+import { DeleteDraftModal } from "./delete-draft-modal"
+import { EditorWithDragHandles } from "./editor-with-drag-handles"
+import { useRouter } from "next/navigation"
 
 // Create lowlight instance
 const lowlight = createLowlight(common)
@@ -85,13 +95,6 @@ type TextFormat = {
   label: string
   value: string
   icon: React.ComponentType<{ className?: string }>
-}
-
-// Content block type for drag and drop
-interface ContentBlock {
-  id: string
-  content: string
-  type: "paragraph" | "heading" | "list"
 }
 
 // Text format options for the dropdown
@@ -662,9 +665,6 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
   const [content, setContent] = useState(initialArticle.content_md)
   const [status, setStatus] = useState<SaveStatus>("idle")
   const [showVideoModal, setShowVideoModal] = useState(false)
-  const [showBlockMode, setShowBlockMode] = useState(false)
-  const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([])
-  const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
   const [isHighlightAvailable, setIsHighlightAvailable] = useState(false)
 
   // 1. Add state to manage the currently selected font for the entire article.
@@ -778,7 +778,6 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
           "[&_th]:py-2 [&_th]:pr-4 [&_th]:border-collapse [&_th]:text-left [&_th]:font-semibold [&_th]:border-b [&_th]:border-zinc-200 [&_th]:dark:border-zinc-700",
           "[&_td]:py-2 [&_td]:pr-4 [&_td]:border-b [&_td]:border-zinc-200 [&_td]:dark:border-zinc-700",
           "[&_.ProseMirror-selectednode]:outline-2 [&_.ProseMirror-selectednode]:outline-zinc-500",
-          "[&_ul[data-type='taskList']]:list-none [&_li[data-type='taskItem']]:flex [&_li[data-type='taskItem']]:items-start [&_li[data-type='taskItem']]:gap-2",
           "[&_*[style*='text-align: center']]:text-center",
           "[&_*[style*='text-align: right']]:text-right",
           "[&_*[style*='text-align: justify']]:text-justify",
@@ -878,50 +877,26 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
     [editor],
   )
 
-  // Convert content to blocks for drag and drop mode
-  const convertToBlocks = useCallback(() => {
-    if (!editor) return
-    const html = editor.getHTML()
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, "text/html")
-    const elements = Array.from(doc.body.children)
-    const blocks: ContentBlock[] = elements.map((element, index) => ({
-      id: `block-${Date.now()}-${index}`, // Use a more unique ID
-      content: element.outerHTML,
-      type: element.tagName.toLowerCase() as "paragraph" | "heading" | "list",
-    }))
-    setContentBlocks(blocks)
-    setShowBlockMode(true)
-  }, [editor])
+  const [showDeleteDraftModal, setShowDeleteDraftModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const router = useRouter()
 
-  // Convert blocks back to editor content
-  const convertFromBlocks = useCallback(() => {
-    if (!editor) return
-    const html = contentBlocks.map((block) => block.content).join("")
-    editor.commands.setContent(html)
-    setShowBlockMode(false)
-  }, [editor, contentBlocks])
-
-  // Handle block reordering
-  const moveBlock = useCallback((dragIndex: number, hoverIndex: number) => {
-    setContentBlocks((prev) => {
-      const newBlocks = [...prev]
-      const draggedBlock = newBlocks[dragIndex]
-      newBlocks.splice(dragIndex, 1)
-      newBlocks.splice(hoverIndex, 0, draggedBlock)
-      return newBlocks
-    })
-  }, [])
-
-  // Handle block deletion
-  const deleteBlock = useCallback((id: string) => {
-    setContentBlocks((prev) => prev.filter((block) => block.id !== id))
-  }, [])
-
-  // Handle block editing
-  const editBlock = useCallback((id: string, newContent: string) => {
-    setContentBlocks((prev) => prev.map((block) => (block.id === id ? { ...block, content: newContent } : block)))
-  }, [])
+  const handleDeleteDraft = async () => {
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/articles/${initialArticle.id}`, {
+        method: "DELETE",
+      })
+      if (!response.ok) throw new Error("Failed to delete draft")
+      toast.success("Draft deleted successfully!")
+      router.push("/chat") // Changed from "/" to "/chat"
+    } catch (error) {
+      toast.error("Failed to delete draft.")
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteDraftModal(false)
+    }
+  }
 
   // Auto-save functionality (MODIFIED to include font)
   const handleAutoSave = useCallback(async () => {
@@ -1030,79 +1005,93 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
           className="sticky top-0 z-20 w-full bg-white/80 dark:bg-[#1C1C1C]/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            {/* Zone 1: Identity (Left) */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
+            {/* Zone 1: Identity (Left) - Improved spacing and positioning */}
+            <div className="flex items-center gap-4 min-w-0 flex-1">
               {/* Mobile back button */}
-              <button className="md:hidden p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <button className="md:hidden p-2 -ml-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer">
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              {/* --- STEP 2: APPLY THE TOOLTIP --- */}
-              <div
-                className="hidden md:flex items-center gap-3"
-                title={userFullName} // The `title` attribute creates the native browser tooltip.
-              >
+              {/* User info with better spacing */}
+              <div className="flex items-center gap-3" title={userFullName}>
                 {user?.imageUrl ? (
                   <img
                     src={user.imageUrl || "/placeholder.svg"}
-                    alt={userFullName} // Use the full name for better accessibility
-                    className="w-8 h-8 rounded-full object-cover"
+                    alt={`${user.firstName || user.username || "User"}'s profile`}
+                    className="w-8 h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700"
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
                     <User className="w-4 h-4 text-white dark:text-zinc-900" />
                   </div>
                 )}
-                <span className="text-zinc-400">/</span>
+                <span className="text-zinc-300 dark:text-zinc-600">/</span>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                  Draft in {user?.firstName || user?.username || "Workspace"}
+                </span>
               </div>
-              {/* Editable Title */}
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="font-medium text-zinc-900 dark:text-zinc-100 bg-transparent border-none outline-none truncate max-w-[300px] sm:max-w-[400px] md:max-w-[500px]"
-                placeholder="Untitled"
-              />
             </div>
 
-            {/* Zone 2: Context (Center) - Desktop Only */}
-            <div className="hidden md:flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1">
-              <button
-                onClick={showBlockMode ? convertFromBlocks : () => setShowBlockMode(false)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  !showBlockMode
-                    ? "bg-white dark:bg-[#1C1C1C] text-zinc-900 dark:text-zinc-100 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400"
-                }`}
-              >
-                Write
-              </button>
-              <button
-                onClick={showBlockMode ? () => {} : convertToBlocks}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  showBlockMode
-                    ? "bg-white dark:bg-[#1C1C1C] text-zinc-900 dark:text-zinc-100 shadow-sm"
-                    : "text-zinc-600 dark:text-zinc-400"
-                }`}
-              >
-                Arrange
-              </button>
+            {/* Zone 2: Context (Center) - Save status */}
+            <div className="hidden md:flex items-center">
+              <SaveStatusIndicator />
             </div>
 
             {/* Zone 3: Actions (Right) */}
             <div className="flex items-center gap-4 flex-shrink-0">
-              <SaveStatusIndicator />
-              <button
-                onClick={handleShare}
-                className="hidden md:flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
-              >
-                <Share className="w-4 h-4" />
-                Share
-              </button>
+              <div className="md:hidden">
+                <SaveStatusIndicator />
+              </div>
+
+              {/* Three-dot menu for secondary actions */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  className="w-48 bg-white dark:bg-[#282828] p-2 shadow-xl border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl"
+                >
+                  <DropdownMenuItem
+                    onSelect={handleShare}
+                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
+                  >
+                    <Share className="w-4 h-4 text-zinc-500" />
+                    <span>Share</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => toast.info("Revision history coming soon!")}
+                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
+                  >
+                    <History className="w-4 h-4 text-zinc-500" />
+                    <span>Revision History</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => toast.info("Tag management coming soon!")}
+                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
+                  >
+                    <Tag className="w-4 h-4 text-zinc-500" />
+                    <span>Manage Tags</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
+                  <DropdownMenuItem
+                    onSelect={() => setShowDeleteDraftModal(true)}
+                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg text-red-600 dark:text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:focus:text-red-500"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600 dark:text-red-500" />
+                    <span>Delete Draft</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <motion.button
                 onClick={handlePublish}
                 disabled={status === "saving"}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-4 py-1.5 cursor-pointer text-sm font-medium text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 transition-colors"
+                className="px-4 py-1.5 text-sm font-medium text-white bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-200 disabled:opacity-50 transition-colors cursor-pointer"
               >
                 Publish
               </motion.button>
@@ -1135,86 +1124,31 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
               />
             </motion.div>
 
-            <AnimatePresence mode="wait">
-              {showBlockMode ? (
-                <motion.div
-                  key="blocks"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-4"
-                >
-                  <div className="flex items-center gap-2 mb-6 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                    <Layers className="w-5 h-5 text-zinc-600" />
-                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                      Arrange Mode: Drag and drop to reorder content
-                    </span>
-                  </div>
-                  {contentBlocks.map((block, index) =>
-                    isMobile ? (
-                      // On mobile, render the mobile-optimized component
-                      <MobileDraggableBlock
-                        key={block.id}
-                        id={block.id}
-                        content={block.content}
-                        index={index}
-                        moveBlock={moveBlock}
-                        onDelete={deleteBlock}
-                        onEdit={editBlock}
-                        isEditing={editingBlockId === block.id}
-                        onEditStart={setEditingBlockId}
-                        onEditEnd={() => setEditingBlockId(null)}
-                      />
-                    ) : (
-                      // On desktop, render the desktop-optimized component
-                      <DraggableContentBlock
-                        key={block.id}
-                        id={block.id}
-                        content={block.content}
-                        index={index}
-                        moveBlock={moveBlock}
-                        onDelete={deleteBlock}
-                        onEdit={editBlock}
-                        isEditing={editingBlockId === block.id}
-                        onEditStart={setEditingBlockId}
-                        onEditEnd={() => setEditingBlockId(null)}
-                      />
-                    ),
-                  )}
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="editor"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <EditorToolbar
-                    editor={editor}
-                    onVideoClick={() => setShowVideoModal(true)}
-                    isHighlightAvailable={isHighlightAvailable}
-                  />
-                  <BubbleMenuBar editor={editor} isHighlightAvailable={isHighlightAvailable} />
-                  <LinkTooltip editor={editor} />
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                    className="mt-4 editor-content"
-                  >
-                    <EditorContent editor={editor} />
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <EditorToolbar
+                editor={editor}
+                onVideoClick={() => setShowVideoModal(true)}
+                isHighlightAvailable={isHighlightAvailable}
+              />
+              <BubbleMenuBar editor={editor} isHighlightAvailable={isHighlightAvailable} />
+              <LinkTooltip editor={editor} />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="mt-4 editor-content"
+              >
+                <EditorWithDragHandles editor={editor}>
+                  <EditorContent editor={editor} />
+                </EditorWithDragHandles>
+              </motion.div>
+            </motion.div>
           </div>
         </main>
 
         {/* Mobile Command Bar */}
         <MobileCommandBar
           editor={editor}
-          showBlockMode={showBlockMode}
-          onModeToggle={showBlockMode ? convertFromBlocks : convertToBlocks}
           onVideoClick={() => setShowVideoModal(true)}
           isHighlightAvailable={isHighlightAvailable}
         />
@@ -1223,6 +1157,13 @@ export function MonochromaticEditor({ initialArticle }: ArticleEditorProps) {
           isOpen={showVideoModal}
           onClose={() => setShowVideoModal(false)}
           onVideoInsert={handleVideoInsert}
+        />
+        <DeleteDraftModal
+          isOpen={showDeleteDraftModal}
+          onClose={() => setShowDeleteDraftModal(false)}
+          onConfirm={handleDeleteDraft}
+          draftTitle={title || "Untitled Draft"}
+          isDeleting={isDeleting}
         />
       </motion.div>
     </DndProvider>

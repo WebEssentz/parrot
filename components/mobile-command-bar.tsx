@@ -2,46 +2,16 @@
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import {
-  Plus,
-  Undo2,
-  Redo2,
-  Bold,
-  Italic,
-  Strikethrough,
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  Quote,
-  Code,
-  LinkIcon,
-  Play,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  Minus,
-  X,
-} from "lucide-react"
+import { Plus, Undo2, Redo2, Bold, Italic, Strikethrough, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code, LinkIcon, Play, AlignLeft, AlignCenter, AlignRight, AlignJustify, Minus, X } from 'lucide-react'
 import type { Editor } from "@tiptap/react"
 
 interface MobileCommandBarProps {
   editor: Editor | null
-  showBlockMode: boolean
-  onModeToggle: () => void
   onVideoClick: () => void
   isHighlightAvailable: boolean
 }
 
-export function MobileCommandBar({
-  editor,
-  showBlockMode,
-  onModeToggle,
-  onVideoClick,
-  isHighlightAvailable,
-}: MobileCommandBarProps) {
+export function MobileCommandBar({ editor, onVideoClick, isHighlightAvailable }: MobileCommandBarProps) {
   const [showMenu, setShowMenu] = useState(false)
 
   if (!editor) return null
@@ -118,7 +88,7 @@ export function MobileCommandBar({
                 <h3 className="font-medium text-zinc-900 dark:text-zinc-100">Format</h3>
                 <button
                   onClick={() => setShowMenu(false)}
-                  className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+                  className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -128,7 +98,7 @@ export function MobileCommandBar({
                   <button
                     key={index}
                     onClick={() => handleAction(action.action)}
-                    className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 cursor-pointer"
                   >
                     <action.icon className="w-5 h-5" />
                     <span className="text-xs">{action.label}</span>
@@ -149,46 +119,28 @@ export function MobileCommandBar({
         <div className="flex items-center justify-between p-3">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900"
+            className="flex items-center justify-center w-10 h-10 rounded-xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 cursor-pointer"
           >
             <Plus className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1">
-            <button
-              onClick={onModeToggle}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                !showBlockMode
-                  ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm"
-                  : "text-zinc-600 dark:text-zinc-400"
-              }`}
-            >
-              Write
-            </button>
-            <button
-              onClick={onModeToggle}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                showBlockMode
-                  ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm"
-                  : "text-zinc-600 dark:text-zinc-400"
-              }`}
-            >
-              Arrange
-            </button>
+          {/* Removed Write/Arrange toggle - now just shows a simple indicator */}
+          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-xl px-4 py-2">
+            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Writing Mode</span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => editor.chain().focus().undo().run()}
               disabled={!editor.can().undo()}
-              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 disabled:opacity-50"
+              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 disabled:opacity-50 cursor-pointer"
             >
               <Undo2 className="w-5 h-5" />
             </button>
             <button
               onClick={() => editor.chain().focus().redo().run()}
               disabled={!editor.can().redo()}
-              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 disabled:opacity-50"
+              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 disabled:opacity-50 cursor-pointer"
             >
               <Redo2 className="w-5 h-5" />
             </button>

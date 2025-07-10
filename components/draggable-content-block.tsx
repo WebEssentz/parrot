@@ -137,13 +137,13 @@ export function DraggableContentBlock({
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow-md"
+                className="px-4 py-2 cursor-pointer bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow-md"
               >
                 Save
               </button>
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 border border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all duration-200 text-sm shadow-sm hover:shadow-md"
+                className="px-4 py-2 cursor-pointer border border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 dark:hover:border-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 text-zinc-700 dark:text-zinc-300 rounded-lg transition-all duration-200 text-sm shadow-sm hover:shadow-md"
               >
                 Cancel
               </button>

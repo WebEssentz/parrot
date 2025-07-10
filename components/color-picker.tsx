@@ -27,6 +27,7 @@ export function SimpleColorPicker({ onColorSelect, currentColor, isHighlightAvai
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const currentColorObj = highlightColors.find((color) => color.value === currentColor) || highlightColors[0]
+  const buttonLabel = currentColor ? 'Remove highlight' : 'Highlight text'
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -73,7 +74,7 @@ export function SimpleColorPicker({ onColorSelect, currentColor, isHighlightAvai
             />
           )}
         </div>
-        <span className="hidden sm:inline">{currentColorObj.name}</span>
+        <span className="hidden sm:inline">{buttonLabel}</span>
         <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <ChevronDown className="w-3 h-3" />
         </motion.div>

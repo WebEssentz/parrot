@@ -186,14 +186,14 @@ function Textarea({
       {/* Removed the top fade shadow div entirely */}
 
       {/* Removed the box-shadow from the focus state */}
-      {isLightMode && (
+      {/* {isLightMode && (
         <style>{`
           textarea[data-slot="textarea"]:focus-visible {
             box-shadow: none;
             border-color: #a1a1aa;
           }
         `}</style>
-      )}
+      )} */}
     </motion.div>
   );
 }

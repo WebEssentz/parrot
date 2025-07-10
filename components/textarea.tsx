@@ -54,10 +54,6 @@ export const Textarea = ({
   const [isTabToAcceptEnabled, setIsTabToAcceptEnabled] = React.useState(true);
   const [promptVisible, setPromptVisible] = React.useState(false);
   // --- NEW: STATE FOR COMMAND PALETTE ---
-  const [isPaletteOpen, setIsPaletteOpen] = React.useState(false);
-  const inputRef = React.useRef<HTMLTextAreaElement>(null); // NEW: Ref for the textarea
-
-  const REASON_MODEL_ID = isSignedIn ? "gemini-2.5-flash" : "gemini-2.5-flash-lite-preview-06-17";
   // Remove suggested prompts for signed-in users
   const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
 
