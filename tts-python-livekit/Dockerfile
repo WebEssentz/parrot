@@ -3,7 +3,7 @@
 # --- Stage 1: The Builder ---
 # This stage installs dependencies into a temporary image.
 # Using a multi-stage build makes our final image much smaller and more secure.
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
