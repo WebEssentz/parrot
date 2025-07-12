@@ -11,7 +11,7 @@ import { useTheme } from "next-themes";
 import { memo, useRef } from "react";
 import { StrategySlate } from "./strategy-slate";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { GithubWorkflowAggregator } from './github-workflow-aggregator';
+import { GithubWorkflowAggregator } from './ui/github-workflow-aggregator';
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
 import { BlinkingCursor } from './ui/blinking-cursor';

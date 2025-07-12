@@ -1,3 +1,5 @@
+// FILE: app/api/chats/[id]/route.ts
+
 import { db } from "@/lib/db"
 import { chat } from "@/lib/db/schema"
 import { auth } from "@clerk/nextjs/server"

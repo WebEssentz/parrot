@@ -1,4 +1,4 @@
-// app/api/user/route.ts
+// FILE: app/api/webhooks/clerk/route.ts
 
 import { db } from '@/lib/db';
 import { user as userTable } from '@/lib/db/schema';

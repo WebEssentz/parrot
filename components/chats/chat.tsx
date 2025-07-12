@@ -1,3 +1,5 @@
+// FILE: components/chat.tsx
+
 "use client";
 
 import React from "react";
@@ -7,18 +9,18 @@ import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts';
 import { useChat } from "@ai-sdk/react";
 import { useRef as useReactRef } from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Textarea as CustomTextareaWrapper } from "./textarea";
-import { ChatInputArea } from "./chat-input-area";
-import { SuggestedPrompts } from "./suggested-prompts";
-import { ProjectOverview } from "./project-overview";
-import { Messages } from "./messages";
+import { Textarea as CustomTextareaWrapper } from "../textarea";
+import { ChatInputArea } from "../chat-input-area";
+import { SuggestedPrompts } from "../ui/suggestions/suggested-prompts";
+import { ProjectOverview } from "../ui/project-overview";
+import { Messages } from "../messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
-import { Header } from "./header";
+import { Header } from "../ui/infobar/header";
 import { toast } from "sonner";
-import { Github, LinkedInIcon, XIcon } from "./icons";
+import { Github, LinkedInIcon, XIcon } from "../icons";
 import { motion, AnimatePresence } from "framer-motion";
-import { BlinkingCursor } from "./ui/blinking-cursor";
-import { ScrollToBottomButton } from "./ui/scroll-to-bottom-button";
+import { BlinkingCursor } from "../ui/blinking-cursor";
+import { ScrollToBottomButton } from "../ui/scroll-to-bottom-button";
 
 // Only call title generation if the message is not vague/unsupported
 function isVagueOrUnsupportedMessage(msg: string) {

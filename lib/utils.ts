@@ -1,3 +1,5 @@
+// FILE: lib/utils.ts
+
 import {
   generateId,
   type CoreAssistantMessage,
@@ -7,7 +9,6 @@ import {
 } from 'ai';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-
 import type { Document } from '@/lib/db/schema';
 import { genSaltSync, hashSync } from 'bcrypt-ts';
 

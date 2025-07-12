@@ -1,8 +1,9 @@
+// FILE: app/api/chat/route.ts
+
 import { smoothStream, streamText, UIMessage } from "ai";
 import { generateText } from 'ai';
 import { defaultModel, model, modelID } from "@/ai/providers";
 import { weatherTool, fetchUrlTool, exaSearchTool, githubTool } from "@/ai/tools";
-import { google } from "@ai-sdk/google";
 
 export const maxDuration = 60;
 
@@ -186,7 +187,7 @@ if (action === 'getSuggestedPrompts') {
     }
 
     // Only generate title if message is clear
-    const titleSystemPrompt = `You are an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like \"New Chat\".
+    const titleSystemPrompt = `You are AVURNA an expert title generator. Based ONLY on the following user message, create a concise and relevant title (3-5 words) for the chat conversation. Output ONLY the title text, absolutely nothing else (no quotes, no extra words). If the message is vague, create a generic title like \"New Chat\".
 
     User Message: "${userMessageContent}"`;
     try {
@@ -219,13 +220,6 @@ if (action === 'getSuggestedPrompts') {
       headers: { 'Content-Type': 'application/json' }, status: 400,
     });
   }
-
-
-
-  // --- SMART RECURSION PARAMETER HANDLING FOR fetchUrlTool ---
-  // If the user message contains a URL, and the tool params for recursionDepth/maxPages/timeoutMs are not specified,
-  // prompt the user for recursion depth, and infer smart defaults based on context, site type, and user intent.
-  // This logic is more than 10 lines and is designed to be "damn smart" and adaptive.
 
   // --- URL Autocomplete Helper ---
   // Ensures that bare domains like "youtube.com" are converted to full URLs (e.g., "https://youtube.com")

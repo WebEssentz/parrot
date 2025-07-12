@@ -1,3 +1,5 @@
+// FILE: hooks/use-chats.ts
+
 "use client"
 
 import { useUser } from "@clerk/nextjs"

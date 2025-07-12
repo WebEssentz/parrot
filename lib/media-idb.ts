@@ -1,3 +1,5 @@
+// FILE: lib/media-idb.ts
+
 // IndexedDB utility for Avurna media offline support
 // Provides robust, promise-based API for storing and retrieving media blobs
 

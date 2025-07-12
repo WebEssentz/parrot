@@ -1,4 +1,5 @@
 // hooks/use-live-suggested-prompts.ts
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -92,7 +93,7 @@ export function useLiveSuggestedPrompts() {
     // Run the initial load once on mount.
     initialLoad();
 
-    // Now, set up the interval to call cyclePrompts for all SUBSEQUENT refreshes.
+    // Now, we set up the interval to call cyclePrompts for all SUBSEQUENT refreshes.
     const intervalId = setInterval(cyclePrompts, PROMPT_REFRESH_INTERVAL_MS);
     
     // Cleanup function is correct.

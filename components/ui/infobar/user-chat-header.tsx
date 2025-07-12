@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ThemeToggle } from "./theme-toggle";
+import { ThemeToggle } from "../theme-toggle";
 import { useSidebar } from "@/lib/sidebar-context";
 import { Menu } from "lucide-react";
 import { motion } from "framer-motion";

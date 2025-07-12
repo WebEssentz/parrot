@@ -1,9 +1,8 @@
-import { groq } from "@ai-sdk/groq";
+// FILE: ai/provider.ts
+
 import { google } from "@ai-sdk/google";
 import {
   customProvider,
-  extractReasoningMiddleware,
-  wrapLanguageModel,
 } from "ai";
 
 const languageModels = {
@@ -33,8 +32,8 @@ export const MODELS = Object.keys(languageModels);
 
 /**
  * Returns the default model ID based on sign-in status.
- * If signed in: "gemini-2.5-flash-preview-05-20"
- * If not signed in: "gemini-2.5-flash-lite-preview-06-17"
+ * If signed in: "gemini-2.5-flash"
+ * If not signed in: "gemini-2.5-flash-preview-05-20"
  *
  * Usage: getDefaultModel(isSignedIn)
  */

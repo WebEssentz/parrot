@@ -1,4 +1,4 @@
-// src/components/Markdown.tsx
+// FILE: components/Markdown.tsx
 
 import Link from "next/link";
 import React, { memo } from "react";

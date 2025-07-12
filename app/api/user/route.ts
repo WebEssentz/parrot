@@ -1,4 +1,4 @@
-// app/api/user/route.ts
+// FILE: app/api/user/route.ts
 
 import { db } from '@/lib/db';
 import { user as userTable } from '@/lib/db/schema';

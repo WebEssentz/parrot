@@ -27,10 +27,10 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
 import { common, createLowlight } from "lowlight"
 import { markdownToHtml } from "@/lib/markdown-converter"
 import { initSmoothScrolling, smoothScrollConfig } from "@/lib/smooth-scroll"
-import { VideoLinkModal } from "./video-link-modal"
+import { VideoLinkModal } from "../ui/modals/video-link-modal"
 import { SimpleColorPicker } from "./color-picker"
 import { FontSelector } from "./font-selector"
-import { MobileCommandBar } from "./mobile-command-bar"
+import { MobileCommandBar } from "../mobile-command-bar"
 import { useUser } from "@clerk/nextjs"
 import {
   Loader2,
@@ -73,7 +73,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { History, Tag } from "lucide-react"
-import { DeleteDraftModal } from "./delete-draft-modal"
+import { DeleteDraftModal } from "../ui/modals/delete-draft-modal"
 import { EditorWithDragHandles } from "./editor-with-drag-handles"
 import { useRouter } from "next/navigation"
 

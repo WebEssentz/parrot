@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm"
 import { article as articleTable } from "@/lib/db/schema"
 import { auth } from "@clerk/nextjs/server"
 import { notFound } from "next/navigation"
-import { MonochromaticEditor } from "@/components/signature-canvas-editor"
+import { MonochromaticEditor } from "@/components/canvas/signature-canvas-editor"
 
 // --- UPDATED FUNCTION ---
 async function getArticleForEdit(authorName: string, slug: string, userId: string) {

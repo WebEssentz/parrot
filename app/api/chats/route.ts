@@ -1,4 +1,4 @@
-// app/api/chats/route.ts
+// FILE: app/api/chats/route.ts
 
 import { db } from '@/lib/db';
 import { chat } from '@/lib/db/schema';

@@ -1,16 +1,17 @@
+// FILE: component/sidebar.tsx
+
 "use client"
+
 import { useEffect, useState } from "react"
 import type React from "react"
-
 import { useSidebar } from "@/lib/sidebar-context"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 import { motion, AnimatePresence } from "framer-motion"
 import { useUser, UserButton } from "@clerk/nextjs"
-import { ChevronLeft, ChevronsRight, ChevronsLeft } from "lucide-react"
+import { Search, ChevronLeft, ChevronsRight, ChevronsLeft } from "lucide-react"
 import clsx from "clsx"
 import { useTheme } from "next-themes"
 import { dark } from "@clerk/themes"
-import { Search } from "lucide-react" // A great icon for this purpose
 import { SidebarIconButton } from "@/components/ui/sidebar-icon-button"
 import { useRouter, usePathname } from "next/navigation"
 import { ChatHistoryList } from "./ChatHistoryList"
@@ -36,10 +37,10 @@ const SearchInput = () => {
         )}
       >
         {/*
-                   This wrapper div handles the alignment of the content.
-                  It's a subtle but important change that helps separate the
-                  concerns of the resizing container from its internal layout.
-                */}
+          This wrapper div handles the alignment of the content.
+          It's a subtle but important change that helps separate the
+          concerns of the resizing container from its internal layout.
+        */}
         <div className="w-full flex items-center justify-center">
           <AnimatePresence>
             {!isDesktopSidebarCollapsed && (
@@ -66,8 +67,9 @@ const SearchInput = () => {
 }
 
 // =================================================================
-// The Custom "New Chat" Icon Component from your SVG
+// The Custom "New Chat" Icon Component from SVG
 // =================================================================
+
 const NewChatIcon = ({ className }: { className?: string }) => {
   return (
     <svg
@@ -96,6 +98,7 @@ const NewChatIcon = ({ className }: { className?: string }) => {
 // =================================================================
 // The Final "New Chat" Button - FIXED VERSION
 // =================================================================
+
 const NewChatButton = () => {
   const { isDesktopSidebarCollapsed, toggleSidebar, isSidebarOpen } = useSidebar()
   const router = useRouter()
@@ -228,8 +231,7 @@ export const Sidebar = () => {
         {
           "fixed top-0 left-0 z-50": isDesktop, // z-50 to match mobile panel
           "cursor-ew-resize": isDesktop,
-          "bg-[#FFFFFF] dark:bg-[#1C1C1C] shadow-md dark:shadow-lg border-r dark:border-r-[#333333]":
-            isDesktopSidebarCollapsed,
+          "bg-[#FFFFFF] dark:bg-[#1C1C1C] shadow-md dark:shadow-lg border-r dark:border-r-[#333333]": isDesktopSidebarCollapsed,
           "bg-[#f9f9f9] dark:bg-[#1E1E1E] dark:border-r-[#333333]": !isDesktopSidebarCollapsed,
           "w-64": !isDesktop, // Give it a static width on mobile
         },
@@ -269,7 +271,7 @@ export const Sidebar = () => {
             >
               {/* --- START OF THE FIX --- */}
               <SidebarIconButton
-                // 2. Use a ternary operator to dynamically select the icon
+                // 2. Used a ternary operator to dynamically select the icon
                 icon={isDesktopSidebarCollapsed ? ChevronsRight : ChevronsLeft}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -294,7 +296,7 @@ export const Sidebar = () => {
         {/* `mt-4` adds the requested spacing below the "New Chat" button. */}
         <div className="flex-grow overflow-y-auto mt-4">
           {/*
-             ======================================================================
+            ======================================================================
             === THIS IS THE FIX ===
             We wrap the ChatHistoryList in AnimatePresence and a motion.div
             to control its visibility and animation.
@@ -358,7 +360,7 @@ export const Sidebar = () => {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                {/* --- FIX 3: Shift UserButton and Chevron apart --- */}
+                {/* --- FIX 3: We Shift the UserButton and Chevron apart --- */}
                 <div
                   onClick={(e) => e.stopPropagation()}
                   className="w-full flex items-center justify-between p-2 rounded-lg cursor-pointer hover:bg-zinc-200/70 dark:hover:bg-zinc-700/30"

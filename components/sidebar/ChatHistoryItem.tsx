@@ -1,3 +1,5 @@
+// FILE: components/ChatHistoryItem.tsx
+
 "use client"
 
 import type React from "react"
@@ -16,8 +18,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import { setRenamingState } from "@/hooks/use-chats"
-import { DeleteChatModal } from "./delete-chat-modal"
-import { ShareChatModal } from "./share-chat-modal"
+import { DeleteChatModal } from "../ui/modals/delete-chat-modal"
+import { ShareChatModal } from "../share/share-chat-modal"
 
 interface Chat {
   id: string

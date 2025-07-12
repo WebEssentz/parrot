@@ -1,3 +1,5 @@
+// FILE: app/api/articles/route.ts
+
 import { db } from "@/lib/db"
 import { article as articleTable, chat as chatTable } from "@/lib/db/schema"
 import { auth } from "@clerk/nextjs/server"
@@ -12,11 +14,11 @@ const createArticleRequestSchema = z.object({
 })
 
 // System prompt for professional article generation
-const systemPrompt = `You are a professional technical writer. Transform this chat conversation into a comprehensive, well-structured technical article.
+const systemPrompt = `You are Avurna, a professional technical writer. Transform this chat conversation into a comprehensive, well-structured technical article.
 
 REQUIREMENTS:
 - Write a compelling title using # (H1)
-- Create an engaging introduction (2-3 paragraphs)
+- Create an engaging introductory hook (2-3 paragraphs)
 - Organize content with ## (H2) and ### (H3) headers
 - Include all code examples with proper formatting
 - Write in a single, professional voice (don't mention "user asked" or "AI said")
@@ -95,7 +97,7 @@ export async function POST(req: Request) {
       model: google("gemini-2.0-flash-exp"),
       system: systemPrompt,
       prompt: `Here is the conversation to transform into an article:\n\n${conversationText}`,
-      temperature: 0.3,
+      temperature: 0.6,
       maxTokens: 4096,
       onFinish: async ({ text }) => {
         console.log("🎯 [ARTICLES API] Stream finished, updating article...")
@@ -117,6 +119,11 @@ export async function POST(req: Request) {
           })
           .where(eq(articleTable.id, newArticle.id))
 
+
+        // WIP: Add a delete function to find any article with
+        // 1. temporary slug
+        // 2. temporary id
+        // 3. Generic title and content (The ones we gave by default)
         console.log(`✅ [ARTICLES API] Updated article ${newArticle.id} with final slug: ${finalSlug}`)
       },
     })

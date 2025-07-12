@@ -1,3 +1,5 @@
+// FILE: components/chat-scroll-anchor.tsx
+
 "use client";
 
 import { useInView } from "react-intersection-observer";

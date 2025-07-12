@@ -1,4 +1,4 @@
-// FILE: lib/db.ts
+// FILE: lib/db/index.ts
 
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';

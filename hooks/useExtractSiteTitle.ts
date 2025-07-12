@@ -1,3 +1,5 @@
+// FILE: hooks/useExtractSiteTitle.ts
+
 import { useState } from 'react';
 
 /**
@@ -5,7 +7,7 @@ import { useState } from 'react';
  * @returns [title, extractTitle]
  *   title: string | null - The extracted title or null if not fetched/failed
  *   extractTitle: (url: string) => Promise<void> - Call this with a URL to fetch and extract the title
- */
+*/
 export function useExtractSiteTitle(): [string | null, (url: string) => Promise<void>] {
   const [title, setTitle] = useState<string | null>(null);
 

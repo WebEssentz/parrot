@@ -1,10 +1,10 @@
 
 import Link from "next/link";
-import { SignUpButton } from "./deploy-button";
-import { ThemeToggle } from "./theme-toggle";
+import { SignUpButton } from "../../deploy-button";
+import { ThemeToggle } from "../theme-toggle";
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import { BrandLogo } from "./auth/logo";
+import { BrandLogo } from "../../auth/logo";
 
 export const Header = () => {
   const [showBorder, setShowBorder] = useState(false);

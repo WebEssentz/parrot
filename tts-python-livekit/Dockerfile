@@ -1,5 +1,4 @@
 # Dockerfile
-# Generated with 💚 by Avurna AI (2025)
 
 # --- Stage 1: The Builder ---
 # This stage installs dependencies into a temporary image.

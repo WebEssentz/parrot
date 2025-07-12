@@ -1,3 +1,4 @@
+// FILE: app/api/extract-description/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generateText } from 'ai';

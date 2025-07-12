@@ -1,3 +1,5 @@
+// FILE: lib/hooks/use-at-bottom.ts
+
 import * as React from 'react'
 import type { RefObject } from 'react';
 

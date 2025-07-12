@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sidebar } from "@/components/sidebar";
+import { Sidebar } from "@/components/sidebar/sidebar";
 import { SidebarContext } from "@/lib/sidebar-context";
 import { AnimatePresence, motion } from "framer-motion";
 

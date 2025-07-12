@@ -6,17 +6,17 @@ import { type Message as TMessage, useChat } from "@ai-sdk/react"
 import { useEffect, useRef, useState } from "react"
 import { Share, MoreHorizontal, Pin, Edit3, Archive, Download, Trash2 } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
-import { Messages } from "./messages"
+import { Messages } from "../messages"
 import { toast } from "sonner"
 import { useLiveSuggestedPrompts } from "@/hooks/use-suggested-prompts"
-import { UserChatHeader } from "./user-chat-header"
-import { ChatScrollAnchor } from "./chat-scroll-anchor"
+import { UserChatHeader } from "../ui/infobar/user-chat-header"
+import { ChatScrollAnchor } from "../chat-scroll-anchor"
 import { useSidebar } from "@/lib/sidebar-context"
 import { motion, AnimatePresence } from "framer-motion"
-import { ScrollToBottomButton } from "./scroll-to-bottom-button"
-import { ChatInputArea } from "./chat-input-area"
-import { DeleteChatModal } from "./delete-chat-modal"
-import { RenameChatModal } from "./rename-chat-modal"
+import { ScrollToBottomButton } from "../scroll-to-bottom-button"
+import { ChatInputArea } from "../chat-input-area"
+import { DeleteChatModal } from "../ui/modals/delete-chat-modal"
+import { RenameChatModal } from "../ui/modals/rename-chat-modal"
 import { useChats } from "@/hooks/use-chats"
 import {
   DropdownMenu,
@@ -24,9 +24,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu"
+} from "../ui/dropdown-menu"
 import { useRouter } from "next/navigation"
-import { ShareChatModal } from "./share-chat-modal"
+import { ShareChatModal } from "../share/share-chat-modal"
 
 function GreetingBanner() {
   const { user, isLoaded } = useUser()
@@ -203,7 +203,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!dbUser?.id) {
-      toast.error("User not loaded yet, please wait!")
+      toast.error("User profile not loaded yet, please wait!")
       return
     }
     const trimmedInput = input.trim()

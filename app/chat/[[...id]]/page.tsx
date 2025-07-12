@@ -4,7 +4,7 @@
 
 import React from "react";
 import useSWR from 'swr';
-import UserChat from "@/components/user-chat";
+import UserChat from "@/components/chats/user-chat";
 import { SpinnerIcon } from "@/components/icons";
 
 const fetcher = (url: string) => fetch(url).then(res => {

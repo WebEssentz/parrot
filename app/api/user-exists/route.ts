@@ -1,3 +1,5 @@
+// FILE: app/api/user-exist/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { user as userTable } from '@/lib/db/schema';

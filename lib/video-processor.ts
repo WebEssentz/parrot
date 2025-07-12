@@ -1,3 +1,5 @@
+// FILE: lib/video-processor.ts
+
 "use client"
 
 interface VideoEmbedResult {
@@ -349,7 +351,7 @@ export class VideoProcessor {
     if (url.includes("vimeo.com")) return "vimeo"
     if (url.includes("loom.com")) return "loom"
     if (url.includes("tiktok.com")) return "tiktok"
-    if (url.includes("twitter.com") || url.includes("x.com")) return "twitter"
+    if (url.includes("twitter.com") || url.includes("x.com")) return "x"
     if (url.includes("facebook.com")) return "facebook"
     if (url.includes("twitch.tv")) return "twitch"
     if (url.includes("dailymotion.com")) return "dailymotion"

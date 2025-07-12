@@ -1,13 +1,16 @@
 "use client";
 
 import { Textarea as ShadcnTextarea, AttachButton } from "@/components/ui/textarea";
-import { defaultModel } from "@/ai/providers"; 
-import { ArrowUp, ArrowRight } from "lucide-react";
-import { PauseIcon, SpinnerIcon } from "./icons"; 
+import { ArrowUp, ArrowRight, AudioLines } from "lucide-react";
+import { PauseIcon, SpinnerIcon } from "./icons";
 import React from "react";
 import { useMobile } from "../hooks/use-mobile";
 import { useUser } from "@clerk/nextjs";
+import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { FlowOverlay } from './FlowOverlay';
 
+// --- PROPS INTERFACE (Unchanged) ---
 interface InputProps {
   input: string;
   handleInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -32,9 +35,7 @@ export const Textarea = ({
   isLoading,
   status,
   stop,
-  selectedModel,
   onFocus,
-  setSelectedModel,
   hasSentMessage,
   isDesktop,
   disabled = false,
@@ -42,118 +43,75 @@ export const Textarea = ({
   suggestedPrompts
 }: InputProps) => {
   const { isSignedIn } = useUser();
-  // Use the useMobile hook to detect mobile (not tablet)
-  const isMobileOnly = useMobile();
-  // const [searchToggleIsOn, setSearchToggleIsOn] = React.useState(false);
-  // const [reasonToggleIsOn, setReasonToggleIsOn] = React.useState(false);
 
+  // --- STATE AND HANDLERS (Unchanged) ---
   const [staticPlaceholderAnimatesOut, setStaticPlaceholderAnimatesOut] = React.useState(false);
   const [currentPromptIndex, setCurrentPromptIndex] = React.useState(0);
   const [previousPromptIndex, setPreviousPromptIndex] = React.useState<number | null>(null);
   const [showAnimatedSuggestions, setShowAnimatedSuggestions] = React.useState(false);
   const [isTabToAcceptEnabled, setIsTabToAcceptEnabled] = React.useState(true);
   const [promptVisible, setPromptVisible] = React.useState(false);
-  // --- NEW: STATE FOR COMMAND PALETTE ---
-  // Remove suggested prompts for signed-in users
-  const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
+  const [isVoiceIconHovered, setIsVoiceIconHovered] = React.useState(false);
+  const [isFlowActive, setIsFlowActive] = React.useState(false);
 
-  // React.useEffect(() => {
-  //   if (featureActive) {
-  //     const fetchPrompts = async () => {
-  //       try {
-  //         const response = await fetch('/api/chat', {
-  //           method: 'POST',
-  //           headers: { 'Content-Type': 'application/json' },
-  //           body: JSON.stringify({ action: 'getSuggestedPrompts' }),
-  //         });
-  //         if (!response.ok) throw new Error('Failed to fetch prompts');
-  //         const data = await response.json();
-  //         setSuggestedPrompts(data.prompts && data.prompts.length > 0 ? data.prompts : []);
-  //       } catch (error) {
-  //         console.error("Error fetching suggested prompts:", error);
-  //         setSuggestedPrompts([]);
-  //       }
-  //     };
-  //     fetchPrompts();
-  //   } else {
-  //     setSuggestedPrompts([]);
-  //     setShowAnimatedSuggestions(false);
-  //     setStaticPlaceholderAnimatesOut(false);
-  //     setIsTabToAcceptEnabled(true);
-  //     setPromptVisible(false);
-  //     setPreviousPromptIndex(null);
-  //   }
-  // }, [featureActive]);
+  const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
 
   React.useEffect(() => {
     let fadeOutTimer: NodeJS.Timeout | undefined;
     let showSuggestionsTimer: NodeJS.Timeout | undefined;
-
-    if (featureActive && !input && suggestedPrompts && suggestedPrompts.length > 0) {
+    if (featureActive && !input && suggestedPrompts.length > 0) {
       setIsTabToAcceptEnabled(true);
       setStaticPlaceholderAnimatesOut(false);
-      setShowAnimatedSuggestions(false); 
-      setPromptVisible(false);         
-
-      fadeOutTimer = setTimeout(() => {
-        if (featureActive && !input) setStaticPlaceholderAnimatesOut(true);
-      }, 700); 
-
+      setShowAnimatedSuggestions(false);
+      setPromptVisible(false);
+      fadeOutTimer = setTimeout(() => { if (featureActive && !input) setStaticPlaceholderAnimatesOut(true); }, 700);
       showSuggestionsTimer = setTimeout(() => {
         if (featureActive && !input) {
-          setShowAnimatedSuggestions(true); 
+          setShowAnimatedSuggestions(true);
           setCurrentPromptIndex(0);
-          setPreviousPromptIndex(null); 
+          setPreviousPromptIndex(null);
           setTimeout(() => setPromptVisible(true), 50);
         }
-      }, 1000); 
+      }, 1000);
     } else {
       setStaticPlaceholderAnimatesOut(false);
       setShowAnimatedSuggestions(false);
       setPromptVisible(false);
       if (input) setIsTabToAcceptEnabled(false);
     }
-
-    return () => {
-      clearTimeout(fadeOutTimer);
-      clearTimeout(showSuggestionsTimer);
-    };
+    return () => { clearTimeout(fadeOutTimer); clearTimeout(showSuggestionsTimer); };
   }, [featureActive, input, suggestedPrompts]);
 
   React.useEffect(() => {
     let promptInterval: NodeJS.Timeout | undefined;
-
     if (showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && featureActive) {
       promptInterval = setInterval(() => {
-        setPromptVisible(false); 
-
-        setTimeout(() => { 
-          setPreviousPromptIndex(currentPromptIndex); 
+        setPromptVisible(false);
+        setTimeout(() => {
+          setPreviousPromptIndex(currentPromptIndex);
           setCurrentPromptIndex(prevIndex => (prevIndex + 1) % suggestedPrompts.length);
-          setTimeout(() => setPromptVisible(true), 50); 
-        }, 300); 
-      }, 2000 + 300); 
+          setTimeout(() => setPromptVisible(true), 50);
+        }, 300);
+      }, 2000 + 300);
     }
     return () => clearInterval(promptInterval);
   }, [showAnimatedSuggestions, suggestedPrompts.length, isTabToAcceptEnabled, featureActive, currentPromptIndex]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (featureActive && showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && e.key === "Tab") {
       e.preventDefault();
       const currentDynamicPromptText = suggestedPrompts[currentPromptIndex];
       if (currentDynamicPromptText) {
-        setInput(currentDynamicPromptText); 
-        setShowAnimatedSuggestions(false); 
-        setIsTabToAcceptEnabled(false);   
+        setInput(currentDynamicPromptText);
+        setShowAnimatedSuggestions(false);
+        setIsTabToAcceptEnabled(false);
         setPromptVisible(false);
       }
-      return; 
+      return;
     }
-    
     if (e.key !== "Tab" && input.length === 0 && e.key.length === 1) {
-        setIsTabToAcceptEnabled(false);
+      setIsTabToAcceptEnabled(false);
     }
-
     if (isDesktop && e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (input.trim() && !isLoading) {
@@ -163,149 +121,169 @@ export const Textarea = ({
     }
   };
 
-  // REMOVED: Tools, Reason, and Search logic
+  const handleVoiceClick = () => {
+    console.log("Activating Flow...");
+    setIsFlowActive(true);
+  };
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
   const shadcnTextareaNativePlaceholder = shouldShowCustomPlaceholderElements ? "" : "Ask Avurna...";
-  
-  const activePromptText = (showAnimatedSuggestions && suggestedPrompts.length > 0)
-    ? suggestedPrompts[currentPromptIndex]
-    : null;
-  
+  const activePromptText = (showAnimatedSuggestions && suggestedPrompts.length > 0) ? suggestedPrompts[currentPromptIndex] : null;
   const showTabBadge = showAnimatedSuggestions && isTabToAcceptEnabled && promptVisible;
+  const hasInput = input.trim().length > 0;
+  const textareaStyle = React.useMemo(() => ({ minHeight: 56, maxHeight: 150 }), []);
 
-  // Memoize textareaStyle to prevent unnecessary re-renders of the child if this component updates.
-  const textareaStyle = React.useMemo(() => ({ 
-    minHeight: 56, // Increased min-height slightly to better contain buttons
-    maxHeight: 150 // Corresponds to max-h-64
-  }), []);
-
+  // --- JSX RENDER ---
   return (
-    <div className="relative flex w-full items-end px-3 py-3 ">
-      <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-[1px] border-zinc-500/40 dark:border-transparent dark:shadow-black/20 bg-[#ffffff] dark:bg-[#2a2a2a] focus-within:ring-1 focus-within:ring-primary/10 transition-shadow">
-        {shouldShowCustomPlaceholderElements && (
-          <div 
-              className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
-              style={{ height: '40px' }} // Matches minHeight of textarea
-          >
+    <>
+      <TooltipProvider delayDuration={100}>
+        <motion.div
+          // --- NEW: Animate the entire input bar out ---
+          animate={{ opacity: isFlowActive ? 0 : 1, y: isFlowActive ? 10 : 0 }}
+          transition={{ duration: 0.3 }}
+          className="relative flex w-full items-end px-3 py-3"
+        >
+          <div className="relative flex w-full flex-auto flex-col max-h-[320px] overflow-y-auto rounded-[1.8rem] border-[1px] border-zinc-500/40 dark:border-transparent dark:shadow-black/20 bg-[#ffffff] dark:bg-[#2a2a2a] focus-within:ring-1 focus-within:ring-primary/10 transition-shadow">
+
+            {/* Placeholder logic is untouched */}
+            {shouldShowCustomPlaceholderElements && (
               <div
-                  className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${
-                    staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
-                  }`}
+                className="absolute top-0 left-0 right-0 h-full flex items-center pointer-events-none pl-4 pr-4 pt-2 z-10 overflow-hidden"
+                style={{ height: '40px' }}
               >
-                  Ask Avurna...
-              </div>
-              {showAnimatedSuggestions && activePromptText && (
-                   <div 
-                      key={currentPromptIndex} // Key helps React correctly animate transitions
-                      className={`text-zinc-500 dark:text-zinc-400 text-md absolute inset-x-0 w-full flex items-center justify-between transition-all duration-300 ease-in-out ${
-                        promptVisible 
-                            ? 'opacity-100 translate-y-0' 
-                            : (previousPromptIndex !== null 
-                                ? 'opacity-0 -translate-y-3' // Animate out upwards
-                                : 'opacity-0 -translate-y-3') // Initial animate in from upwards
-                      }`}
-                      style={{ marginLeft: '12px' }}
-                    >
-                      <span className="truncate">
-                          {activePromptText}
-                      </span>
-                      {showTabBadge && (
-                        <span 
-                          className="ml-1.5 flex-shrink-0 text-[10px] leading-tight text-primary dark:text-white border border-zinc-300 dark:border-zinc-600 rounded-sm px-1 py-[1px] bg-transparent"
-                          style={{ marginRight: '30px' }} // Space from the edge
-                        >
-                          TAB
-                        </span>
-                      )}
-                   </div>
-              )}
-          </div>
-        )}
-
-        <div className="relative">
-          <ShadcnTextarea 
-            className="resize-none bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
-            value={input}
-            autoFocus
-            onFocus={onFocus}
-            placeholder={
-              offlineState === 'offline'
-                ? "You’re offline. Please reconnect to continue."
-                : offlineState === 'reconnecting'
-                  ? "Reconnecting..."
-                  : shadcnTextareaNativePlaceholder
-            }
-            disabled={disabled}
-            style={textareaStyle}
-            onChange={(e) => {
-              handleInputChange(e);
-              if (e.target.value) {
-                  setIsTabToAcceptEnabled(false);
-                  setPromptVisible(false);
-              } else {
-                  if (featureActive) setIsTabToAcceptEnabled(true);
-              }
-            }}
-            onKeyDown={handleKeyDown}
-            {...(disabled && offlineState !== 'online' ? { 'aria-disabled': true } : {})}
-          />
-        </div>
-
-        {/* This div acts as a spacer for the absolutely positioned buttons */}
-        <div style={{paddingBottom: '44px'}} /> 
-
-        <div className="bg-primary-surface-primary absolute start-0 end-0 bottom-3 z-20 flex items-center">
-          <div className="w-full">
-            <div
-              data-testid="composer-footer-actions"
-              className="flex items-center max-xs:gap-1 gap-2 overflow-x-auto [scrollbar-width:none]"
-              style={{ marginLeft: 4, marginRight: 98 }} // Shift left, keep space for send/stop
-            >
-              <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isSignedIn ? false : isLoading} />
-            </div>
-            <div className="absolute end-3 bottom-0 flex items-center gap-2">
-              <div className="ms-auto flex items-center gap-1.5">
-                {/* Show Submit/Loading button for all other states */}
-                {status !== "streaming" && status !== "submitted" && (
-                  <button
-                    type="submit"
-                    // Disable if loading, no input, or explicitly disabled
-                    disabled={isLoading || !input.trim() || disabled}
-                    className={`rounded-3xl flex items-center justify-center ${
-                      isLoading || !input.trim() || disabled
-                        ? 'bg-zinc-300 dark:bg-white dark:opacity-60 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
-                        : 'dark:bg-white bg-black hover:bg-zinc-800 text-white dark:text-black cursor-pointer'
+                <div
+                  className={`text-zinc-500 dark:text-zinc-400 text-base absolute w-full transition-all duration-300 ease-in-out ${staticPlaceholderAnimatesOut ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'
                     }`}
-                    aria-label="Send" style={{ minWidth: 36, minHeight: 36, padding: 0 }}
+                >
+                  Ask Avurna...
+                </div>
+                {showAnimatedSuggestions && activePromptText && (
+                  <div
+                    key={currentPromptIndex}
+                    className={`text-zinc-500 dark:text-zinc-400 text-md absolute inset-x-0 w-full flex items-center justify-between transition-all duration-300 ease-in-out ${promptVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3'
+                      }`}
+                    style={{ marginLeft: '12px' }}
                   >
-                    {isLoading ? (
-                      // Show spinner when isLoading is true
-                      <SpinnerIcon className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-400" />
-                    ) : hasSentMessage ? (
-                      <ArrowUp className="h-5 w-5 text-white dark:text-black" />
-                    ) : (
-                      <ArrowRight className="h-5 w-5 text-white dark:text-black" />
+                    <span className="truncate">{activePromptText}</span>
+                    {showTabBadge && (
+                      <span
+                        className="ml-1.5 flex-shrink-0 text-[10px] leading-tight text-primary dark:text-white border border-zinc-300 dark:border-zinc-600 rounded-sm px-1 py-[1px] bg-transparent"
+                        style={{ marginRight: '30px' }}
+                      >
+                        TAB
+                      </span>
                     )}
-                  </button>
+                  </div>
                 )}
-                {(status === "streaming" || status === "submitted") && (
-                  <button
-                    type="button"
-                    onClick={stop}
-                    disabled={false}
-                    className={`rounded-3xl flex items-center justify-center bg-black dark:bg-white hover:bg-zinc-800 text-white dark:text-black cursor-pointer`}
-                    title={status === "streaming" ? "Stop generating" : "Processing..."}
-                    style={{ minWidth: 40, minHeight: 40, cursor: 'pointer' }}
+              </div>
+            )}
+
+            {/* Textarea remains unchanged */}
+            <div className="relative">
+              <ShadcnTextarea
+                className="resize-none bg-transparent w-full rounded-3xl pr-12 pt-3 pb-4 text-base md:text-base font-normal placeholder:text-base md:placeholder:text-base placeholder:pl-1 border-none shadow-none focus-visible:ring-0 focus-visible:border-none"
+                value={input}
+                autoFocus
+                onFocus={onFocus}
+                placeholder={
+                  offlineState === 'offline'
+                    ? "You’re offline. Please reconnect to continue."
+                    : offlineState === 'reconnecting'
+                      ? "Reconnecting..."
+                      : shadcnTextareaNativePlaceholder
+                }
+                disabled={disabled}
+                style={textareaStyle}
+                onChange={(e) => {
+                  handleInputChange(e);
+                  if (e.target.value) {
+                    setIsTabToAcceptEnabled(false);
+                    setPromptVisible(false);
+                  } else {
+                    if (featureActive) setIsTabToAcceptEnabled(true);
+                  }
+                }}
+                onKeyDown={handleKeyDown}
+                {...(disabled && offlineState !== 'online' ? { 'aria-disabled': true } : {})}
+              />
+            </div>
+
+            {/* Spacer div remains unchanged */}
+            <div style={{ paddingBottom: '44px' }} />
+
+            {/* --- THIS IS THE FINAL, CORRECTED LOGIC --- */}
+            <div className="absolute start-0 end-0 bottom-0 z-20 flex items-center px-3 pb-3">
+              {/* Attach Button is on the left */}
+              <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isSignedIn ? false : isLoading} />
+
+              {/* This spacer will push the dynamic button to the far right */}
+              <div className="flex-grow" />
+
+              {/* Container for the single dynamic button on the right */}
+              <div className="flex items-center">
+                {/* Show loading/stop button if applicable */}
+                {(isLoading || status === "streaming" || status === "submitted") ? (
+                  <motion.div
+                    key="loading-stop"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
                   >
-                    <PauseIcon size={28} className="h-6 w-6 text-white dark:text-black" />
-                  </button>
+                    {isLoading && status !== "streaming" && status !== "submitted" && (
+                      <div className="rounded-full flex items-center justify-center bg-zinc-300 dark:bg-white dark:opacity-60" style={{ width: 36, height: 36 }}>
+                        <SpinnerIcon className="h-5 w-5 animate-spin text-zinc-600 dark:text-zinc-400" />
+                      </div>
+                    )}
+                    {(status === "streaming" || status === "submitted") && (
+                      <button type="button" onClick={stop} className="rounded-full flex items-center justify-center bg-black dark:bg-white" style={{ width: 40, height: 40 }}>
+                        <PauseIcon size={28} className="h-6 w-6 text-white dark:text-black" />
+                      </button>
+                    )}
+                  </motion.div>
+                ) : (
+                  // The SINGLE, PERSISTENT button that swaps icons
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <motion.button
+                        type={hasInput ? "submit" : "button"}
+                        onClick={hasInput ? undefined : handleVoiceClick}
+                        disabled={disabled}
+                        className="rounded-full flex items-center justify-center bg-black dark:bg-white text-white dark:text-black cursor-pointer"
+                        style={{ width: 36, height: 36 }}
+                        aria-label={hasInput ? "Send" : "Activate Flow"}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                      >
+                        <AnimatePresence mode="wait" initial={false}>
+                          <motion.span
+                            key={hasInput ? "send" : "voice"}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -5 }}
+                            transition={{ duration: 0.15 }}
+                          >
+                            {hasInput
+                              ? (hasSentMessage ? <ArrowUp size={20} /> : <ArrowRight size={20} />)
+                              : <AudioLines size={20} />
+                            }
+                          </motion.span>
+                        </AnimatePresence>
+                      </motion.button>
+                    </TooltipTrigger>
+                    {/* ADD THIS PART RIGHT AFTER */}
+                    <TooltipContent side="top" align="center">
+                      <p>{hasInput ? "Send" : "Activate Flow"}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </TooltipProvider>
+      <AnimatePresence>
+        {isFlowActive && <FlowOverlay onClose={() => setIsFlowActive(false)} />}
+      </AnimatePresence>
+    </>
   );
 };

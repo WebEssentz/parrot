@@ -1,3 +1,5 @@
+// FILE: hooks/use-mobile.ts
+
 import * as React from 'react';
 import { useEffect, useState } from "react";
 

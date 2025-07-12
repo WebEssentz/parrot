@@ -1,4 +1,5 @@
-// lib/sidebar-context.tsx
+// FILE: lib/sidebar-context.tsx
+
 "use client";
 
 import { createContext, useContext } from 'react';

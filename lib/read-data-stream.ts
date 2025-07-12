@@ -1,3 +1,5 @@
+// FILE: lib/read-data-stream.ts
+
 // Enhanced stream reader with better AI SDK format handling
 export async function* readDataStream(body: ReadableStream<Uint8Array>): AsyncGenerator<string, void, unknown> {
   const reader = body.getReader()

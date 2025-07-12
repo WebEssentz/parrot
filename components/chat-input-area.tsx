@@ -1,7 +1,9 @@
+// FILE: components/chat-input-area.tsx
+
 "use client";
 
 import { AnimatePresence } from "framer-motion";
-import { PredictivePrompts } from "./predictive-prompts";
+import { PredictivePrompts } from "./ui/suggestions/predictive-prompts";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
 import { useRef } from "react";

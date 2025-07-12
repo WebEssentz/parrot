@@ -1,3 +1,5 @@
+// FILE: lib/desc-idb.ts
+
 // IndexedDB utility for Avurna AI descriptions (persistent cache)
 // Provides a promise-based API for storing and retrieving AI descriptions
 

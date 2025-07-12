@@ -1,10 +1,10 @@
-// src/components/suggested-prompts.tsx
+// FILE: components/ui/suggested-prompts.tsx
+
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "./ui/button";
+import { Button } from "../button";
 import { memo, useState } from "react";
-// Import all the icons you need
 import {
   Edit3, Terminal, GitForkIcon, Globe, LinkIcon, Zap, MessageSquareHeart,
   Scale, Lightbulb, Map, HeartPulse, Coffee, Drama, Bot, FileCode, Brain, 
@@ -83,7 +83,6 @@ function PureSuggestedPrompts({ onPromptClick }: SuggestedPromptsProps) {
   // --- 3. Render the new two-row structure ---
   return (
     <div className="flex flex-col items-center gap-3 w-full">
-
       {/* --- Initial Row + "More" Button --- */}
       <div className="flex flex-wrap gap-3 justify-center">
         {shuffleArray(promptModes.initialMode.prompts).slice(0, 4).map((prompt, index) => (
@@ -93,7 +92,6 @@ function PureSuggestedPrompts({ onPromptClick }: SuggestedPromptsProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * index, duration: 0.2 }}
           >
-            {/* Your button component is unchanged */}
             <Button variant="outline" onClick={() => onPromptClick(prompt.action)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10">
               <div className="flex items-center gap-2">
                 <prompt.icon className={`size-4 ${prompt.color}`} />
@@ -119,7 +117,7 @@ function PureSuggestedPrompts({ onPromptClick }: SuggestedPromptsProps) {
           )}
         </AnimatePresence>
       </div>
-
+      
       {/* --- Conditionally Rendered Secondary Row --- */}
       <AnimatePresence>
         {showSecondary && (

@@ -1,4 +1,4 @@
-// src/app/api/completions/route.ts
+// FILE: app/api/completions/route.ts
 
 import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
@@ -18,11 +18,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const model = google('gemini-1.5-flash-latest');
+    const model = google("gemini-2.0-flash-lite");
 
     const { text } = await generateText({
       model,
-      system: `You are an AI assistant that completes a user's thought.
+      system: `You are AVURNA, an AI assistant that completes a user's thought.
       Given the user's partial input, provide 4 concise, relevant, and high-quality completions.
       Each completion should be a full sentence or command that logically follows the input.
       Do not add any extra text, numbering, or explanations.
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
       });
     } catch (e) {
-      // Your existing error handling is perfect for this.
+      // The existing error handling is perfect for this.
       console.error('Edge Completions: Failed to parse AI response.', { text, error: e });
       return new Response(JSON.stringify({ completions: [] }), {
         status: 200,

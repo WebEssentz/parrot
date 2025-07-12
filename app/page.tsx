@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { SpinnerIcon } from "@/components/icons";
 
-const Chat = dynamic(() => import("@/components/chat"), { ssr: false });
+const Chat = dynamic(() => import("@/components/chats/chat"), { ssr: false });
 
 export default function Page() {
   const { user, isLoaded } = useUser();

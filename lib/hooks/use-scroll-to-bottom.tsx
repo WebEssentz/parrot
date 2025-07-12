@@ -1,6 +1,7 @@
+// FILE: lib/hooks/use-scroll-to-bottom.tsx
+
 import { useRef, useCallback, type RefObject } from 'react';
 
-// src/lib/hooks/use-scroll-to-bottom.ts
 export function useScrollToBottom(): [
   RefObject<HTMLDivElement | null>,
   RefObject<HTMLDivElement | null>,

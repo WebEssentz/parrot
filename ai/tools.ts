@@ -1,3 +1,5 @@
+// FILE: ai/tools.ts
+
 import Exa from "exa-js"; // Correct Exa import
 // import { franc } from 'franc'; // For automatic language detection - Not used in this snippet, can be removed if not used elsewhere
 import { tool } from "ai";
@@ -170,34 +172,6 @@ export async function filterVideosWithVision(
     all: videos,
     filteringApplied: true
   };
-}
-
-// --- CORRECTED: UTILITY TO TRANSFORM YOUTUBE URLS ---
-/**
- * Transforms a standard YouTube 'watch' or 'youtu.be' URL into a proper 'embed' URL
- * that can be used in an iframe.
- * @param url The original YouTube URL.
- * @returns The transformed embed URL, or the original URL if it's not a recognized YouTube link.
- */
-function transformToEmbedUrl(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    let videoId = null;
-
-    if (urlObj.hostname === "www.youtube.com" || urlObj.hostname === "youtube.com") {
-      videoId = urlObj.searchParams.get("v");
-    } else if (urlObj.hostname === "youtu.be") {
-      videoId = urlObj.pathname.slice(1);
-    }
-
-    if (videoId) {
-      return `https://www.youtube.com/embed/${videoId}`;
-    }
-  } catch (error) {
-    console.error(`[transformToEmbedUrl] Failed to parse URL: ${url}`, error);
-    return url; // Return original URL on parsing failure
-  }
-  return url;
 }
 
 // --- Simple Markdown Bar Chart Generator (No changes) ---
@@ -706,7 +680,7 @@ export const exaSearchTool = tool({
     // --- MODE 2: SINGLE MEDIA SEARCH (Image or Video) ---
     // This triggers only for a single 'query' that asks for media. It uses exa.search.
     if (query && (isImageRequest || isVideoRequest)) {
-       console.log(`[Exa Search] Mode: Single Media. Query: "${query}"`);
+      console.log(`[Exa Search] Mode: Single Media. Query: "${query}"`);
       try {
         const searchResponse = await exa.search(query, { numResults: 10, includeDomains: inferDomainsFromIntent(query) });
         let imagesForCarousel: any[] = [];
@@ -719,6 +693,7 @@ export const exaSearchTool = tool({
           visionFilteringInfo = await filterImagesWithVision(rawImages, query, intent);
           imagesForCarousel = visionFilteringInfo.filtered;
         }
+        
         if (isVideoRequest) {
           videosForCarousel = searchResponse.results.filter(r => r.url && /youtube|vimeo|dailymotion|tiktok/.test(r.url)).map((result: any) => ({ type: 'video', src: result.url, title: result.title, poster: result.image, source: { url: result.url, title: result.title } }));
         }

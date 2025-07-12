@@ -1,3 +1,5 @@
+// FILE: lib/smooth-scroll.ts
+
 "use client"
 
 import type { Transition } from "framer-motion"

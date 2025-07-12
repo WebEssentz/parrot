@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next"
 import { Geist, Geist_Mono, Inter, Roboto, Open_Sans, Lato, Montserrat, Poppins, Source_Sans_3, Nunito, Playfair_Display, Merriweather, Lora, Crimson_Text, PT_Serif, JetBrains_Mono, Fira_Code, Source_Code_Pro, Roboto_Mono } from 'next/font/google';
 import "./globals.css";
-import "./styles/text-animations.css" // Import the animations CSS
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";

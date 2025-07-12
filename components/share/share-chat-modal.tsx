@@ -10,14 +10,14 @@ import { useTransformToArticle } from "@/hooks/use-transform-to-article"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Copy, Check, MessageSquareText, FileText, Mic, Scissors, Loader2, ArrowRight, X } from "lucide-react"
+import { Copy, Check, MessageSquareText, FileText, AudioLines, Scissors, Loader2, ArrowRight, X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import { useChats } from "@/hooks/use-chats"
-import { PublicChatView } from "./public-chat-view"
+import { PublicChatView } from "../public-chat-view"
 import type { Message } from "@ai-sdk/react"
 import clsx from "clsx"
-import { Markdown } from "./markdown"
+import { Markdown } from "../markdown"
 
 type ShareFormat = "conversation" | "article" | "podcast" | "snippet"
 
@@ -90,7 +90,7 @@ const SharePreview = ({
       case "podcast":
         return (
           <div className="flex flex-col items-center justify-center h-full text-zinc-400 p-4">
-            <Mic className="w-16 h-16" />
+            <AudioLines className="w-16 h-16" />
             <p className="mt-4 text-sm font-medium text-center">Podcast controls will appear here</p>
           </div>
         )
@@ -253,7 +253,7 @@ export const ShareChatModal = ({ isOpen, onClose, chatId, chatTitle, chat }: Sha
   const formatOptions: { id: ShareFormat; label: string; icon: React.ElementType; description: string }[] = [
     { id: "conversation", label: "Conversation", icon: MessageSquareText, description: "Share as chat format" },
     { id: "article", label: "Article", icon: FileText, description: "Professional Medium-style article" },
-    { id: "podcast", label: "Podcast", icon: Mic, description: "Audio format (coming soon)" },
+    { id: "podcast", label: "Podcast", icon: AudioLines, description: "Audio format (coming soon)" },
     { id: "snippet", label: "Snippet", icon: Scissors, description: "Selected highlights" },
   ]
 
