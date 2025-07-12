@@ -2,7 +2,7 @@
 title: Avurna Flow Agent
 emoji: 🧠
 colorFrom: purple
-colorTo: teal
+colorTo: indigo
 sdk: docker
 dockerfile: tts-python-livekit/Dockerfile
 ---
