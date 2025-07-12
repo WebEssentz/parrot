@@ -1,32 +1,23 @@
-import { useEffect, useRef, type RefObject } from 'react';
+// FILE: lib/hooks/use-scroll-to-bottom.tsx
+
+import { useRef, useCallback, type RefObject } from 'react';
 
 export function useScrollToBottom(): [
-  RefObject<HTMLDivElement>,
-  RefObject<HTMLDivElement>,
+  RefObject<HTMLDivElement | null>,
+  RefObject<HTMLDivElement | null>,
+  () => void
 ] {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    const end = endRef.current;
-
-    if (container && end) {
-      const observer = new MutationObserver(() => {
-        end.scrollIntoView({ behavior: 'instant', block: 'end' });
-      });
-
-      observer.observe(container, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        characterData: true,
-      });
-
-      return () => observer.disconnect();
+  // Scroll the container to its maximum scroll position (true bottom)
+  const scrollToBottom = useCallback(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    } else if (endRef.current) {
+      endRef.current.scrollIntoView({ block: 'end' });
     }
   }, []);
 
-  // @ts-expect-error error
-  return [containerRef, endRef];
+  return [containerRef, endRef, scrollToBottom];
 }

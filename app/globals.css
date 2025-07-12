@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@import 'katex/dist/katex.min.css'; /* ✨ NEW */
+@import "tailwindcss";
+
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
@@ -46,7 +49,7 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: #ffffff;
   --foreground: oklch(0.141 0.005 285.823);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
@@ -81,8 +84,49 @@
   --sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
+.prose {
+    --tw-prose-body: #374151;
+    --tw-prose-headings: #111827;
+    --tw-prose-lead: #4b5563;
+    --tw-prose-links: #111827;
+    --tw-prose-bold: #111827;
+    --tw-prose-counters: #6b7280;
+    --tw-prose-bullets: #d1d5db;
+    --tw-prose-hr: #e5e7eb;
+    --tw-prose-quotes: #111827;
+    --tw-prose-quote-borders: #e5e7eb;
+    --tw-prose-captions: #6b7280;
+    --tw-prose-kbd: #111827;
+    --tw-prose-kbd-shadows: 17 24 39;
+    --tw-prose-code: #111827;
+    --tw-prose-pre-code: #e5e7eb;
+    --tw-prose-pre-bg: #1f2937;
+    --tw-prose-th-borders: #d1d5db;
+    --tw-prose-td-borders: #e5e7eb;
+    --tw-prose-invert-body: #d1d5db;
+    --tw-prose-invert-headings: #fff;
+    --tw-prose-invert-lead: #9ca3af;
+    --tw-prose-invert-links: #fff;
+    --tw-prose-invert-bold: #fff;
+    --tw-prose-invert-counters: #9ca3af;
+    --tw-prose-invert-bullets: #4b5563;
+    --tw-prose-invert-hr: #374151;
+    --tw-prose-invert-quotes: #f3f4f6;
+    --tw-prose-invert-quote-borders: #374151;
+    --tw-prose-invert-captions: #9ca3af;
+    --tw-prose-invert-kbd: #fff;
+    --tw-prose-invert-kbd-shadows: 255 255 255;
+    --tw-prose-invert-code: #fff;
+    --tw-prose-invert-pre-code: #d1d5db;
+    --tw-prose-invert-pre-bg: rgb(0 0 0 / 50%);
+    --tw-prose-invert-th-borders: #4b5563;
+    --tw-prose-invert-td-borders: #374151;
+    font-size: 1rem;
+    line-height: 1.75;
+}
+
 .dark {
-  --background: oklch(0.141 0.005 285.823);
+  --background: #1C1C1C;
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.141 0.005 285.823);
   --card-foreground: oklch(0.985 0 0);
@@ -114,13 +158,421 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.274 0.006 286.033);
   --sidebar-ring: oklch(0.442 0.017 285.786);
+  --bg-surface-l2: hsl(220 5% 19%);
+}
+
+body.loading-prevent-scroll {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.markdown-body, .prose, .markdown {
+  word-break: break-word;
+}
+.markdown-body pre, .prose pre, .markdown pre {
+  overflow-x: auto;
+  max-width: 100%;
+  background: inherit;
+}
+.markdown-body code, .prose code, .markdown code {
+  word-break: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Existing styles... */
+
+/* Syntax highlighting for code blocks */
+@import "highlight.js/styles/atom-one-dark.css";
+
+/* Custom code block styling */
+.ProseMirror pre {
+  background: #282c34 !important;
+  color: #abb2bf !important;
+  font-family: "JetBrains Mono", "Fira Code", "Monaco", "Cascadia Code", "Roboto Mono", monospace;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  position: relative;
+}
+
+.ProseMirror pre code {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Language label for code blocks */
+.ProseMirror pre::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #abb2bf;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Highlight colors */
+mark[data-color="#fef08a"] {
+  background-color: #fef08a;
+  color: #92400e;
+}
+
+mark[data-color="#bbf7d0"] {
+  background-color: #bbf7d0;
+  color: #065f46;
+}
+
+mark[data-color="#bfdbfe"] {
+  background-color: #bfdbfe;
+  color: #1e40af;
+}
+
+mark[data-color="#e9d5ff"] {
+  background-color: #e9d5ff;
+  color: #7c3aed;
+}
+
+mark[data-color="#fbcfe8"] {
+  background-color: #fbcfe8;
+  color: #be185d;
+}
+
+mark[data-color="#fed7aa"] {
+  background-color: #fed7aa;
+  color: #c2410c;
+}
+
+mark[data-color="#fecaca"] {
+  background-color: #fecaca;
+  color: #dc2626;
+}
+
+mark[data-color="#e5e7eb"] {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+
+/* Syntax highlighting for code blocks */
+@import "highlight.js/styles/atom-one-dark.css";
+
+/* Custom code block styling */
+.ProseMirror pre {
+  background: #282c34 !important;
+  color: #abb2bf !important;
+  font-family: "JetBrains Mono", "Fira Code", "Monaco", "Cascadia Code", "Roboto Mono", monospace;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  position: relative;
+}
+
+.ProseMirror pre code {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Language label for code blocks */
+.ProseMirror pre::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #abb2bf;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Highlight colors - Updated for proper TipTap integration */
+mark[data-color="#fef08a"],
+.ProseMirror mark[style*="background-color: rgb(254, 240, 138)"] {
+  background-color: #fef08a !important;
+  color: #92400e !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#bbf7d0"],
+.ProseMirror mark[style*="background-color: rgb(187, 247, 208)"] {
+  background-color: #bbf7d0 !important;
+  color: #065f46 !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#bfdbfe"],
+.ProseMirror mark[style*="background-color: rgb(191, 219, 254)"] {
+  background-color: #bfdbfe !important;
+  color: #1e40af !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#e9d5ff"],
+.ProseMirror mark[style*="background-color: rgb(233, 213, 255)"] {
+  background-color: #e9d5ff !important;
+  color: #7c3aed !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#fbcfe8"],
+.ProseMirror mark[style*="background-color: rgb(251, 207, 232)"] {
+  background-color: #fbcfe8 !important;
+  color: #be185d !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#fed7aa"],
+.ProseMirror mark[style*="background-color: rgb(254, 215, 170)"] {
+  background-color: #fed7aa !important;
+  color: #c2410c !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#fecaca"],
+.ProseMirror mark[style*="background-color: rgb(254, 202, 202)"] {
+  background-color: #fecaca !important;
+  color: #dc2626 !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+mark[data-color="#e5e7eb"],
+.ProseMirror mark[style*="background-color: rgb(229, 231, 235)"] {
+  background-color: #e5e7eb !important;
+  color: #374151 !important;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+/* Default highlight styling */
+.ProseMirror mark {
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+
+/* 
+  --- FINAL SOURCE HIGHLIGHT AND BUTTON STYLES (Robust Pointer-Events Method) --- 
+*/
+
+/* 
+  STEP 1: Make the entire container non-interactive by default.
+  This prevents the text from triggering a hover state on this parent.
+*/
+.source-highlight-container {
+  display: inline;
+  pointer-events: none; 
+}
+
+/* The text element inherits pointer-events: none, so it can't be hovered. */
+.source-text {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  border-radius: 5px;
+  padding: 0.1em 0.2em;
+  margin: -0.1em 0;
+}
+
+/* 
+  STEP 2: The highlight effect. This rule now ONLY fires when the container 
+  is hovered, which can only be caused by the button (see below).
+*/
+.source-highlight-container:hover .source-text {
+  background-color: #d4e5f3;
+  color: #444444;
+}
+.dark .source-highlight-container:hover .source-text {
+  background-color: #d4e5f3;
+  color: #000000;
+}
+
+/* --- Inline Source Button Styles --- */
+
+/* 
+  STEP 3: Explicitly re-enable pointer events on the button's link.
+  This makes it the ONLY element in the container that can be clicked or hovered.
+*/
+.source-button-inline > a {
+  pointer-events: auto; 
+  text-decoration: none !important;
+  display: inline-flex;
+  align-items: center;
+  background-color: #f4f4f4;
+  color: #707070;
+  border-radius: 1rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.60rem;
+  line-height: normal;
+  margin-left: 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hover state for the button itself. This also causes the parent to enter a :hover state. */
+.source-button-inline > a:hover {
+  background-color: #000000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #ffffff;
+}
+
+/* Dark Mode styles for the button. */
+.dark .source-button-inline > a {
+  background-color: #333333;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark mode hover state for the button itself. */
+.dark .source-button-inline > a:hover {
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  color: #000000;
+}
+/* --- END OF FINAL STYLES --- */
+
+
+/* PauseIcon spinner animation */
+.pause-spinner {
+  transform-origin: 50% 50%;
+  animation: pause-spin 1s linear infinite;
+}
+@keyframes pause-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* The Shimmer Animation Keyframes */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Reusable Shimmer Utility Class */
+.shimmer-bg {
+  position: relative;
+  overflow: hidden;
+  background-color: #3f3f46; /* A slightly lighter shade of dark grey (zinc-700) */
+}
+
+.shimmer-bg::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(255, 255, 255, 0.2) 60%,
+    rgba(255, 255, 255, 0)
+  );
+  animation: shimmer 2s infinite;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html, body {
+    transition: bg-background 0.1s, color 0.1s;
+  }
   body {
     @apply bg-background text-foreground;
+    /* 
+      --- THIS IS THE KEY ---
+      Use a variable `--font-main` for the application's font.
+      It falls back to `--font-sans` (which is your default, e.g., Inter).
+    */
+    font-family: var(--font-main, var(--font-sans));
   }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.2s infinite linear;
+}
+/* For Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;  /* --- The sleek, thin width --- */
+  height: 6px; /* --- The sleek, thin height for horizontal scroll --- */
+}
+
+::-webkit-scrollbar-track {
+  background: transparent; /* --- The track is completely invisible --- */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1); /* --- A very subtle, almost-not-there default state --- */
+  border-radius: 10px; /* --- Perfectly rounded for a modern, soft look --- */
+  border: 2px solid transparent; /* --- Creates padding around the thumb, making it look even thinner --- */
+  background-clip: content-box;
+  transition: background-color 0.3s ease-in-out; /* --- Smooth fade-in/out on hover --- */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.35); /* --- Becomes more visible on hover for easy grabbing --- */
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Ensure scrollbar is always visible space */
+html {
+  scrollbar-gutter: auto;
+}
+
+.scrollbar-spacing {
+  padding-right: 6px;
+}
+
+/* Ensure main content areas account for scrollbar */
+.main-content {
+  width: calc(100% - 6px);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin; /* --- Makes scrollbar thin --- */
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent; /* --- thumb color and track color --- */
 }

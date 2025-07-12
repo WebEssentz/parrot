@@ -1,0 +1,256 @@
+/* --- Base Component Styles (Shared) --- */
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.2s;
+}
+
+/* --- Mobile-First Styles (Default for the component outside the lightbox) --- */
+.imageRow {
+  display: none; /* Hidden on mobile, shown on desktop via media query */
+}
+
+.mobileSliderWrapper {
+  display: block;
+  width: 100%;
+  margin-bottom: 1rem;
+  position: relative;
+  cursor: pointer;
+}
+
+.mobileImageContainer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background-color: #333;
+}
+
+.mobileImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.visible { opacity: 1; z-index: 1; }
+.hidden { opacity: 0; z-index: 0; }
+
+.dotsContainer {
+  position: absolute;
+  bottom: 10px;
+  left: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 100%;
+  flex: 1;
+  height: 5px;
+  border-radius: 99px;
+  background-color: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  transition: background-color 0.2s;
+}
+.dot:hover { background-color: rgba(255, 255, 255, 0.5); }
+.dot.active { background-color: rgba(255, 255, 255, 0.4); }
+
+.progressBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: #ffffff;
+  border-radius: 99px;
+  transition: width 0.05s linear;
+}
+
+/* --- Lightbox Base Styles (Shared & Mobile-First) --- */
+.lightboxOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background-color: rgba(18, 18, 18, 0.85);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  color: #e0e0e0;
+}
+
+.lightboxHeader {
+  flex-shrink: 0;
+  z-index: 110;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+}
+
+.headerSpacer { width: 44px; }
+.lightboxCounter { font-size: 0.875rem; color: rgba(255, 255, 255, 0.7); }
+.closeButton { background: transparent; border-radius: 99px; padding: 0.5rem; transition: transform 0.2s, color 0.2s; cursor: pointer; color: rgba(255, 255, 255, 0.7); }
+.closeButton:hover { transform: scale(1.1); color: white; }
+
+.lightboxContent {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* --- Lightbox Carousel Styles (MOBILE-FIRST) --- */
+.lightboxCarousel {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; /* Enable smooth touch scrolling on iOS */
+  scroll-behavior: auto; /* FIX: Default to 'auto' for instant programmatic scroll */
+  width: 100%;
+  height: 100%;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.lightboxCarousel::-webkit-scrollbar {
+  display: none;
+}
+
+.lightboxImageWrapper {
+  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  padding: 0 1rem;
+  gap: 1rem;
+}
+
+.lightboxImage {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.sourceLinkWrapper {
+  justify-self: center;
+}
+
+.sourceLink {
+  display: inline-flex;
+  padding: 0.5rem 1rem;
+  background-color: rgba(40, 40, 40, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s, opacity 0.2s;
+  text-decoration: none;
+  max-width: calc(100vw - 4rem);
+}
+.sourceLink:hover { background-color: rgba(50, 50, 50, 0.7); opacity: 0.9; }
+.sourceTextContainer { display: flex; flex-direction: column; gap: 0.125rem; overflow: hidden; }
+.sourceDomain { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); text-transform: uppercase; letter-spacing: 0.05em; }
+.sourceFavicon { width: 16px; height: 16px; border-radius: 4px; }
+.sourceTitle { font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* --- Desktop & Tablet Overrides --- */
+@media (min-width: 768px) {
+  .mobileSliderWrapper { display: none; }
+  .imageRow { display: flex; }
+  .imageContainer {
+    flex: 1 1 0%;
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 16px;
+    overflow: hidden;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin: 0 6px; 
+  }
+  .imageContainer:hover { transform: scale(1.02); box-shadow: 0 4px 16px rgba(0,0,0,0.13); }
+  .imageContainer:hover .image { transform: scale(1.05); }
+
+  .lightboxCarousel {
+    padding: 0 15vw;
+    gap: 10vw;
+    scroll-behavior: smooth; /* FIX: Enable smooth scroll for desktop button clicks */
+  }
+
+  .lightboxImageWrapper {
+    width: 70vw;
+    padding: 0;
+    gap: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .lightboxImage {
+    max-height: 100%;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  }
+
+  .inactive { opacity: 0.5; transform: scale(0.9); cursor: pointer; }
+
+  .navArrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 110;
+    background-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+    border-radius: 99px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .navArrow:hover { background-color: rgba(255, 255, 255, 0.15); transform: translateY(-50%) scale(1.05); color: white; }
+  .prev { left: 1.5rem; }
+  .next { right: 1.5rem; }
+
+  .lightboxFooter {
+    flex-shrink: 0;
+    z-index: 110;
+    padding: 1rem 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .sourceLinkWrapper { grid-column: 1 / 2; justify-self: start; }
+  .scrollbarContainer { display: flex; justify-content: center; grid-column: 2 / 3; width: 100%; }
+  .scrollbarTrack { width: 100%; max-width: 300px; height: 4px; background-color: rgba(255, 255, 255, 0.15); border-radius: 2px; overflow: hidden; }
+  .scrollbarThumb { height: 100%; background-color: #ffffff; border-radius: 2px; width: 0%; transition: width 0.3s ease; }
+}

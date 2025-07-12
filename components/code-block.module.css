@@ -1,0 +1,41 @@
+/* code-block.module.css */
+
+.codeBlockOuter {
+  width: 100%;
+  max-width: 100vw;
+  margin-left: auto;
+  margin-right: auto;
+  /* Adjust padding as needed, or remove if handled by parent container */
+  padding-left: 1rem;
+  padding-right: 1rem;
+  box-sizing: border-box;
+}
+
+.codeBlockScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* The background is now set by the SyntaxHighlighter's style object */
+  border-radius: 0 0 0.5rem 0.5rem; /* Match a slightly softer corner */
+  width: 100%;
+  max-width: 100vw;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Ensure the code content itself can grow */
+.codeBlockScroll > pre {
+  min-width: max-content;
+  width: 100%;
+}
+
+
+@media (min-width: 640px) {
+  .codeBlockOuter {
+    max-width: 42rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .codeBlockScroll {
+    max-width: 42rem;
+  }
+}
