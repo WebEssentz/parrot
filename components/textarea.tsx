@@ -3,12 +3,21 @@
 import { Textarea as ShadcnTextarea, AttachButton } from "@/components/ui/textarea";
 import { ArrowUp, ArrowRight, AudioLines } from "lucide-react";
 import { PauseIcon, SpinnerIcon } from "./icons";
+<<<<<<< HEAD
 import React from "react";
 import { useMobile } from "../hooks/use-mobile";
+=======
+import React from "react"
+import { Room, RoomEvent } from 'livekit-client';
+>>>>>>> avurna-clean
 import { useUser } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FlowOverlay } from './FlowOverlay';
+<<<<<<< HEAD
+=======
+import { v4 as uuidv4 } from 'uuid';
+>>>>>>> avurna-clean
 
 // --- PROPS INTERFACE (Unchanged) ---
 interface InputProps {
@@ -26,6 +35,10 @@ interface InputProps {
   suggestedPrompts: string[];
   offlineState?: 'online' | 'reconnecting' | 'offline';
   onFocus?: () => void;
+<<<<<<< HEAD
+=======
+  user: { id: string } | null | undefined;
+>>>>>>> avurna-clean
 }
 
 export const Textarea = ({
@@ -40,7 +53,12 @@ export const Textarea = ({
   isDesktop,
   disabled = false,
   offlineState = 'online',
+<<<<<<< HEAD
   suggestedPrompts
+=======
+  suggestedPrompts,
+  user
+>>>>>>> avurna-clean
 }: InputProps) => {
   const { isSignedIn } = useUser();
 
@@ -53,6 +71,10 @@ export const Textarea = ({
   const [promptVisible, setPromptVisible] = React.useState(false);
   const [isVoiceIconHovered, setIsVoiceIconHovered] = React.useState(false);
   const [isFlowActive, setIsFlowActive] = React.useState(false);
+<<<<<<< HEAD
+=======
+  const [flowSession, setFlowSession] = React.useState<{ room: Room; roomName: string; } | null>(null);
+>>>>>>> avurna-clean
 
   const featureActive = isDesktop && !hasSentMessage && !isSignedIn;
 
@@ -121,9 +143,97 @@ export const Textarea = ({
     }
   };
 
+<<<<<<< HEAD
   const handleVoiceClick = () => {
     console.log("Activating Flow...");
     setIsFlowActive(true);
+=======
+  const handleVoiceClick = async () => {
+    console.log("Activating Flow...");
+    setIsFlowActive(true); 
+
+    try {
+      // 1. Call the Vercel serverless function (this part is fine)
+      const response = await fetch('/api/flow/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: user?.id || `user-${uuidv4()}` }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to start flow session: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const { user_token, livekit_url, agent_token, room_name } = data;
+
+      // 2. Create and connect to the LiveKit room
+      const room = new Room();
+
+      room.on(RoomEvent.Disconnected, () => {
+        console.log("Disconnected from LiveKit room");
+        setIsFlowActive(false);
+        setFlowSession(null);
+      });
+      
+      // Connect to LiveKit BEFORE triggering the agent
+      await room.connect(livekit_url, user_token);
+      await room.localParticipant.setMicrophoneEnabled(true);
+
+      // Now that we are fully connected, store the session details
+      setFlowSession({ room, roomName: room_name });
+
+      // --- KEY FIX: Make the agent trigger fire-and-forget ---
+      // We wrap ONLY this fetch call in its own try/catch. If it fails due to a
+      // timeout, we'll log a warning but we WON'T crash the UI.
+      console.log("Triggering agent to join room...");
+      try {
+        const agentUrl = process.env.NEXT_PUBLIC_AGENT_URL;
+        if (!agentUrl) {
+          throw new Error("Agent URL is not configured in environment variables.");
+        }
+
+        await fetch(`${agentUrl}/join-room`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room_name: room_name,
+            agent_token: agent_token
+          }),
+        });
+        
+        console.log("Agent trigger request sent successfully.");
+      } catch (agentError) {
+        // This is now a non-fatal error. We just log it.
+        console.warn("Agent trigger fetch failed. This can happen on slow startups and is often non-critical.", agentError);
+      }
+      // --- END OF THE FIX ---
+
+    } catch (error) {
+      // This main catch block will now only handle critical errors,
+      // like failing to get a token or connect to LiveKit.
+      console.error("Critical error during Flow activation:", error);
+      setIsFlowActive(false);
+      // Ensure we clean up if a session object was partially created
+      if (flowSession?.room) {
+        await flowSession.room.disconnect();
+      }
+    }
+  };
+
+  const handleCloseFlow = async () => { // --- KEY CHANGE: Make this function async
+    if (flowSession?.room) {
+      // --- KEY CHANGE: Explicitly disable audio before disconnecting ---
+      // This ensures the user's mic is off even if the disconnect is slow.
+      await flowSession.room.localParticipant.setMicrophoneEnabled(false);
+      
+      // This will trigger the 'Disconnected' event we set up earlier
+      await flowSession.room.disconnect();
+    } else {
+      // Fallback for safety
+      setIsFlowActive(false);
+    }
+>>>>>>> avurna-clean
   };
 
   const shouldShowCustomPlaceholderElements = featureActive && !input && suggestedPrompts.length > 0;
@@ -212,7 +322,11 @@ export const Textarea = ({
             <div style={{ paddingBottom: '44px' }} />
 
             {/* --- THIS IS THE FINAL, CORRECTED LOGIC --- */}
+<<<<<<< HEAD
             <div className="absolute start-0 end-0 bottom-0 z-20 flex items-center px-3 pb-3">
+=======
+            <div className="absolute start-0 -ml-2 end-0 bottom-0 z-20 flex items-center px-3 pb-3">
+>>>>>>> avurna-clean
               {/* Attach Button is on the left */}
               <AttachButton onClick={() => console.log('Attach button clicked')} disabled={isSignedIn ? false : isLoading} />
 
@@ -270,7 +384,10 @@ export const Textarea = ({
                         </AnimatePresence>
                       </motion.button>
                     </TooltipTrigger>
+<<<<<<< HEAD
                     {/* ADD THIS PART RIGHT AFTER */}
+=======
+>>>>>>> avurna-clean
                     <TooltipContent side="top" align="center">
                       <p>{hasInput ? "Send" : "Activate Flow"}</p>
                     </TooltipContent>
@@ -282,8 +399,13 @@ export const Textarea = ({
         </motion.div>
       </TooltipProvider>
       <AnimatePresence>
+<<<<<<< HEAD
         {isFlowActive && <FlowOverlay onClose={() => setIsFlowActive(false)} />}
       </AnimatePresence>
+=======
+        {isFlowActive && <FlowOverlay onClose={handleCloseFlow} session={flowSession} user={user} />}
+    </AnimatePresence>
+>>>>>>> avurna-clean
     </>
   );
 };

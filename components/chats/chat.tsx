@@ -1,5 +1,3 @@
-// FILE: components/chat.tsx
-
 "use client";
 
 import React from "react";
@@ -401,181 +399,107 @@ export default function Chat() {
     setIsPredictiveVisible
   };
 
-  // Further increase buffer for desktop to push down the "Avurna uses AI..." message and textarea
-  // Push chat view down on all devices (more)
-  // Instead of buffer, use a real padding-bottom on the message container
-  const inputAreaPadding = inputAreaHeight;
+  // Determine where to render the ChatInputArea
+  const showFixedInput = typeof isDesktop !== 'undefined' && (!isDesktop || hasSentMessage);
+  const showInflowInput = typeof isDesktop !== 'undefined' && isDesktop && !hasSentMessage;
 
   return (
     <div 
       className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background"
-      style={{ '--input-area-height': `${inputAreaHeight}px` } as React.CSSProperties}
     >
       <Header />
       <div
         ref={containerRef}
         className={
-          `flex-1 w-full sm:mb-12 scrollbar-thin ` +
-          (hasSentMessage ? "overflow-y-auto overscroll-auto" : "overflow-y-hidden overscroll-none")
+          `w-full flex-1 scrollbar-thin ` +
+          // FIX: This logic robustly centers the initial content and switches to a scroll view for the chat
+          (hasSentMessage 
+            ? "overflow-y-auto overscroll-auto" 
+            : "overflow-y-hidden overscroll-none flex flex-col justify-center items-center"
+          )
         }
         style={{
-          paddingTop:
-            typeof isDesktop !== 'undefined' && !isDesktop
-              ? '96px'
-              : typeof isDesktop !== 'undefined' && isDesktop
-                ? '96px' // Add extra top padding for desktop
-                : '96px',
-          paddingBottom: `${inputAreaPadding}px`,
+          paddingTop: hasSentMessage ? '96px' : '0', // No top padding when centering
+          paddingBottom: `${showFixedInput ? inputAreaHeight : 0}px`,
         }}
       >
         {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (
-          <>
-            <div className="flex-1 flex flex-col justify-center mt-11 items-center pb-32">
-              <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[50rem] px-4">
-                <ProjectOverview />
-                {isDesktop && (
-                  // The input area is now a direct child of the flex container
-                  <div className="w-full max-w-3xl mx-auto mt-6 mb-4">
-                    <ChatInputArea {...chatInputAreaProps} />
-                  </div>
-                )}
-
-                <AnimatePresence>
-                  {isDesktop && !input && (
-                    <motion.div
-                      initial={{ opacity: 1, y: 0 }}
-                      // We can add a more pleasing exit animation
-                      exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                      transition={{ duration: 0.2 }}
-                      className="mt-2 w-full max-w-4xl mx-auto"
-                    >
-                      <SuggestedPrompts onPromptClick={setInput} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              {/* Legal/Footer text is now positioned independently at the bottom */}
-              {isDesktop && (
-                <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
-                  <span className="text-xs font-normal text-[#6c757d] dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
-                    By messaging Avurna, you agree to our{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
-                    {' '}and our{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Privacy Policy</a>.
-                  </span>
-                </div>
-                /* <div className="fixed left-4 bottom-0 z-30 py-2">
-                      <span className="text-xs font-normal text-zinc-600 dark:text-zinc-300 select-none">
-                        © {currentYear} Avocado
-                      </span>
-                    </div> */
-                /* <div className="fixed right-4 bottom-0 z-30 py-2">
-                  <div className="inline-flex items-center gap-x-3">
-                    <a href="https://x.com/YourXProfile" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our X profile"><XIcon size={15} /></a>
-                    <a href="https://linkedin.com/company/YourLinkedIn" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our LinkedIn profile"><LinkedInIcon size={15} /></a>
-                    <a href="https://github.com/YourGithub" className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors duration-150" target="_blank" rel="noopener noreferrer" aria-label="Visit our GitHub"><Github className="size-[15px]" /></a>
-                  </div>
-                </div> */
-                
-              )}
-            </div>
-            <div ref={endRef}/>
-            {/* --- 6. Render the button here, outside the main scrollable area --- */}
-      <ScrollToBottomButton
-        isVisible={showScrollButton && hasSentMessage}
-        onClick={handleScrollToBottom}
-      />
-          </>
-        ) : <>
-          {/* This is your existing Messages component. It is perfect. */}
-          <Messages
-            messages={messages}
-            isLoading={uiIsLoading}
-            status={status as any}
-            endRef={endRef as React.RefObject<HTMLDivElement>}
-          />
-
-          {/* If we are waiting for the AI to start streaming, show the cursor. */}
-          {status === 'submitted' && (
-            <div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[46rem]">
-              {/* Use a flex row to align the avatar and cursor, just like a real message */}
-              <div className="flex flex-row w-full items-start space-x-2 py-4">
-                {/* 1. The AI Avatar */}
-                <div className="flex-shrink-0 h-7 w-7 mr-7 rounded-full flex items-center justify-center font-semibold text-zinc-200 text-sm">
-                  <BlinkingCursor />
-                </div>              
-              </div>
-            </div>
-          )}
-        </>
-        }
-        <div ref={endRef} />
-      </div>
-      {/* --- 6. Render the button here, outside the main scrollable area --- */}
-      <ScrollToBottomButton
-        isVisible={showScrollButton && hasSentMessage}
-        onClick={handleScrollToBottom}
-      />
-
-      {(typeof isDesktop === "undefined") ? null : (!isDesktop || hasSentMessage) && (
-        !isDesktop ? (
-          <div
-            className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
-            style={{ pointerEvents: showMobileInfoMessage ? 'auto' : undefined }}
-          >
-            <div
-              ref={inputAreaRef}
-              className="w-full max-w-3xl mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative"
-              style={{ pointerEvents: 'auto', marginBottom: '12px' }}
-            >
-              <div
-                className="w-full mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4"
-                style={isDesktop ? { maxWidth: '50rem', marginBottom: '12px' } : { maxWidth: '48rem', marginBottom: '12px' }}
-              >
-                {/* --- REPLACED with new component --- */}
+          // FIX: This container is now simpler. The parent handles centering.
+          <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[50rem] px-4 pb-16">
+            <ProjectOverview />
+            
+            {showInflowInput && (
+              <div className="w-full max-w-3xl mx-auto mt-6 mb-4">
                 <ChatInputArea {...chatInputAreaProps} />
               </div>
-              {(hasSentMessage) && (
-                <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none pointer-events-auto">
-                    Avurna uses AI. Double check response.
-                  </span>
-                </div>
+            )}
+
+            <AnimatePresence>
+              {isDesktop && !input && (
+                <motion.div
+                  initial={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                  className="mt-2 w-full max-w-4xl mx-auto"
+                >
+                  <SuggestedPrompts onPromptClick={setInput} />
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
+            
+            {isDesktop && (
+              <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
+                <span className="text-xs font-normal text-[#6c757d] dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
+                  By messaging Avurna, you agree to our{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
+                  {' '}and our{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Privacy Policy</a>.
+                </span>
+              </div>
+            )}
           </div>
         ) : (
-          <div
-            ref={inputAreaRef}
-            className="fixed left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent dark:from-background dark:via-background"
-            style={{ bottom: '-10px' }}
-          >
-            <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4 relative" style={{ marginBottom: '12px' }}>
-              <form onSubmit={handleSubmit} className="w-full relative z-10">
-                <CustomTextareaWrapper
-                  selectedModel={selectedModel}
-                  setSelectedModel={setSelectedModel}
-                  handleInputChange={handleInputChange}
-                  setInput={setInput}
-                  input={input}
-                  isLoading={uiIsLoading}
-                  status={status}
-                  stop={stop}
-                  hasSentMessage={hasSentMessage}
-                  isDesktop={true}
-                  suggestedPrompts={dynamicSuggestedPrompts}
-                />
-              </form>
-              {(hasSentMessage) && (
-                <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
-                  <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none pointer-events-auto">
-                    Avurna uses AI. Double check response.
-                  </span>
+          <>
+            <Messages
+              messages={messages}
+              isLoading={uiIsLoading}
+              status={status as any}
+              endRef={endRef as React.RefObject<HTMLDivElement>}
+            />
+            {status === 'submitted' && (
+              <div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[46rem]">
+                <div className="flex flex-row w-full items-start space-x-2 py-4">
+                  <div className="flex-shrink-0 h-7 w-7 mr-7 rounded-full flex items-center justify-center font-semibold text-zinc-200 text-sm">
+                    <BlinkingCursor />
+                  </div>              
                 </div>
-              )}
+              </div>
+            )}
+          </>
+        )}
+        <div ref={endRef} />
+      </div>
+      
+      <ScrollToBottomButton
+        isVisible={showScrollButton && hasSentMessage}
+        onClick={handleScrollToBottom}
+      />
+
+      {/* Renders a fixed input for mobile (always) and desktop (during chat) */}
+      {showFixedInput && (
+        <div
+          ref={inputAreaRef}
+          className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background/90 to-transparent dark:from-background dark:via-background/90"
+        >
+          <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4">
+            <ChatInputArea {...chatInputAreaProps} />
+            <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
+              <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none pointer-events-auto">
+                Avurna uses AI. Double check response.
+              </span>
             </div>
           </div>
-        )
+        </div>
       )}
     </div>
   );
