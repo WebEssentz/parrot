@@ -118,6 +118,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#18181b" />
+        <meta name="google-site-verification" content="TWDD5_-BbDEw89BT9l6ywqyUtOT_trSMrQRCG9MUD9M" />
       </head>
       <body className={cn(
         "font-sans antialiased",
