@@ -9,6 +9,7 @@ import {
   ClerkProvider,
 } from '@clerk/nextjs'
 import { cn } from "@/lib/utils";
+import { PWAInstaller } from "@/components/PWAInstaller"; 
 
 // --- Instantiate all the fonts you need, assigning a CSS variable to each ---
 const inter = Inter({ 
@@ -93,19 +94,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+
 export const metadata: Metadata = {
   title: "Avocado Avurna",
   description:
     "This starter project uses Groq with the AI SDK via the Vercel Marketplace",
+  icons: {
+    icon: '/favicon.png',
+  }
 };
-
-
-// Register service worker for PWA support
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch(() => { });
-  });
-}
 
 export default function RootLayout({
   children,
@@ -115,8 +112,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <link rel="manifest" href="/manifest.json" />
+        <link rel="shortcut icon" href="favicon.png" type="image/x-icon" />
         <meta name="theme-color" content="#18181b" />
         <meta name="google-site-verification" content="TWDD5_-BbDEw89BT9l6ywqyUtOT_trSMrQRCG9MUD9M" />
       </head>
@@ -152,6 +149,7 @@ export default function RootLayout({
                 <Analytics />
               </main>
               <Toaster />
+              <PWAInstaller />
             </TooltipProvider>
           </ThemeProvider>
         </ClerkProvider>

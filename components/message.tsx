@@ -14,7 +14,6 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { GithubWorkflowAggregator } from './ui/github-workflow-aggregator';
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
-import { BlinkingCursor } from './ui/blinking-cursor';
 import {
   Drawer,
   DrawerContent,
@@ -46,6 +45,26 @@ const CheckIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+const ThumbsUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M10.9153 1.83987L11.2942 1.88772L11.4749 1.91507C13.2633 2.24201 14.4107 4.01717 13.9749 5.78225L13.9261 5.95901L13.3987 7.6719C13.7708 7.67575 14.0961 7.68389 14.3792 7.70608C14.8737 7.74486 15.3109 7.82759 15.7015 8.03323L15.8528 8.11819C16.5966 8.56353 17.1278 9.29625 17.3167 10.1475L17.347 10.3096C17.403 10.69 17.3647 11.0832 17.2835 11.5098C17.2375 11.7517 17.1735 12.0212 17.096 12.3233L16.8255 13.3321L16.4456 14.7276C16.2076 15.6001 16.0438 16.2356 15.7366 16.7305L15.595 16.9346C15.2989 17.318 14.9197 17.628 14.4866 17.8408L14.2982 17.9258C13.6885 18.1774 12.9785 18.1651 11.9446 18.1651H7.33331C6.64422 18.1651 6.08726 18.1657 5.63702 18.1289C5.23638 18.0962 4.87565 18.031 4.53936 17.8867L4.39679 17.8203C3.87576 17.5549 3.43916 17.151 3.13507 16.6553L3.013 16.4366C2.82119 16.0599 2.74182 15.6541 2.7044 15.1963C2.66762 14.7461 2.66827 14.1891 2.66827 13.5V11.667C2.66827 10.9349 2.66214 10.4375 2.77569 10.0137L2.83722 9.81253C3.17599 8.81768 3.99001 8.05084 5.01397 7.77639L5.17706 7.73928C5.56592 7.66435 6.02595 7.66799 6.66632 7.66799C6.9429 7.66799 7.19894 7.52038 7.33624 7.2803L10.2562 2.16995L10.3118 2.08792C10.4544 1.90739 10.6824 1.81092 10.9153 1.83987ZM7.33136 14.167C7.33136 14.9841 7.33714 15.2627 7.39386 15.4746L7.42999 15.5918C7.62644 16.1686 8.09802 16.6134 8.69171 16.7725L8.87042 16.8067C9.07652 16.8323 9.38687 16.835 10.0003 16.835H11.9446C13.099 16.835 13.4838 16.8228 13.7903 16.6963L13.8997 16.6465C14.1508 16.5231 14.3716 16.3444 14.5433 16.1221L14.6155 16.0166C14.7769 15.7552 14.8968 15.3517 15.1624 14.378L15.5433 12.9824L15.8079 11.9922C15.8804 11.7102 15.9368 11.4711 15.9769 11.2608C16.0364 10.948 16.0517 10.7375 16.0394 10.5791L16.0179 10.4356C15.9156 9.97497 15.641 9.57381 15.2542 9.31253L15.0814 9.20999C14.9253 9.12785 14.6982 9.06544 14.2747 9.03225C13.8477 8.99881 13.2923 8.99807 12.5003 8.99807C12.2893 8.99807 12.0905 8.89822 11.9651 8.72854C11.8398 8.55879 11.8025 8.33942 11.8646 8.13772L12.6556 5.56741L12.7054 5.36331C12.8941 4.35953 12.216 3.37956 11.1878 3.2178L8.49054 7.93948C8.23033 8.39484 7.81431 8.72848 7.33136 8.88967V14.167ZM3.99835 13.5C3.99835 14.2111 3.99924 14.7044 4.03058 15.0879C4.06128 15.4636 4.11804 15.675 4.19854 15.833L4.26886 15.959C4.44517 16.2466 4.69805 16.4808 5.0003 16.6348L5.13019 16.6905C5.27397 16.7419 5.46337 16.7797 5.74542 16.8028C5.97772 16.8217 6.25037 16.828 6.58722 16.8311C6.41249 16.585 6.27075 16.3136 6.1712 16.0215L6.10968 15.8194C5.99614 15.3956 6.00128 14.899 6.00128 14.167V9.00296C5.79386 9.0067 5.65011 9.01339 5.53741 9.02737L5.3587 9.06057C4.76502 9.21965 4.29247 9.66448 4.09601 10.2412L4.06085 10.3584C4.00404 10.5705 3.99835 10.8493 3.99835 11.667V13.5Z" />
+  </svg>
+);
+
+const ThumbsDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path d="M12.6687 5.83304C12.6687 5.22006 12.6649 4.91019 12.6394 4.70413L12.6062 4.52542C12.4471 3.93179 12.0022 3.45922 11.4255 3.26272L11.3083 3.22757C11.0963 3.17075 10.8175 3.16507 9.99974 3.16507H8.0554C7.04558 3.16507 6.62456 3.17475 6.32982 3.26175L6.2097 3.30374C5.95005 3.41089 5.71908 3.57635 5.53392 3.78616L5.45677 3.87796C5.30475 4.0748 5.20336 4.33135 5.03392 4.91702L4.83763 5.6221L4.45677 7.01761C4.24829 7.78204 4.10326 8.31846 4.02318 8.73929C3.94374 9.15672 3.94298 9.39229 3.98119 9.56448L4.03587 9.75784C4.18618 10.1996 4.50043 10.5702 4.91771 10.7901L5.05052 10.8477C5.20009 10.9014 5.40751 10.9429 5.72533 10.9678C6.15231 11.0012 6.70771 11.002 7.49974 11.002C7.71076 11.002 7.90952 11.1018 8.0349 11.2715C8.14465 11.4201 8.18683 11.6067 8.15404 11.7862L8.13548 11.8623L7.34447 14.4326C7.01523 15.5033 7.71404 16.6081 8.81126 16.7813L11.5095 12.0606L11.5827 11.9405C11.8445 11.5461 12.2289 11.2561 12.6687 11.1094V5.83304ZM17.3318 8.33304C17.3318 8.97366 17.3364 9.43432 17.2615 9.82327L17.2234 9.98538C16.949 11.0094 16.1821 11.8233 15.1872 12.1621L14.9861 12.2237C14.5624 12.3372 14.0656 12.3321 13.3337 12.3321C13.0915 12.3321 12.8651 12.4453 12.7204 12.6348L12.6638 12.7198L9.74388 17.8301C9.61066 18.0631 9.35005 18.1935 9.08372 18.1602L8.70579 18.1123C6.75379 17.8682 5.49542 15.9213 6.07396 14.041L6.60033 12.3272C6.22861 12.3233 5.90377 12.3161 5.62083 12.294C5.18804 12.26 4.79914 12.1931 4.44701 12.0391L4.29857 11.9668C3.52688 11.5605 2.95919 10.8555 2.72533 10.0205L2.68333 9.85257C2.58769 9.42154 2.62379 8.97768 2.71654 8.49026C2.80865 8.00634 2.97082 7.41139 3.17357 6.668L3.55443 5.27249L3.74583 4.58011C3.9286 3.94171 4.10186 3.45682 4.40404 3.06546L4.53685 2.9053C4.85609 2.54372 5.25433 2.25896 5.70189 2.07425L5.93626 1.99222C6.49455 1.82612 7.15095 1.83499 8.0554 1.83499H12.6667C13.3558 1.83499 13.9128 1.83434 14.363 1.87112C14.8208 1.90854 15.2266 1.98789 15.6033 2.17972L15.821 2.30179C16.317 2.6059 16.7215 3.04226 16.987 3.56351L17.0535 3.70608C17.1977 4.04236 17.2629 4.40311 17.2956 4.80374C17.3324 5.25398 17.3318 5.81094 17.3318 6.50003V8.33304ZM13.9978 10.9961C14.3321 10.9901 14.5013 10.977 14.6413 10.9395L14.7585 10.9033C15.3353 10.7069 15.7801 10.2353 15.9392 9.64163L15.9724 9.46292C15.998 9.25682 16.0017 8.94657 16.0017 8.33304V6.50003C16.0017 5.78899 16.0008 5.29566 15.9695 4.91214C15.9464 4.6301 15.9086 4.44069 15.8572 4.2969L15.8015 4.16702C15.6475 3.86478 15.4133 3.6119 15.1257 3.43558L14.9997 3.36526C14.8418 3.28477 14.6302 3.228 14.2546 3.19729C14.0221 3.1783 13.7491 3.17109 13.4118 3.168C13.6267 3.47028 13.7914 3.81126 13.8904 4.18069L13.9275 4.34378C13.981 4.62163 13.9947 4.93582 13.9978 5.3262V10.9961Z" />
+  </svg>
+);
+
+// It checks if a string matches the standard UUID format.
+function isValidUUID(id: string): boolean {
+  if (!id) return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+}
+
 
 // --- Prefetch webpage name and description for sources ---
 async function prefetchSourceMeta(sources: { url: string; title?: string }[]) {
@@ -522,8 +541,7 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
   const { theme } = useTheme();
   const isMobileOrTablet = useIsMobileOrTablet();
-  const { isSignedIn, user } = useUser();
-  const { user: liveUser } = useUser();
+  const { isSignedIn, user: liveUser } = useUser();
 
   // --- THE FIX ---
   // 1. Prioritize the imageUrl saved WITH the message.
@@ -581,9 +599,9 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
               This is much more performant for a list of messages.
             */}
             {imageUrlToShow && (
-              <img 
-                src={imageUrlToShow} 
-                alt="User Avatar" 
+              <img
+                src={imageUrlToShow}
+                alt="User Avatar"
                 className="h-7 w-7 rounded-full"
               />
             )}
@@ -728,33 +746,29 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   );
 };
 
-const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMessage; isLoading: boolean; status: "error" | "submitted" | "streaming" | "ready"; isLatestMessage: boolean; }) => {
+const PurePreviewMessage = ({ chatId, message, isLatestMessage, status }: { chatId: string; message: TMessage; isLoading: boolean; status: "error" | "submitted" | "streaming" | "ready"; isLatestMessage: boolean; }) => {
   const { theme } = useTheme ? useTheme() : { theme: undefined };
+  const { user } = useUser();
   const isAssistant = message.role === "assistant";
   const [sourcesSidebarOpen, setSourcesSidebarOpen] = useState(false);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
+  const [voteStatus, setVoteStatus] = useState<'up' | 'down' | null>(null);
 
   const reasoningParts = React.useMemo(() =>
     message.parts?.filter(part => part.type === 'reasoning') ?? [],
     [message.parts]
   );
 
-  // 2. Extract all other parts that should be rendered normally.
   const regularParts = React.useMemo(() =>
     message.parts?.filter(part => part.type !== 'reasoning') ?? [],
     [message.parts]
   );
 
-  // --- NEW PROP CALCULATION ---
-  // Determine if the very last part of the message stream is a 'reasoning' part.
   const isLastPartReasoning = React.useMemo(() => {
     if (!message.parts || message.parts.length === 0) return false;
     return message.parts[message.parts.length - 1].type === 'reasoning';
   }, [message.parts]);
 
-
-
-  // Memoize the calculation of sources, media, text, and searchResults without side effects.
   const { images, videos, sources, allText, searchResults, visionFiltering } = React.useMemo(() => {
     const extractedImages: { src: string; alt?: string; source?: { url: string; title?: string; } }[] = [];
     const extractedVideos: { src: string; poster?: string; title?: string }[] = [];
@@ -769,14 +783,12 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
           if (result) {
             if (Array.isArray(result.images)) extractedImages.push(...result.images);
             if (Array.isArray(result.videos)) extractedVideos.push(...result.videos);
-            // Look for Exa/Google searchResults (array of objects with image or imageUrl)
             if (
               Array.isArray(result.searchResults) &&
               result.searchResults.some((r: { image?: string; imageUrl?: string }) => r.image || r.imageUrl)
             ) {
               foundSearchResults = result.searchResults;
             }
-            // Look for visionFiltering in result
             if (result.visionFiltering) {
               foundVisionFiltering = result.visionFiltering;
             }
@@ -790,8 +802,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
     return { images: extractedImages, videos: extractedVideos, sources: extractedSources, allText: combinedText, searchResults: foundSearchResults, visionFiltering: foundVisionFiltering };
   }, [message.parts, isAssistant]);
 
-  // This new useEffect handles the side effect of prefetching source metadata.
-  // It runs ONLY when the `sources` array changes, not on every render.
   useEffect(() => {
     if (sources.length > 0) {
       prefetchSourceMeta(sources);
@@ -803,7 +813,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
   const copyTimeout = useRef<NodeJS.Timeout | null>(null);
   const [searchedSitesByPart, setSearchedSitesByPart] = useState<Record<number, string[]>>({});
 
-  // This useEffect is now fixed to prevent the infinite loop by removing its own state from the dependency array.
   useEffect(() => {
     if (!message.parts) return;
     const currentUpdates: Record<number, string[]> = {};
@@ -856,15 +865,64 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
     copyTimeout.current = setTimeout(() => setCopied(false), 1000);
   };
 
+  const canVote = isValidUUID(message.id);
+
+   const handleVote = async (voteType: 'up' | 'down') => {
+    if (!canVote) {
+      toast.info("This message isn't saved yet. Please wait a moment and try again.");
+      return;
+    }
+
+    if (voteStatus) return; // Prevent re-voting
+      
+
+    if (!user) {
+      toast.error("You must be logged in to vote.");
+      return;
+    }
+
+    setVoteStatus(voteType); // Immediately update UI for responsiveness
+
+    try {
+      const response = await fetch('/api/chat/vote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId,
+          messageId: message.id,
+          voteType,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        // If vote failed, revert UI and show error
+        setVoteStatus(null);
+        toast.error(errorData.message || "Failed to record vote.");
+      }
+    } catch (error) {
+      setVoteStatus(null);
+      toast.error("An unexpected error occurred.");
+    }
+  };
+
   useEffect(() => () => { if (copyTimeout.current) clearTimeout(copyTimeout.current); }, []);
 
   const hasContent = isAssistant ? (message.parts ?? []).some(p => p.type !== 'tool-invocation' || (p.toolInvocation as any)?.result) : (message.parts ?? []).length > 0;
   if (!hasContent && status === 'ready') return null;
 
+  const baseButtonClass = !isMobileOrTablet
+    ? "rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
+    : "text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center";
+
+  const unselectedColor = theme === 'dark' ? '#FFFFFF' : '#71717A';
+  const selectedFillColor = theme === 'dark' ? '#f9f9f9' : '#000000';
+
   return (
     <AnimatePresence key={message.id}>
       <motion.div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[46rem]" initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} key={`message-${message.id}`} data-role={message.role}>
-        {/* Render MediaCarousel with images/videos if present, otherwise with searchResults if present */}
         {isAssistant && (
           (images.length > 0 || videos.length > 0) ? (
             <div className="mb-4 w-full">
@@ -935,7 +993,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                     isLastPartReasoning={isLastPartReasoning}
                   />
                 )}
-
                 {regularParts.map((part, i) => {
                   if (part.type === "text") {
                     const isEffectivelyLastPart = i === (message.parts?.length || 0) - 1;
@@ -948,9 +1005,7 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                       </motion.div>
                     );
                   }
-            
-                    if (part.type === "tool-invocation") {
-                    // Github workflow aggregator UI for githubTool
+                  if (part.type === "tool-invocation") {
                     const githubWorkflowInvocations = (message.parts ?? []).filter(
                       p => p.type === 'tool-invocation' && p.toolInvocation.toolName === 'githubTool'
                     );
@@ -960,9 +1015,9 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                       githubWorkflowInvocations.length > 0
                     ) {
                       return (
-                      <div key={`message-${message.id}-part-${i}`} className="w-full">
-                        <GithubWorkflowAggregator invocations={githubWorkflowInvocations} />
-                      </div>
+                        <div key={`message-${message.id}-part-${i}`} className="w-full">
+                          <GithubWorkflowAggregator invocations={githubWorkflowInvocations} />
+                        </div>
                       );
                     }
                     if (part.toolInvocation.state === "result") {
@@ -973,62 +1028,116 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                     const searchedSites = searchedSitesByPart[i] || [];
                     return (
                       <div className="flex flex-col" key={`message-${message.id}-part-${i}`}>
-                      <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
-                        {/* Move favicon(s) closer to the label by reducing gap and placing them immediately before the label */}
-                        <div className="flex flex-row items-center gap-0.5">
-                        <AnimatePresence initial={false}>
-                          {searchedSites.map((url, idx) => (
-                          <motion.img
-                            key={url}
-                            src={getFaviconUrl(url)}
-                            alt="site favicon"
-                            className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm"
-                            initial={{ x: -20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: 20, opacity: 0 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                            style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: 0, display: 'inline-block', marginRight: 6, top: '6px' }}
-                          />
-                          ))}
-                        </AnimatePresence>
-                        {/* Only shift fetchUrl tool label and icon to the right */}
-                        {toolName === "fetchUrl" && state === "call" && label ? (
-                          <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem', marginLeft: 4 }}>
-                          <span style={{ position: 'relative', display: 'inline-block' }}>
-                            <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
-                            <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
-                          </span>
-                          </span>
-                        ) : state === "call" && label ? (
-                          <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
-                          <span style={{ position: 'relative', display: 'inline-block' }}>
-                            <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
-                            <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
-                          </span>
-                          </span>
-                        ) : null}
+                        <div className="flex flex-row items-center gap-1" style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px' } : { marginLeft: '-16px', marginRight: '12px' }}>
+                          <div className="flex flex-row items-center gap-0.5">
+                            <AnimatePresence initial={false}>
+                              {searchedSites.map((url, idx) => (
+                                <motion.img
+                                  key={url}
+                                  src={getFaviconUrl(url)}
+                                  alt="site favicon"
+                                  className="w-4 h-4 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm"
+                                  initial={{ x: -20, opacity: 0 }}
+                                  animate={{ x: 0, opacity: 1 }}
+                                  exit={{ x: 20, opacity: 0 }}
+                                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)', position: 'relative', zIndex: 10 - idx, marginLeft: 0, display: 'inline-block', marginRight: 6, top: '6px' }}
+                                />
+                              ))}
+                            </AnimatePresence>
+                            {toolName === "fetchUrl" && state === "call" && label ? (
+                              <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem', marginLeft: 4 }}>
+                                <span style={{ position: 'relative', display: 'inline-block' }}>
+                                  <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
+                                  <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                                </span>
+                              </span>
+                            ) : state === "call" && label ? (
+                              <span className="font-medium pl-1 mt-1 relative inline-block" style={{ minWidth: 120, fontSize: '1rem' }}>
+                                <span style={{ position: 'relative', display: 'inline-block' }}>
+                                  <span style={{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280', background: theme === 'dark' ? 'linear-gradient(90deg, #fff 0%, #fff 40%, #a3a3a3 60%, #fff 100%)' : 'linear-gradient(90deg, #222 0%, #222 40%, #e0e0e0 60%, #222 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'avurna-shimmer-text 1.3s linear infinite', animationTimingFunction: 'linear', willChange: 'background-position', display: 'inline-block' }} key={theme}> {label} </span>
+                                  <style>{`@keyframes avurna-shimmer-text { 0% { background-position: -100% 0; } 100% { background-position: 100% 0; } }`}</style>
+                                </span>
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                      </div>
                     );
-                    }
+                  }
                 })}
               </div>
               {isAssistant && status === "ready" && (
                 <div className={cn(!isMobileOrTablet ? "flex flex-row mb-8" : "w-full mt-2")} style={!isMobileOrTablet ? { marginTop: '-20px' } : { marginTop: '-16px' }}>
-                  <motion.div className={cn("flex items-center gap-1 p-1 select-none pointer-events-auto group/ai-icon-row")}
+                  <motion.div className={cn("flex items-center gap-0.5 p-1 select-none pointer-events-auto group/ai-icon-row")}
                     data-ai-action
                     style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' } : { position: 'relative', left: 0, right: 0, marginLeft: '-16px', marginRight: '10px', zIndex: 10, justifyContent: 'start' }}
                     initial={{ opacity: 1 }} animate={{ opacity: 1 }}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button type="button" aria-label="Copy message" className={cn(!isMobileOrTablet ? "rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800" : "text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg focus:outline-none flex h-[36px] w-[36px] items-center justify-center")}
+                        <button type="button" aria-label="Copy message" className={cn(baseButtonClass)}
                           style={{ color: theme === 'dark' ? '#fff' : '#828282', background: 'transparent' }} onClick={handleCopy}>
-                          {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282', transition: 'all 0.2s' }} />)}
+                          {copied ? (<CheckIcon style={{ color: theme === 'dark' ? '#fff' : '#828282' }} />) : (<CopyIcon style={{ color: theme === 'dark' ? '#fff' : '#828282' }} />)}
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="select-none">{copied ? "Copied!" : "Copy"}</TooltipContent>
                     </Tooltip>
+                    {/* Voting Buttons Logic */}
+                    {!voteStatus && (
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Upvote"
+                              className={cn(baseButtonClass)}
+                              style={{ color: unselectedColor, background: 'transparent' }}
+                              onClick={() => handleVote('up')}
+                            >
+                              <ThumbsUpIcon fill={unselectedColor} />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="select-none">Upvote</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Downvote"
+                              className={cn(baseButtonClass)}
+                              style={{ color: unselectedColor, background: 'transparent' }}
+                              onClick={() => handleVote('down')}
+                            >
+                              <ThumbsDownIcon fill={unselectedColor} />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="select-none">Downvote</TooltipContent>
+                        </Tooltip>
+                      </>
+                    )}
+                    
+                    {voteStatus === 'up' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" aria-label="Upvoted" className={cn(baseButtonClass)} style={{ cursor: 'default' }}>
+                            <ThumbsUpIcon fill={selectedFillColor} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="select-none">Upvoted</TooltipContent>
+                      </Tooltip>
+                    )}
+                    
+                    {voteStatus === 'down' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" aria-label="Downvoted" className={cn(baseButtonClass)} style={{ cursor: 'default' }}>
+                            <ThumbsDownIcon fill={selectedFillColor} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="select-none">Downvoted</TooltipContent>
+                      </Tooltip>
+                    )}
+
                     {sources.length > 0 && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1127,9 +1236,6 @@ const PurePreviewMessage = ({ message, isLatestMessage, status }: { message: TMe
                                   type="button"
                                   onClick={() => setSourcesSidebarOpen(true)}
                                 >
-                                  {/** WIP: We want to add a plus icon(add icon) beside the last icon from the favicon source icon
-                                   * Now it should should only render when we have more than 3 sources. Otherwise we keep the current UI.
-                                   */}
                                   {sources.slice(0, 3).map((src, idx) => (
                                     <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
                                       <SourceFavicon url={src.url} title={src.title} />
@@ -1231,6 +1337,7 @@ export const Message = memo(PurePreviewMessage, (prevProps, nextProps) => {
   if (prevProps.status !== nextProps.status) return false;
   if (prevProps.isLoading !== nextProps.isLoading) return false;
   if (prevProps.isLatestMessage !== nextProps.isLatestMessage) return false;
+  if (prevProps.chatId !== nextProps.chatId) return false;
   if (prevProps.message.annotations !== nextProps.message.annotations) return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
   return true;

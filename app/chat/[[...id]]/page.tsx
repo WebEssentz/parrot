@@ -28,8 +28,10 @@ export default function UnifiedChatPage({ params }: { params: { id?: string[] } 
   // Show a loading spinner ONLY if we are expecting to load an existing chat.
   if (isLoading && chatId) {
     return (
-      <div className="flex items-center justify-center min-h-screen w-full animate-spin">
-        <SpinnerIcon size={48} className="text-zinc-400" />
+      // 1. REMOVE `animate-spin` from the container div
+      <div className="flex items-center justify-center min-h-screen w-full">
+        {/* 2. ADD `animate-spin` to the SpinnerIcon component itself */}
+        <SpinnerIcon size={48} className="text-zinc-400 animate-spin" />
       </div>
     );
   }

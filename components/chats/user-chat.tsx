@@ -57,7 +57,7 @@ function GreetingBanner() {
       style={{ marginTop: isMobile ? "-15vh" : "-20px" }}
     >
       <div className="text-3xl sm:text-4xl font-semibold text-zinc-800 dark:text-zinc-200 text-center select-none">
-        {greeting}, {displayName}
+        {greeting}, <span className="bg-gradient-to-r from-[#3B82F6] to-[#06B6D4] dark:from-[#F59E0B] dark:to-[#EF4444] bg-clip-text text-transparent font-bold">{displayName}</span>
       </div>
     </div>
   )
@@ -133,9 +133,9 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const userInfo =
     isLoaded && user
       ? {
-          firstName: user.firstName || user.username || "",
-          email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || "",
-        }
+        firstName: user.firstName || user.username || "",
+        email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || "",
+      }
       : undefined
 
   useEffect(() => {

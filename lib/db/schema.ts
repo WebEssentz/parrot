@@ -1,5 +1,3 @@
-// FILE: lib/db/schema.ts
-
 import type { InferSelectModel } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 import {
@@ -73,9 +71,8 @@ export type MessageDeprecated = InferSelectModel<typeof messageDeprecated>;
 
 export const message = pgTable('Message_v2', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
-  chatId: uuid('chatId')
-    .notNull()
-    .references(() => chat.id),
+  // --- FIX: Removed .notNull() to make chatId optional ---
+  chatId: uuid('chatId').references(() => chat.id),
   role: varchar('role').notNull(),
   parts: json('parts').notNull(),
   attachments: json('attachments').notNull(),
@@ -125,6 +122,33 @@ export const vote = pgTable(
 );
 
 export type Vote = InferSelectModel<typeof vote>;
+
+// --- NEW VOTE TABLE ---
+// This table replaces the old Vote and Vote_v2 tables.
+// It properly tracks individual user votes (up or down) for each message.
+export const messageVote = pgTable(
+  'MessageVote',
+  {
+    userId: varchar('userId', { length: 255 }).notNull().references(() => user.id, { onDelete: 'cascade' }),
+    // --- THE FIX ---
+    // Remove .notNull() to make chatId optional. The database will now accept
+    // NULL values for this column, preventing the Internal Server Error.
+    chatId: uuid('chatId').references(() => chat.id, { onDelete: 'cascade' }),
+    messageId: uuid('messageId').notNull().references(() => message.id, { onDelete: 'cascade' }),
+    voteType: varchar('vote_type', { enum: ['up', 'down'] }).notNull(),
+    createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => {
+    return {
+      // A user can only vote once per message.
+      pk: primaryKey({ columns: [table.userId, table.messageId] }),
+      // Index to quickly query all votes for a message.
+      messageIdIdx: index('message_id_idx').on(table.messageId),
+    };
+  },
+);
+
+export type MessageVote = InferSelectModel<typeof messageVote>;
 
 export const document = pgTable(
   'Document',
@@ -259,6 +283,7 @@ export const userRelations = relations(user, ({ many }) => ({
   chats: many(chat),
   articles: many(article),
   snippets: many(snippet),
+  messageVotes: many(messageVote), // NEW RELATION
 }));
 
 // A chat belongs to one user and can have many messages, votes, articles, and snippets.
@@ -271,25 +296,34 @@ export const chatRelations = relations(chat, ({ one, many }) => ({
   votes: many(vote),
   articles: many(article), // NEW
   snippets: many(snippet), // NEW
+  messageVotes: many(messageVote), // NEW RELATION
 }));
 
 // A message belongs to one chat and can have many votes.
 export const messageRelations = relations(message, ({ one, many }) => ({
   chat: one(chat, {
+    // --- FIX: The fields array must also reflect that it can be null ---
+    // However, Drizzle ORM relations require a non-null foreign key.
+    // The correct approach is to keep the relation as is, but handle the
+    // possibility of a null `chatId` in your application logic.
+    // The schema change above is sufficient. This relation definition is correct.
     fields: [message.chatId],
     references: [chat.id],
   }),
-  votes: many(vote),
+  votes: many(messageVote), // UPDATED RELATION
 }));
 
-// A vote belongs to one message and one chat.
-export const voteRelations = relations(vote, ({ one }) => ({
+export const messageVoteRelations = relations(messageVote, ({ one }) => ({
+  user: one(user, {
+    fields: [messageVote.userId],
+    references: [user.id],
+  }),
   chat: one(chat, {
-    fields: [vote.chatId],
+    fields: [messageVote.chatId],
     references: [chat.id],
   }),
   message: one(message, {
-    fields: [vote.messageId],
+    fields: [messageVote.messageId],
     references: [message.id],
   }),
 }));

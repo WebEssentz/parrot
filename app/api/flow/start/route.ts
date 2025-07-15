@@ -1,14 +1,11 @@
-// File: app/api/flow/start/route.ts
 import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import { NextResponse } from 'next/server';
 
-// These are read from your .env.local file by Next.js automatically
 const livekitUrl = process.env.LIVEKIT_URL!;
 const livekitApiKey = process.env.LIVEKIT_API_KEY!;
 const livekitApiSecret = process.env.LIVEKIT_API_SECRET!;
 
 export async function POST(req: Request) {
-  // Check for environment variables
   if (!livekitUrl || !livekitApiKey || !livekitApiSecret) {
     return NextResponse.json(
       { error: 'LiveKit server environment variables not configured.' },
@@ -23,7 +20,7 @@ export async function POST(req: Request) {
 
     // 1. Create a room
     const roomService = new RoomServiceClient(livekitUrl, livekitApiKey, livekitApiSecret);
-    await roomService.createRoom({ name: roomName });
+    await roomService.createRoom({ name: roomName }); // This room creation will trigger the webhook!
 
     // 2. Create a token for the user (React Frontend)
     const userToken = new AccessToken(livekitApiKey, livekitApiSecret, {
@@ -32,20 +29,9 @@ export async function POST(req: Request) {
     });
     userToken.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
 
-    // 3. Create a token for the Avurna Agent (Not strictly needed by the frontend, but good practice)
-    // You can remove this if you only need the user token on the client.
-    const agentIdentity = `agent-avurna-${roomName}`;
-    const agentToken = new AccessToken(livekitApiKey, livekitApiSecret, {
-        identity: agentIdentity,
-        name: "Avurna",
-        metadata: JSON.stringify({ agent: true }),
-    });
-    agentToken.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, roomAdmin: true });
-
-    // 4. Send all necessary info back to the frontend
+    // 3. Send only necessary info back to the frontend
     const responseData = {
       user_token: await userToken.toJwt(),
-      agent_token: await agentToken.toJwt(), // You might not need to send this to the client
       livekit_url: livekitUrl,
       room_name: roomName,
     };
@@ -53,7 +39,6 @@ export async function POST(req: Request) {
     return NextResponse.json(responseData, { status: 200 });
 
   } catch (e: any) {
-    // Log the full error on the server for debugging
     console.error("Error in /api/flow/start:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

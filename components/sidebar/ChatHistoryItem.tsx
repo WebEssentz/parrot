@@ -175,8 +175,8 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
       if (!response.ok) throw new Error("Could not load chat.")
 
       const data: Chat = await response.json()
-      setFullChatData(data) // Store the full data
-      setShowShareModal(true) // Open the modal
+      setFullChatData(data)
+      setShowShareModal(true)
       toast.dismiss(toastId)
       toast.success("Chat loaded successfully!")
     } catch (error) {
@@ -191,10 +191,9 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
     toast.info("Archive feature coming soon!")
   }
 
-  // --- ENHANCED: Close modal handler ---
   const handleCloseShareModal = () => {
     setShowShareModal(false)
-    setFullChatData(null) // Clear the data when closing
+    setFullChatData(null)
   }
 
   return (
@@ -231,7 +230,8 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
               />
             </motion.div>
           ) : (
-            <motion.button
+            // FIX: Changed motion.button to motion.div
+            <motion.div
               key="normal-view"
               onClick={onClick}
               initial={{ opacity: 0 }}
@@ -250,6 +250,7 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
               >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
+                    {/* This button is now valid as it's inside a div */}
                     <button
                       className="p-2 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700/50 cursor-pointer"
                       aria-label="Chat options"
@@ -295,7 +296,7 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            </motion.button>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -308,7 +309,6 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
         isDeleting={isDeleting}
       />
 
-      {/* ENHANCED: ShareChatModal with better data handling and event handling */}
       <AnimatePresence>
         {showShareModal && fullChatData && (
           <div onClick={(e) => e.stopPropagation()}>
