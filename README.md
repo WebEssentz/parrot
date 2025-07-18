@@ -158,4 +158,5 @@ Avurna AI is maintained by:
 - Charles (UI/UX & Training)
 - The open-source community
 
+
 Contributions are welcome! Feel free to open issues or submit pull requests to enhance functionality or fix bugs.

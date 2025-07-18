@@ -1,12 +1,29 @@
-// FILE: components/ui/theme-toggle.tsx
-
 "use client";
 
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
 
 export function ThemeToggle() {
+  const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
+
+  // useEffect only runs on the client, so we can safely show the UI
+  // after the component has mounted.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Until the component is mounted, we can return null or a placeholder.
+  // This prevents the hydration mismatch.
+  if (!mounted) {
+    return (
+      <div
+        aria-label="Toggle theme"
+        className="p-2 rounded-full w-9 h-9 animate-pulse bg-zinc-200 dark:bg-zinc-800"
+      />
+    );
+  }
 
   return (
     <button

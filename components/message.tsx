@@ -542,6 +542,14 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   const { theme } = useTheme();
   const isMobileOrTablet = useIsMobileOrTablet();
   const { isSignedIn, user: liveUser } = useUser();
+  // --- START: HYDRATION FIX ---
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  // --- END: HYDRATION FIX ---
+
 
   // --- THE FIX ---
   // 1. Prioritize the imageUrl saved WITH the message.
@@ -563,6 +571,25 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   const LONG_MESSAGE_CHAR_LIMIT = 400;
   const isLongUserMessage = part.text.length > LONG_MESSAGE_CHAR_LIMIT;
   const isWideUserMessage = part.text.length > 80;
+
+  // --- START: HYDRATION FIX ---
+  // Delay rendering the theme-dependent component until mounted on the client
+  if (!mounted) {
+    // Render a skeleton placeholder to prevent layout shift
+    return (
+        <motion.div initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.2 }} className="flex flex-row items-center w-full pb-4">
+            {isSignedIn && (
+                <div className="flex-shrink-0" style={{ alignSelf: 'flex-start', marginTop: '10px', marginRight: '8px' }}>
+                     <div className="h-7 w-7 rounded-full bg-zinc-200 dark:bg-zinc-700 animate-pulse" />
+                </div>
+            )}
+            <div className={isSignedIn ? "flex flex-row w-full items-start" : "flex flex-row w-full items-start"}>
+                 <div className="h-12 w-48 bg-zinc-200 dark:bg-zinc-700 rounded-xl animate-pulse" />
+            </div>
+        </motion.div>
+    );
+  }
+  // --- END: HYDRATION FIX ---
 
   // Define the colors for the tail to match the bubble background
   const bubbleBgColor = theme === 'dark' ? '#2A2A2A' : '#f4f4f4';

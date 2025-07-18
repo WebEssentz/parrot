@@ -142,7 +142,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ClerkProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+           <ThemeProvider 
+            attribute="class" 
+            defaultTheme="dark" 
+            enableSystem={false}
+          >
             <TooltipProvider delayDuration={0}>
               <main>
                 {children}

@@ -185,44 +185,30 @@ const components: Partial<Components> = {
     )
   },
   table: ({ node, children, ...props }) => {
-    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
       <table className="my-4 w-full text-sm border-collapse" {...props}>
-        {safeChildren}
+        {children}
       </table>
     );
   },
   thead: ({ node, children, ...props }) => {
-    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
-    return <thead {...props}>{safeChildren}</thead>;
+    return <thead {...props}>{children}</thead>;
   },
   tbody: ({ node, children, ...props }) => {
-    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
-    return <tbody {...props}>{safeChildren}</tbody>;
+    return <tbody {...props}>{children}</tbody>;
   },
   tr: ({ node, children, ...props }) => {
-    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
     return (
       <tr className="border-b border-zinc-200 dark:border-zinc-700" {...props}>
-        {safeChildren}
+        {children}
       </tr>
     );
   },
   th: ({ node, children, ...props }) => {
-    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
-    return (
-      <th className="py-2 pr-8 text-left font-normal" {...props}>
-        {safeChildren}
-      </th>
-    );
+    return <th className="py-2 pr-8 text-left font-normal" {...props}>{children}</th>;
   },
   td: ({ node, children, ...props }) => {
-    const safeChildren = Array.isArray(children) ? children : children ? [children] : [];
-    return (
-      <td className="py-2 pr-8 align-top" {...props}>
-        {safeChildren}
-      </td>
-    );
+    return <td className="py-2 pr-8 align-top" {...props}>{children}</td>;
   },
 }
 
