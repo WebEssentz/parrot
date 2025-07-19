@@ -1,13 +1,9 @@
-// FILE: components/user-chat-header.tsx
-
 "use client";
 
 import { useEffect, useState } from "react";
-import { ThemeToggle } from "../theme-toggle";
 import { useSidebar } from "@/lib/sidebar-context";
 import { motion } from "framer-motion";
 
-// The SVG is now its own component to make it reusable and cleaner.
 const CustomMenuIcon = ({ className }: { className?: string }) => (
   <svg 
     width="20" 
@@ -21,17 +17,37 @@ const CustomMenuIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export const UserChatHeader = ({ children }: { children: React.ReactNode }) => {
+export const UserChatHeader = ({ 
+  children, 
+  mobileActions,
+  desktopActions
+}: { 
+  children: React.ReactNode; 
+  mobileActions?: React.ReactNode;
+  desktopActions?: React.ReactNode;
+}) => {
   const { isDesktopSidebarCollapsed, toggleSidebar } = useSidebar();
   const [isDesktop, setIsDesktop] = useState<boolean | undefined>(undefined);
+  // Use a more specific state for mobile phones only
+  const [isMobilePhone, setIsMobilePhone] = useState<boolean>(false);
   const [showBorder, setShowBorder] = useState(false);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 1024px)');
-    const handleResize = () => setIsDesktop(mediaQuery.matches);
-    handleResize();
-    mediaQuery.addEventListener('change', handleResize);
-    return () => mediaQuery.removeEventListener('change', handleResize);
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const handleDesktopResize = () => setIsDesktop(desktopQuery.matches);
+    handleDesktopResize();
+    desktopQuery.addEventListener('change', handleDesktopResize);
+
+    // This query targets phones (< 768px), not tablets.
+    const mobileQuery = window.matchMedia('(max-width: 767px)');
+    const handleMobileResize = () => setIsMobilePhone(mobileQuery.matches);
+    handleMobileResize();
+    mobileQuery.addEventListener('change', handleMobileResize);
+
+    return () => {
+      desktopQuery.removeEventListener('change', handleDesktopResize);
+      mobileQuery.removeEventListener('change', handleMobileResize);
+    };
   }, []);
   
   useEffect(() => {
@@ -57,19 +73,23 @@ export const UserChatHeader = ({ children }: { children: React.ReactNode }) => {
       }
       style={{ boxShadow: showBorder ? '0 2px 8px 0 rgba(0,0,0,0.03)' : 'none' }}
     >
-      <div className="flex h-14 items-center px-4">
-        <button onClick={toggleSidebar} className="mr-2 block lg:hidden">
-            {/* The original Menu icon is now replaced with your SVG component. */}
-            <CustomMenuIcon className="h-5 w-5 text-zinc-900 dark:text-zinc-100" />
-            <span className="sr-only">Toggle Sidebar</span>
-        </button>
+      <div className="flex h-14 items-center justify-between px-2 sm:px-4">
+        {/* Sidebar Toggle (shows on mobile and tablet) */}
+        <div className="flex-shrink-0">
+          <button onClick={toggleSidebar} className="block lg:hidden">
+              <CustomMenuIcon className="h-5 w-5 text-zinc-900 dark:text-zinc-100" />
+              <span className="sr-only">Toggle Sidebar</span>
+          </button>
+        </div>
         
-        <div className="flex-1 min-w-0">
+        {/* Main Content (Title) */}
+        <div className={`flex-1 min-w-0 ${isMobilePhone ? 'text-center' : 'ml-2'}`}>
           {children}
         </div>
         
-        <div className="flex items-center pl-2">
-          <ThemeToggle />
+        {/* Right-Side Actions */}
+        <div className="flex items-center flex-shrink-0 pl-2">
+          {isMobilePhone ? mobileActions : desktopActions}
         </div>
       </div>
     </motion.div>

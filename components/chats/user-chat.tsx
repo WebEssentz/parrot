@@ -4,7 +4,8 @@ import React from "react"
 import { getDefaultModel } from "@/ai/providers"
 import { type Message as TMessage, useChat } from "@ai-sdk/react"
 import { useEffect, useRef, useState } from "react"
-import { Share, MoreHorizontal, Pin, Edit3, Archive, Download, Trash2 } from "lucide-react"
+import { Share, MoreHorizontal, Pin, Edit3, Archive, Download, Trash2,  MoreVertical } from "lucide-react"
+import { ThemeToggle } from "../ui/theme-toggle";
 import { useUser } from "@clerk/nextjs"
 import { Messages } from "../messages"
 import { toast } from "sonner"
@@ -429,22 +430,18 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     <div className="flex h-dvh flex-col bg-background w-screen overflow-x-hidden md:w-full md:overflow-auto">
       <Modals />
       
-      <UserChatHeader>
-        {hasSentMessage ? (
-          <div className="flex w-full items-center justify-between px-2 sm:px-4">
-            <span className="truncate text-sm font-medium text-zinc-900 dark:text-white sm:text-base max-w-[60%] sm:max-w-none">
-              {chatTitle}
-            </span>
+       {/* THIS IS THE UPDATED SECTION */}
+      <UserChatHeader 
+      desktopActions={
+          hasSentMessage && (
             <div className="flex items-center gap-1 sm:gap-2">
               <button
-                disabled={!chatId || isFetchingForShare} 
+                disabled={!chatId || isFetchingForShare}
                 onClick={handleShare}
                 className="flex rounded-2xl sm:rounded-3xl cursor-pointer items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Share size={14} className="sm:w-[15px] sm:h-[15px]" />
-                <span className="hidden sm:inline">
-                  {isFetchingForShare ? "Loading..." : "Share"}
-                </span>
+                <span className="hidden sm:inline">{isFetchingForShare ? "Loading..." : "Share"}</span>
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -452,22 +449,47 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
                     <MoreHorizontal size={14} className="sm:w-4 sm:h-4" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  align="end" 
-                  sideOffset={8} 
-                  className="w-44 sm:w-48 bg-white dark:bg-[#282828] p-2 shadow-xl border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl sm:rounded-2xl mr-2 sm:mr-0"
-                >
-                  <DropdownMenuItem onSelect={() => toast.info("Pin feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Pin size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Pin Chat</span></DropdownMenuItem>
+                <DropdownMenuContent align="end" sideOffset={8} className="w-48 bg-white dark:bg-[#282828] p-2 shadow-xl border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl">
+                <DropdownMenuItem onSelect={() => toast.info("Pin feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Pin size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Pin Chat</span></DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setShowRenameModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Edit3 size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Rename</span></DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
                   <DropdownMenuItem onSelect={() => toast.info("Export feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Download size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Export Chat</span></DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
                   <DropdownMenuItem onSelect={() => toast.info("Archive feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Archive size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Archive</span></DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setShowDeleteModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg text-red-600 dark:text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:focus:text-red-500"><Trash2 size={14} className="sm:w-[15px] sm:h-[15px] text-red-600 dark:text-red-500" /><span>Delete</span></DropdownMenuItem>
-                </DropdownMenuContent>
+              </DropdownMenuContent>
               </DropdownMenu>
+              <ThemeToggle />
             </div>
-          </div>
+          )
+        }
+        mobileActions={
+          hasSentMessage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-2">
+                  <MoreVertical size={18} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="w-48 bg-white dark:bg-[#282828] p-2 shadow-xl border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl">
+                <DropdownMenuItem onSelect={() => toast.info("Pin feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Pin size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Pin Chat</span></DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setShowRenameModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Edit3 size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Rename</span></DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
+                  <DropdownMenuItem onSelect={() => toast.info("Export feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Download size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Export Chat</span></DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
+                  <DropdownMenuItem onSelect={() => toast.info("Archive feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Archive size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Archive</span></DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setShowDeleteModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg text-red-600 dark:text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:focus:text-red-500"><Trash2 size={14} className="sm:w-[15px] sm:h-[15px] text-red-600 dark:text-red-500" /><span>Delete</span></DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        }
+      >
+        {/* --- This is the `children` prop --- */}
+        {hasSentMessage ? (
+          // On mobile, this will now be centered. On desktop, it's aligned left.
+          <span className="truncate -ml-2 text-sm font-medium text-zinc-900 dark:text-white sm:text-base">
+            {chatTitle}
+          </span>
         ) : (
           <AnimatePresence>
             {isTabletOrLarger && isDesktopSidebarCollapsed && (
