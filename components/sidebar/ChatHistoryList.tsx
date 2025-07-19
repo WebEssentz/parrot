@@ -1,5 +1,3 @@
-// FILE: components/ChatHistoryList.tsx
-
 "use client"
 
 import { ChatHistoryItem } from "./ChatHistoryItem"
@@ -8,6 +6,8 @@ import { Loader2, History, RefreshCcw } from "lucide-react"
 import { useChats, getRenamingState } from "@/hooks/use-chats"
 import { useInView } from "react-intersection-observer"
 import { useEffect } from "react"
+// ADDED: Import motion and AnimatePresence for animations
+import { motion, AnimatePresence } from "framer-motion"
 
 export const ChatHistoryList = () => {
   const params = useParams()
@@ -87,20 +87,24 @@ export const ChatHistoryList = () => {
         <span className="text-sm font-semibold tracking-wide text-zinc-900/40 dark:text-zinc-600/90">Chats</span>
       </div>
 
-      <div className="flex flex-col space-y-1 px-2">
-        {Array.isArray(chats) &&
-          chats
-            .filter((chat) => chat && chat.id)
-            .map((chat) => (
-              <ChatHistoryItem
-                key={chat.id}
-                chat={chat}
-                isActive={chat.id === activeChatId}
-                onClick={() => handleChatClick(chat.id)}
-                updateChatTitle={updateChatTitle}
-                deleteChat={deleteChat}
-              />
-            ))}
+      {/* UPDATED: Changed div to motion.div, added layout, and replaced space-y-1 with gap-1 for smoother animations */}
+      <motion.div layout className="flex flex-col gap-1 px-2">
+        {/* ADDED: AnimatePresence wrapper for the list */}
+        <AnimatePresence>
+          {Array.isArray(chats) &&
+            chats
+              .filter((chat) => chat && chat.id)
+              .map((chat) => (
+                <ChatHistoryItem
+                  key={chat.id}
+                  chat={chat}
+                  isActive={chat.id === activeChatId}
+                  onClick={() => handleChatClick(chat.id)}
+                  updateChatTitle={updateChatTitle}
+                  deleteChat={deleteChat}
+                />
+              ))}
+        </AnimatePresence>
 
         {hasMore && !getRenamingState() && <div ref={ref} className="h-1" />}
 
@@ -109,7 +113,7 @@ export const ChatHistoryList = () => {
             <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   )
 }

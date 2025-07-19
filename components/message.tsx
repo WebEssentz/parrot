@@ -1095,7 +1095,7 @@ const PurePreviewMessage = ({ chatId, message, isLatestMessage, status }: { chat
                 })}
               </div>
               {isAssistant && status === "ready" && (
-                <div className={cn(!isMobileOrTablet ? "flex flex-row mb-8" : "w-full mt-2")} style={!isMobileOrTablet ? { marginTop: '-20px' } : { marginTop: '-16px' }}>
+                <div className={cn(!isMobileOrTablet ? "flex flex-row mb-8" : "w-full mb-14")} style={!isMobileOrTablet ? { marginTop: '-20px' } : { marginTop: '-16px' }}>
                   <motion.div className={cn("flex items-center gap-0.5 p-1 select-none pointer-events-auto group/ai-icon-row")}
                     data-ai-action
                     style={!isMobileOrTablet ? { marginLeft: '-16px', marginRight: '12px', alignSelf: 'flex-start' } : { position: 'relative', left: 0, right: 0, marginLeft: '-16px', marginRight: '10px', zIndex: 10, justifyContent: 'start' }}

@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import type React from "react"
 import { useSidebar } from "@/lib/sidebar-context"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
@@ -62,21 +62,31 @@ const NewChatButton = () => {
 // --- Main Sidebar Component ---
 export const Sidebar = () => {
   const [hasMounted, setHasMounted] = useState(false)
+  const initialLoadHandled = useRef(false);
+
   useEffect(() => { setHasMounted(true) }, [])
 
-  const { isDesktopSidebarCollapsed, toggleDesktopSidebar } = useSidebar()
+  const { isDesktopSidebarCollapsed, toggleDesktopSidebar, isSidebarOpen, toggleSidebar } = useSidebar()
   const { user } = useUser()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
 
+  useEffect(() => {
+    if (hasMounted && !initialLoadHandled.current) {
+      if (!isDesktop && !isSidebarOpen) {
+        toggleSidebar();
+      }
+      initialLoadHandled.current = true;
+    }
+  }, [hasMounted, isDesktop, isSidebarOpen, toggleSidebar]);
+
+
   const handleSidebarClick = () => {
-    // This function will only toggle the sidebar if it's currently collapsed.
     if (isDesktop && isDesktopSidebarCollapsed) {
       toggleDesktopSidebar();
     }
   }
 
   const handleToggleIconClick = (e: React.MouseEvent) => {
-    // Stop the click from bubbling up to the main sidebar handler
     e.stopPropagation();
     toggleDesktopSidebar();
   }
@@ -85,38 +95,39 @@ export const Sidebar = () => {
 
   return (
     <motion.aside
-      onClick={handleSidebarClick} // <-- Main click handler
+      onClick={handleSidebarClick}
       layout
       initial={false}
-      animate={isDesktopSidebarCollapsed ? "collapsed" : "open"}
-      variants={{ open: { width: "16rem" }, collapsed: { width: "3.2rem" }, }}
+      // FIX 2: Only animate based on the collapse state if on desktop
+      animate={isDesktop && isDesktopSidebarCollapsed ? "collapsed" : "open"}
+      // FIX 1: Only provide collapse/open width variants on desktop
+      variants={isDesktop ? { open: { width: "16rem" }, collapsed: { width: "3.2rem" } } : {}}
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       className={clsx(
         "flex h-full flex-col border-r overflow-x-hidden", 
         "border-zinc-200 dark:border-zinc-800", 
         { 
           "fixed top-0 left-0 z-50": isDesktop, 
-          // FIX: Add a pointer cursor when collapsed to show it's clickable
           "cursor-ew-resize": isDesktop && isDesktopSidebarCollapsed,
-          // Use resize cursor only when the sidebar is open
-          "bg-[#FFFFFF] dark:bg-[#1C1C1C] shadow-md border-r dark:border-r-[#333333]": isDesktopSidebarCollapsed, 
-          "bg-[#f9f9f9] dark:bg-[#1E1E1E] dark:border-r-[#333333]": !isDesktopSidebarCollapsed, 
+          "bg-[#FFFFFF] dark:bg-[#1C1C1C] shadow-md border-r dark:border-r-[#333333]": isDesktop && isDesktopSidebarCollapsed, 
+          "bg-[#f9f9f9] dark:bg-[#1E1E1E] dark:border-r-[#333333]": !isDesktop || !isDesktopSidebarCollapsed, 
           "w-64": !isDesktop, 
       })}>
       <div className="flex flex-col h-full w-full">
-        {/* FIX: Wrap interactive header elements to stop click propagation */}
         <div onClick={(e) => e.stopPropagation()}>
           <div className="flex-shrink-0 p-2 min-h-[56px] w-full flex items-center relative">
             <AnimatePresence>
               {!isDesktopSidebarCollapsed && (<motion.div key="avurna-title" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20, transition: { duration: 0.1 } }} transition={{ duration: 0.3, ease: "easeOut" }} className="absolute left-4 select-none font-medium text-zinc-900 dark:text-white" style={{ fontSize: "20px", lineHeight: "22px", fontFamily: 'Google Sans, "Helvetica Neue", sans-serif', letterSpacing: "normal", }}>Avurna</motion.div>)}
             </AnimatePresence>
             <motion.div layout transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }} className={clsx(!isDesktopSidebarCollapsed && "absolute right-2 top-2")}>
-              {/* This button toggles both ways and stops propagation */}
-              <SidebarIconButton 
-                icon={isDesktopSidebarCollapsed ? ChevronsRight : ChevronsLeft} 
-                onClick={handleToggleIconClick} // <-- Use new handler
-                className={clsx("cursor-pointer", { "pl-[0.68rem]": isDesktopSidebarCollapsed, "pl-[0.5rem]": !isDesktopSidebarCollapsed, })}
-              />
+              {/* FIX 3: The collapse/expand button is now a desktop-only feature */}
+              {isDesktop && (
+                <SidebarIconButton 
+                  icon={isDesktopSidebarCollapsed ? ChevronsRight : ChevronsLeft} 
+                  onClick={handleToggleIconClick}
+                  className={clsx("cursor-pointer", { "pl-[0.68rem]": isDesktopSidebarCollapsed, "pl-[0.5rem]": !isDesktopSidebarCollapsed, })}
+                />
+              )}
             </motion.div>
           </div>
           <div className="h-[0.60rem]" />
@@ -125,14 +136,12 @@ export const Sidebar = () => {
           <NewChatButton />
         </div>
         
-        {/* This area is only visible when open, so no click handler is needed */}
         <div className="flex-grow overflow-y-auto mt-4">
           <AnimatePresence>
             {!isDesktopSidebarCollapsed && (<motion.div key="chat-history-list" layout={false} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.25, duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}><ChatHistoryList /></motion.div>)}
           </AnimatePresence>
         </div>
         
-        {/* FIX: Wrap the user menu to stop click propagation */}
         <div className="flex-shrink-0 w-full p-1 px-1" onClick={(e) => e.stopPropagation()}>
             <CustomUserMenu>
                 <button className={clsx("user-profile-button w-full flex items-center p-2 rounded-lg", "cursor-pointer")}>
