@@ -638,34 +638,58 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
           <div className="group/user-message flex flex-col items-start w-full gap-1 relative justify-center pb-2" style={{ flex: '1 1 auto', position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%' }}>
               <motion.div
+                // FIX 2: Added the layout prop to automatically animate size changes.
+                layout
                 className={cn(
-                  "user-bubble-with-tail", // <-- The new class to attach the pseudo-element
-                  "group/message-bubble prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-50 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-xl relative text-left break-words", // <-- Kept rounded-xl for the main shape
+                  "user-bubble-with-tail",
+                  "group/message-bubble prose-p:opacity-95 prose-strong:opacity-100 border border-border-l1 message-bubble prose min-h-7 text-primary dark:prose-invert bg-zinc-50 text-zinc-900 dark:text-zinc-100 px-5 py-2.5 rounded-xl relative text-left break-words",
                   isLongUserMessage ? "max-w-[90vw]" : "max-w-[70vw]",
                   isLongUserMessage && "relative"
                 )}
                 style={{
                   lineHeight: '1.5',
-                  overflow: isLongUserMessage ? 'hidden' : undefined,
-                  WebkitMaskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
-                  maskImage: isLongUserMessage && !expanded ? 'linear-gradient(180deg, #000 60%, transparent 100%)' : undefined,
+                  overflow: 'hidden',
+                  // FIX 1: Removed the WebkitMaskImage and maskImage properties.
                   paddingTop: !isLongUserMessage ? '12px' : undefined,
-                  background: bubbleBgColor, // Use the variable to ensure colors match
+                  background: bubbleBgColor,
                   borderColor: tailBorderColor,
                   ['--tail-color' as string]: tailBorderColor,
                 }}
-                initial={false}
-                animate={{ maxHeight: isLongUserMessage ? expanded ? 1000 : 120 : 'none' }}
-                transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
+                // Removed the manual maxHeight animation in favor of the `layout` prop.
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
               >
                 <div style={{ paddingRight: (!isMobileOrTablet && !isWideUserMessage) ? 72 : isLongUserMessage ? 36 : undefined, position: 'relative' }}>
-                  {isLongUserMessage && !expanded ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...' : part.text}
+                  {/* FIX 3: Wrap the conditional text in AnimatePresence for smooth content swapping. */}
+                  <AnimatePresence initial={false} mode="wait">
+                    <motion.div
+                      key={expanded ? "full" : "truncated"}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      {isLongUserMessage && !expanded
+                        ? part.text.slice(0, LONG_MESSAGE_CHAR_LIMIT) + '...'
+                        : part.text}
+                    </motion.div>
+                  </AnimatePresence>
+
                   {isLongUserMessage && (
                     <div style={{ position: 'absolute', top: 32, right: 8, zIndex: 10, display: 'flex', alignItems: 'center' }}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button type="button" aria-label={expanded ? "Collapse message" : "Expand message"} className="rounded-full p-1 flex items-center justify-center bg-transparent hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer" onClick={e => { e.stopPropagation(); setExpanded(v => !v); }} tabIndex={0}>
-                            {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                            <AnimatePresence initial={false} mode="wait">
+                              <motion.div
+                                key={expanded ? "up" : "down"}
+                                initial={{ rotate: -90, opacity: 0 }}
+                                animate={{ rotate: 0, opacity: 1 }}
+                                exit={{ rotate: 90, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
+                              </motion.div>
+                            </AnimatePresence>
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="select-none z-[9999]" sideOffset={3} align="end">{expanded ? "Collapse message" : "Expand message"}</TooltipContent>
