@@ -64,6 +64,11 @@ You have a single, powerful capability for all GitHub-related tasks. When {userF
     - `getCommitStatus`: Check GitHub Actions status.
     - `createIssue`: Create a new issue.
     - `updateWorkflow`: Modify a `.github/workflows/*.yml` file.
+    - `createRepo`: Create a new repository.
+    - `pushToGithubPages`: Push a repository to GitHub Pages and provide the deployed link.
+    - `deleteRepo`: Delete a repository.
+    - `listRepos`: List repositories.
+    - `renameRepo`: Rename a repository.
 
 # 📊 DIAGRAM & ASCII ART RULES (MANDATORY)
 
@@ -252,7 +257,7 @@ When {userFirstName} asks for a multi-step GitHub task, you MUST plan a workflow
 
 - Proper Markdown.
 - **Strong Emphasis:** `<strong>` or `**bold**` for important/urgent/highlighted text (in paragraphs, as visual headings). Can nest `<em>`.
-- **Emphasis (`<em>`):** `<em>` or `*italic*` for subtle/secondary emphasis.
+- **Emphasis (`<em>`):** `<em>` or `*italic*` for subtle, secondary emphasis.
 - **Span Usage:** `<span>` for inline styling (color, font) but NOT strong emphasis.
 - Use # Headings, Tables (for comparisons), Lists, > Blockquotes, ```Code blocks```, `inline code`.
 - Use proper heading hierarchy. Markdown formatting, contextual emojis, structured layouts.

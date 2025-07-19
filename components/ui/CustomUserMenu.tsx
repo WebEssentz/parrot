@@ -91,7 +91,7 @@ export const UserAvatar = () => {
   };
 
   return (
-    <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-zinc-200 dark:bg-zinc-700/80">
+    <div className="mb-1 w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center bg-zinc-200 dark:bg-zinc-700/80">
       {user?.imageUrl ? (
         <img src={user.imageUrl} alt={user.fullName || "User"} className="w-full h-full rounded-full object-cover" />
       ) : (

@@ -89,7 +89,7 @@ export const Sidebar = () => {
       layout
       initial={false}
       animate={isDesktopSidebarCollapsed ? "collapsed" : "open"}
-      variants={{ open: { width: "16rem" }, collapsed: { width: "3.5rem" }, }}
+      variants={{ open: { width: "16rem" }, collapsed: { width: "3.2rem" }, }}
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       className={clsx(
         "flex h-full flex-col border-r overflow-x-hidden", 
@@ -99,7 +99,7 @@ export const Sidebar = () => {
           // FIX: Add a pointer cursor when collapsed to show it's clickable
           "cursor-ew-resize": isDesktop && isDesktopSidebarCollapsed,
           // Use resize cursor only when the sidebar is open
-          "bg-[#FFFFFF] dark:bg-[#1C1C1C] shadow-md dark:shadow-lg border-r dark:border-r-[#333333]": isDesktopSidebarCollapsed, 
+          "bg-[#FFFFFF] dark:bg-[#1C1C1C] shadow-md border-r dark:border-r-[#333333]": isDesktopSidebarCollapsed, 
           "bg-[#f9f9f9] dark:bg-[#1E1E1E] dark:border-r-[#333333]": !isDesktopSidebarCollapsed, 
           "w-64": !isDesktop, 
       })}>

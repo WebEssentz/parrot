@@ -30,40 +30,29 @@ import { ShareChatModal } from "../share/share-chat-modal"
 
 function GreetingBanner() {
   const { user, isLoaded } = useUser()
-  let displayName = "King"
+  let displayName = "User"
 
   if (isLoaded && user) {
-    displayName = user.firstName || user.lastName || user.username || "dear"
+    displayName = user.firstName || user.username || "User"
   }
 
   const hour = new Date().getHours()
-  let greeting = "Hello"
+  let greeting = "Good evening"
   if (hour < 12) greeting = "Good morning"
   else if (hour < 18) greeting = "Good afternoon"
-  else greeting = "Good evening"
-
-  const [isMobile, setIsMobile] = React.useState(false)
-
-  React.useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
 
   return (
-    <div
-      className="w-full px-4 flex flex-col items-center max-w-xl lg:max-w-[50rem]"
-      style={{ marginTop: isMobile ? "-15vh" : "-20px" }}
-    >
-      <div className="text-3xl sm:text-4xl font-semibold text-zinc-800 dark:text-zinc-200 text-center select-none">
-        {greeting}, <span className="bg-gradient-to-r from-[#3B82F6] to-[#06B6D4] dark:from-[#F59E0B] dark:to-[#EF4444] bg-clip-text text-transparent font-bold">{displayName}</span>
+    <div className="w-full flex flex-col items-center">
+      <div className="text-2xl sm:text-3xl font-semibold text-zinc-800 dark:text-zinc-200 text-center select-none">
+        {greeting},{' '}
+        <span className="bg-gradient-to-r from-[#3B82F6] to-[#06B6D4] dark:from-[#F59E0B] dark:to-[#EF4444] bg-clip-text text-transparent font-bold">
+          {displayName}
+        </span>
       </div>
     </div>
   )
 }
 
-// --- Network/Clerk reconnect logic ---
 function useReconnectToClerk() {
   const [offlineState, setOfflineState] = useState<"online" | "reconnecting" | "offline">("online")
   const [hasShownReconnect, setHasShownReconnect] = useState(false)
@@ -74,7 +63,6 @@ function useReconnectToClerk() {
       toast.dismiss("reconnect")
       setHasShownReconnect(false)
     }
-
     const handleOffline = () => {
       setOfflineState("reconnecting")
       if (!hasShownReconnect) {
@@ -82,18 +70,15 @@ function useReconnectToClerk() {
         setHasShownReconnect(true)
       }
     }
-
     window.addEventListener("online", handleOnline)
     window.addEventListener("offline", handleOffline)
     if (!navigator.onLine) handleOffline()
-
     return () => {
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
       toast.dismiss("reconnect")
     }
   }, [hasShownReconnect])
-
   return offlineState
 }
 
@@ -104,9 +89,9 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const endRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
   const { user, isLoaded, isSignedIn } = useUser()
   const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModel(!!isSignedIn))
-  const [inputAreaHeight, setInputAreaHeight] = useState(0)
-  const inputAreaRef = useRef<HTMLDivElement>(null)
-  const [isDesktop, setIsDesktop] = useState<undefined | boolean>(undefined)
+  
+  const [isTabletOrLarger, setIsTabletOrLarger] = useState<boolean>(false)
+
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false)
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts()
   const { isDesktopSidebarCollapsed } = useSidebar()
@@ -129,14 +114,10 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [fullChatDataForShare, setFullChatDataForShare] = useState<any>(null)
 
   const MAX_COMPLETION_INPUT_LENGTH = 90
-
-  const userInfo =
-    isLoaded && user
-      ? {
-        firstName: user.firstName || user.username || "",
-        email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || "",
-      }
-      : undefined
+  const userInfo = isLoaded && user ? {
+    firstName: user.firstName || user.username || "",
+    email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || "",
+  } : undefined
 
   useEffect(() => {
     const syncUser = async () => {
@@ -152,7 +133,6 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
         }
       }
     }
-
     syncUser()
   }, [isSignedIn])
 
@@ -208,47 +188,28 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     }
     const trimmedInput = input.trim()
     if (!trimmedInput) return
-
     if (!chatId) {
-      const userMessage: TMessage = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: trimmedInput,
-      }
+      const userMessage: TMessage = { id: crypto.randomUUID(), role: "user", content: trimmedInput }
       const tempTitle = trimmedInput.substring(0, 50)
       try {
         const response = await fetch("/api/chats", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [userMessage],
-            userId: dbUser.id,
-            title: tempTitle,
-          }),
+          body: JSON.stringify({ messages: [userMessage], userId: dbUser.id, title: tempTitle }),
         })
         if (!response.ok) throw new Error("Failed to create chat in database.")
         const newChat = await response.json()
         const newPersistentId = newChat.id
-
         setChatId(newPersistentId)
         setChatTitle(tempTitle)
         document.title = tempTitle
         window.history.replaceState({}, "", `/chat/${newPersistentId}`)
-
         mutateChats((currentPagesData = []) => {
-          const newChatSummary = {
-            id: newPersistentId,
-            title: "New Chat",
-            isOptimistic: true,
-          }
+          const newChatSummary = { id: newPersistentId, title: "New Chat", isOptimistic: true }
           const firstPage = currentPagesData[0] || { chats: [] }
-          const newFirstPage = {
-            ...firstPage,
-            chats: [newChatSummary, ...firstPage.chats],
-          }
+          const newFirstPage = { ...firstPage, chats: [newChatSummary, ...firstPage.chats] }
           return [newFirstPage, ...currentPagesData.slice(1)]
         }, false)
-
         append(userMessage)
         setInput("")
         await generateAndSyncTitle(newPersistentId, trimmedInput)
@@ -263,27 +224,24 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   }
 
   useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
+    const mediaQuery = window.matchMedia("(min-width: 768px)")
+    const check = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsTabletOrLarger(e.matches)
+    }
+    check(mediaQuery) // Initial check
+    mediaQuery.addEventListener('change', check)
+    return () => mediaQuery.removeEventListener('change', check)
   }, [])
 
   const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle
-
   const isExistingChat = useRef(!!initialChat)
 
   useEffect(() => {
-    if (isExistingChat.current) {
-      return
-    }
-    if (!isDesktop) return
-    const controller = new AbortController()
-    if (!input.trim() || input.trim().length < 3 || input.trim().length > MAX_COMPLETION_INPUT_LENGTH) {
+    if (isExistingChat.current || !isTabletOrLarger || !input.trim() || input.trim().length < 3 || input.trim().length > MAX_COMPLETION_INPUT_LENGTH) {
       setPredictivePrompts([])
       return
     }
-
+    const controller = new AbortController()
     const handler = setTimeout(async () => {
       setIsPredicting(true)
       try {
@@ -303,35 +261,21 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           setPredictivePrompts([])
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setIsPredicting(false)
-        }
+        if (!controller.signal.aborted) setIsPredicting(false)
       }
     }, 150)
-
     return () => {
       clearTimeout(handler)
       controller.abort()
     }
-  }, [input, isDesktop])
+  }, [input, isTabletOrLarger])
 
   const hasSentMessage = messages.length > 0
-
   const authorInfo = {
     username: user?.username || user?.firstName || "Anonymous",
     profilePic: user?.imageUrl || null,
     firstName: user?.firstName ?? null,
   }
-
-  useEffect(() => {
-    const element = inputAreaRef.current
-    if (!element) return
-    const observer = new ResizeObserver(() => {
-      setInputAreaHeight(element.offsetHeight)
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [hasSentMessage])
 
   const chatInputAreaProps = {
     handleSubmit,
@@ -348,7 +292,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     status,
     stop,
     hasSentMessage,
-    isDesktop: !!isDesktop,
+    isDesktop: isTabletOrLarger,
     selectedModel,
     setSelectedModel,
     dynamicSuggestedPrompts,
@@ -360,9 +304,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
 
   useEffect(() => {
     if (prevStatusRef.current === "streaming" && status === "ready") {
-      if (!chatId || messages.length < 2) {
-        return
-      }
+      if (!chatId || messages.length < 2) return
       const saveChat = async () => {
         try {
           await fetch(`/api/chats/${chatId}`, {
@@ -381,6 +323,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   }, [status, messages, chatId, chatTitle, mutateChats])
 
   useEffect(() => {
+    if (!hasSentMessage) return
     const mainEl = containerRef.current
     if (!mainEl) return
     const handleScroll = () => {
@@ -388,13 +331,10 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
       const isAtBottom = scrollHeight - scrollTop - clientHeight <= 1
       setShowScrollButton(!isAtBottom)
     }
-
     mainEl.addEventListener("scroll", handleScroll, { passive: true })
     handleScroll()
-    return () => {
-      mainEl.removeEventListener("scroll", handleScroll)
-    }
-  }, [])
+    return () => mainEl.removeEventListener("scroll", handleScroll)
+  }, [hasSentMessage])
 
   const handleScrollToBottom = () => {
     endRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -406,16 +346,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     router.push("/chat")
     deleteChat(chatId)
     setShowDeleteModal(false)
-
     try {
-      const response = await fetch(`/api/chats/${chatId}`, { method: "DELETE" })
-      if (!response.ok) {
-        toast.error("Server failed to delete chat. It may reappear on refresh.")
-      } else {
-        toast.success("Chat deleted successfully.")
-      }
+      await fetch(`/api/chats/${chatId}`, { method: "DELETE" })
+      toast.success("Chat deleted successfully.")
     } catch (error) {
-      toast.error("An error occurred while deleting the chat on the server.")
+      toast.error("An error occurred while deleting the chat.")
     }
   }
 
@@ -423,19 +358,16 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     if (!chatId) return
     setIsRenaming(true)
     const originalTitle = chatTitle
-
     try {
       setChatTitle(newTitle)
       updateChatTitle(chatId, newTitle, true)
       setShowRenameModal(false)
-
       const response = await fetch(`/api/chats/${chatId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle }),
       })
       if (!response.ok) throw new Error("Failed to rename chat")
-
       updateChatTitle(chatId, newTitle, false)
       mutateChats()
     } catch (error) {
@@ -447,139 +379,102 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     }
   }
 
-  // --- ENHANCED: Handle Share button click ---
   const handleShare = async () => {
     if (!chatId) {
       toast.error("No chat to share")
       return
     }
-
     setIsFetchingForShare(true)
-    // const toastId = toast.loading("Preparing chat for sharing...")
-
     try {
-      // If we already have initialChat data, use it, otherwise fetch fresh data
-      if (initialChat && initialChat.messages) {
-        setFullChatDataForShare({
-          ...initialChat,
-          messages: messages, // Use current messages from useChat
-          user: authorInfo,
-        })
-        setShowShareModal(true)
-        // toast.dismiss(toastId)
-        toast.success("Chat ready to share!")
-      } else {
-        // Fetch fresh data if we don't have it
-        const response = await fetch(`/api/chats/${chatId}`)
-        if (!response.ok) throw new Error("Could not load chat.")
-
-        const data = await response.json()
-        setFullChatDataForShare({
-          ...data,
-          messages: messages, // Use current messages from useChat
-          user: authorInfo,
-        })
-        setShowShareModal(true)
-        // toast.dismiss(toastId)
-        toast.success("Chat ready to share!")
-      }
+      const response = await fetch(`/api/chats/${chatId}`)
+      if (!response.ok) throw new Error("Could not load chat.")
+      const data = await response.json()
+      setFullChatDataForShare({ ...data, messages, user: authorInfo })
+      setShowShareModal(true)
+      toast.success("Chat ready to share!")
     } catch (error) {
       toast.error("Failed to prepare chat for sharing.")
-      // toast.dismiss(toastId)
     } finally {
       setIsFetchingForShare(false)
     }
   }
 
-  // --- ENHANCED: Close share modal handler ---
   const handleCloseShareModal = () => {
     setShowShareModal(false)
     setFullChatDataForShare(null)
   }
 
+  const Modals = () => (
+    <>
+      <DeleteChatModal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} onConfirm={handleDelete} chatTitle={chatTitle} isDeleting={isDeleting} />
+      <RenameChatModal isOpen={showRenameModal} onClose={() => setShowRenameModal(false)} onConfirm={handleRename} currentTitle={chatTitle} isRenaming={isRenaming} />
+      <AnimatePresence>
+        {showShareModal && fullChatDataForShare && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <ShareChatModal isOpen={showShareModal} onClose={handleCloseShareModal} chatId={chatId!} chatTitle={chatTitle} chat={{
+              messages: fullChatDataForShare.messages || [],
+              user: fullChatDataForShare.user || authorInfo,
+              visibility: fullChatDataForShare.visibility || "private",
+              isLiveSynced: fullChatDataForShare.isLiveSynced || false,
+              updatedAt: fullChatDataForShare.updatedAt || new Date().toISOString(),
+            }} />
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+  
   return (
-    <div
-      className="relative flex h-screen w-full flex-col overflow-hidden bg-background"
-      style={{ "--input-area-height": `${inputAreaHeight}px` } as React.CSSProperties}
-    >
+    // FIX 1: Restored the background color to cover the overlay element.
+    <div className="flex h-dvh flex-col bg-background w-screen overflow-x-hidden md:w-full md:overflow-auto">
+      <Modals />
+      
       <UserChatHeader>
         {hasSentMessage ? (
-          <div className="flex items-center justify-between">
-            <span className="text-base font-medium text-zinc-900 dark:text-white truncate">{chatTitle}</span>
-            <div className="flex items-center gap-2">
+          <div className="flex w-full items-center justify-between px-2 sm:px-4">
+            <span className="truncate text-sm font-medium text-zinc-900 dark:text-white sm:text-base max-w-[60%] sm:max-w-none">
+              {chatTitle}
+            </span>
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
-                disabled={!chatId || isFetchingForShare}
+                disabled={!chatId || isFetchingForShare} 
                 onClick={handleShare}
-                className="flex rounded-3xl cursor-pointer items-center gap-1.5 px-3 py-2 text-sm font-medium text-zinc-900 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex rounded-2xl sm:rounded-3xl cursor-pointer items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Share size={15} />
-                <span className="hidden sm:inline">{isFetchingForShare ? "Loading..." : "Share"}</span>
+                <Share size={14} className="sm:w-[15px] sm:h-[15px]" />
+                <span className="hidden sm:inline">
+                  {isFetchingForShare ? "Loading..." : "Share"}
+                </span>
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="p-2 cursor-pointer rounded-lg text-zinc-600 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-                    <MoreHorizontal size={16} />
+                  <button className="p-1.5 sm:p-2 cursor-pointer rounded-lg text-zinc-600 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                    <MoreHorizontal size={14} className="sm:w-4 sm:h-4" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  sideOffset={8}
-                  className="w-48 bg-white dark:bg-[#282828] p-2 shadow-xl border border-zinc-200/80 dark:border-zinc-700/80 rounded-2xl"
+                <DropdownMenuContent 
+                  align="end" 
+                  sideOffset={8} 
+                  className="w-44 sm:w-48 bg-white dark:bg-[#282828] p-2 shadow-xl border border-zinc-200/80 dark:border-zinc-700/80 rounded-xl sm:rounded-2xl mr-2 sm:mr-0"
                 >
-                  <DropdownMenuItem
-                    onSelect={() => toast.info("Pin feature coming soon!")}
-                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
-                  >
-                    <Pin size={15} className="text-zinc-500" />
-                    <span>Pin Chat</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => setShowRenameModal(true)}
-                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
-                  >
-                    <Edit3 size={15} className="text-zinc-500" />
-                    <span>Rename</span>
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => toast.info("Pin feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Pin size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Pin Chat</span></DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setShowRenameModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Edit3 size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Rename</span></DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
-                  <DropdownMenuItem
-                    onSelect={() => toast.info("Export feature coming soon!")}
-                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
-                  >
-                    <Download size={15} className="text-zinc-500" />
-                    <span>Export Chat</span>
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => toast.info("Export feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Download size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Export Chat</span></DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
-                  <DropdownMenuItem
-                    onSelect={() => toast.info("Archive feature coming soon!")}
-                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"
-                  >
-                    <Archive size={15} className="text-zinc-500" />
-                    <span>Archive</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => setShowDeleteModal(true)}
-                    className="flex items-center gap-3 cursor-pointer px-2 py-2 text-sm rounded-lg text-red-600 dark:text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:focus:text-red-500"
-                  >
-                    <Trash2 size={15} className="text-red-600 dark:text-red-500" />
-                    <span>Delete</span>
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => toast.info("Archive feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Archive size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Archive</span></DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setShowDeleteModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg text-red-600 dark:text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:focus:text-red-500"><Trash2 size={14} className="sm:w-[15px] sm:h-[15px] text-red-600 dark:text-red-500" /><span>Delete</span></DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
         ) : (
           <AnimatePresence>
-            {isDesktop && isDesktopSidebarCollapsed && (
+            {isTabletOrLarger && isDesktopSidebarCollapsed && (
               <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0, transition: { delay: 0.2 } }}
-                exit={{ opacity: 0, x: -10, transition: { duration: 0.2 } }}
+                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0, transition: { delay: 0.2 } }} exit={{ opacity: 0, x: -10 }}
                 className="text-[20px] font-leading select-none mt-1 font-medium text-zinc-900 dark:text-white"
-                style={{
-                  lineHeight: "22px",
-                  fontFamily: 'Google Sans, "Helvetica Neue", sans-serif',
-                  letterSpacing: "normal",
-                }}
+                style={{ lineHeight: "22px", fontFamily: 'Google Sans, "Helvetica Neue", sans-serif' }}
               >
                 Avurna
               </motion.span>
@@ -588,113 +483,53 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
         )}
       </UserChatHeader>
 
-      <DeleteChatModal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        onConfirm={handleDelete}
-        chatTitle={chatTitle}
-        isDeleting={isDeleting}
-      />
-
-      <RenameChatModal
-        isOpen={showRenameModal}
-        onClose={() => setShowRenameModal(false)}
-        onConfirm={handleRename}
-        currentTitle={chatTitle}
-        isRenaming={isRenaming}
-      />
-
-      {/* ENHANCED: ShareChatModal with better data handling and event handling */}
-      <AnimatePresence>
-        {showShareModal && fullChatDataForShare && (
-          <div onClick={(e) => e.stopPropagation()}>
-            <ShareChatModal
-              isOpen={showShareModal}
-              onClose={handleCloseShareModal}
-              chatId={chatId!}
-              chatTitle={chatTitle}
-              chat={{
-                messages: fullChatDataForShare.messages || [],
-                user: fullChatDataForShare.user || authorInfo,
-                visibility: fullChatDataForShare.visibility || "private",
-                isLiveSynced: fullChatDataForShare.isLiveSynced || false,
-                updatedAt: fullChatDataForShare.updatedAt || new Date().toISOString(),
-              }}
-            />
-          </div>
-        )}
-      </AnimatePresence>
-
       <main
         ref={containerRef}
-        className={"absolute inset-0 overflow-y-auto"}
-        style={{
-          paddingTop: "5rem",
-          paddingBottom: hasSentMessage ? `${inputAreaHeight + 16}px` : "0px",
-        }}
+        className="flex-1 overflow-y-auto overflow-x-hidden pt-14"
       >
-        {!hasSentMessage ? (
-          <div className="flex h-full items-center justify-center sm:items-start sm:pt-[20vh]">
-            <div className="w-full px-4 flex flex-col items-center gap-8 max-w-xl lg:max-w-[50rem]">
-              <GreetingBanner />
-              {isDesktop && (
-                <div className="w-full max-w-4xl mx-auto">
-                  <ChatInputArea {...chatInputAreaProps} />
-                </div>
-              )}
+        <div className="mx-auto h-full w-full max-w-[53rem]">
+          {!hasSentMessage ? (
+            <div className="flex h-full w-full items-center justify-center">
+              <div className="flex w-full flex-col items-center gap-8 px-4 mb-20">
+                <GreetingBanner />
+                {isTabletOrLarger && <div className="w-full"><ChatInputArea {...chatInputAreaProps} /></div>}
+              </div>
             </div>
-          </div>
-        ) : (
-          <Messages messages={messages} isLoading={uiIsLoading} status={status as any} endRef={endRef} />
-        )}
-        <ChatScrollAnchor containerRef={containerRef} />
-        <div ref={endRef} />
-      </main>
-
-      {!isDesktop && !hasSentMessage && (
-        <div
-          ref={inputAreaRef}
-          className="fixed bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"
-        >
-          <div
-            className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto"
-            style={{ marginBottom: "12px" }}
-          >
-            <div className="w-full relative z-10">
-              <ChatInputArea {...chatInputAreaProps} />
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="px-2 sm:px-4 pt-4">
+                <Messages messages={messages} isLoading={uiIsLoading} status={status as any} endRef={endRef} />
+              </div>
+              <ChatScrollAnchor containerRef={containerRef} />
+              <div ref={endRef} className="h-px" />
+            </>
+          )}
         </div>
-      )}
-
-      {hasSentMessage && (
-        <>
-          <motion.div
-            initial={false}
-            ref={inputAreaRef}
-            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? "3.5rem" : "16rem") : "0rem" }}
-            transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
-            className="fixed bottom-0 right-0 z-10 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"
-          >
-            <div
-              className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-12 pb-1 sm:pt-16 sm:pb-2 pointer-events-auto"
-              style={{ marginBottom: "12px" }}
-            >
-              <ChatInputArea {...chatInputAreaProps} />
-              <ScrollToBottomButton isVisible={showScrollButton && hasSentMessage} onClick={handleScrollToBottom} />
+      </main>
+      
+      {((!hasSentMessage && !isTabletOrLarger) || hasSentMessage) && (
+        <div className="w-full pt-2">
+            <div className="mx-auto w-full max-w-[50rem] px-3 pb-3 sm:px-4 sm:pb-4">
+                <div className={`relative`}>
+                    {hasSentMessage && (
+                        // FIX 2: Corrected invalid 'top-13' to a valid 'top-0'
+                        <div className="absolute top-3 left-1/2 -translate-x-1/2">
+                            <ScrollToBottomButton
+                                isVisible={showScrollButton}
+                                onClick={handleScrollToBottom}
+                            />
+                        </div>
+                    )}
+                    <ChatInputArea {...chatInputAreaProps} />
+                </div>
+                {hasSentMessage && (
+                    // FIX 3: Corrected negative margin '-mt-2' to 'mt-2'
+                    <p className="text-center text-xs font-base text-zinc-600 dark:text-zinc-200 -mt-1 -mb-2 px-4">
+                        Avurna uses AI. Double check response.
+                    </p>
+                )}
             </div>
-          </motion.div>
-          <motion.div
-            initial={false}
-            animate={{ left: isDesktop ? (isDesktopSidebarCollapsed ? "3.5rem" : "16rem") : "0rem" }}
-            transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
-            className="fixed right-0 bottom-0 z-40 text-center pb-2 pointer-events-none"
-          >
-            <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none rounded-xl pointer-events-auto">
-              Avurna uses AI. Double check response.
-            </span>
-          </motion.div>
-        </>
+        </div>
       )}
     </div>
   )

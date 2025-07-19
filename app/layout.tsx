@@ -110,7 +110,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <link rel="shortcut icon" href="favicon.png" type="image/x-icon" />
@@ -119,6 +119,7 @@ export default function RootLayout({
       </head>
       <body className={cn(
         "font-sans antialiased",
+        "h-full",
         inter.variable,
         roboto.variable,
         openSans.variable,

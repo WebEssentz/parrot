@@ -1,5 +1,3 @@
-// app/chat/[[...id]]/page.tsx
-
 "use client";
 
 import React from "react";
@@ -28,9 +26,7 @@ export default function UnifiedChatPage({ params }: { params: { id?: string[] } 
   // Show a loading spinner ONLY if we are expecting to load an existing chat.
   if (isLoading && chatId) {
     return (
-      // 1. REMOVE `animate-spin` from the container div
       <div className="flex items-center justify-center min-h-screen w-full">
-        {/* 2. ADD `animate-spin` to the SpinnerIcon component itself */}
         <SpinnerIcon size={48} className="text-zinc-400 animate-spin" />
       </div>
     );
@@ -45,7 +41,10 @@ export default function UnifiedChatPage({ params }: { params: { id?: string[] } 
   }
 
   // If there's no ID, or if data is loaded, render the chat component.
-  // Pass the chatData (which will be `null` for a new chat, or the object for an existing one).
-  // The key ensures the component correctly resets if you navigate from one chat to another.
-  return <UserChat key={chatId} initialChat={chatData} />;
+  return (
+    // This container MUST fill the screen for UserChat to expand correctly.
+    <main className="h-dvh w-full"> 
+      <UserChat key={chatId} initialChat={chatData} />
+    </main>
+  );
 }
