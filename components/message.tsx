@@ -12,11 +12,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { memo, useRef } from "react";
 import { StrategySlate } from "./strategy-slate";
-import { File as FileIcon, X } from 'lucide-react';
+import { Download, ExternalLink, File as FileIcon, Info, X } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { GithubWorkflowAggregator } from './ui/github-workflow-aggregator';
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
+import Image from "next/image"
 import {
   Drawer,
   DrawerContent,
@@ -34,14 +35,20 @@ import {
 import styles from "@/components/ui/image-slider.module.css";
 import { MediaCarousel } from "./ui/media-carousel";
 
-// --- NEW: Image Overlay Component ---
 interface ImageOverlayProps {
   src: string;
   alt: string;
   onClose: () => void;
+  fileName?: string;
+  // Removed onOpenInLens prop as it's no longer needed
 }
 
-function ImageOverlay({ src, alt, onClose }: ImageOverlayProps) {
+export default function ImageOverlay({
+  src,
+  alt,
+  onClose,
+  fileName,
+}: ImageOverlayProps) { // Removed onOpenInLens from destructuring
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -60,31 +67,83 @@ function ImageOverlay({ src, alt, onClose }: ImageOverlayProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      // Use flex-col for a vertical layout and add padding around the entire overlay
+      className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-md p-4 md:p-6" // Slightly more blur
       onClick={onClose}
     >
-      <motion.button
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1, transition: { delay: 0.1 } }}
-        exit={{ opacity: 0, scale: 0.5 }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        className="absolute top-4 cursor-pointer right-4 z-50 p-2 rounded-full bg-black/50 text-white hover:bg-black/75 transition-colors"
-        aria-label="Close image view"
-      >
-        <X size={24} />
-      </motion.button>
+      {/* Header Bar */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.85 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.85 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="relative max-w-[90vw] max-h-[90vh]"
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: -50, opacity: 0 }}
+        transition={{ delay: 0.1, duration: 0.2 }}
+        // The header now sits cleanly at the top. Use relative and z-10 to keep it above the image.
+        // Updated to explicitly center filename and handle actions separately
+        className="relative z-10 flex w-full items-center justify-between text-white mb-4" // Added margin-bottom
         onClick={(e) => e.stopPropagation()}
       >
-        <img src={src} alt={alt} className="block max-w-full max-h-full rounded-lg shadow-2xl" />
+        {/* Left Section: Close Button */}
+        <button
+          onClick={onClose}
+          className="p-2 rounded-full cursor-pointer transition-colors hover:bg-white/20"
+          aria-label="Close image view"
+        >
+          <X size={24} />
+        </button>
+
+        {/* Center Section: Filename (if provided) */}
+        {fileName && (
+          <span className="flex-1 text-center text-lg font-semibold truncate px-4"> {/* flex-1 to allow centering, truncate for long names */}
+            {fileName}
+          </span>
+        )}
+        
+        {/* Right Section: New Action Buttons (e.g., Download, Info) */}
+        <div className="flex items-center space-x-2">
+            {/* Example: Download Button */}
+            <button
+                // You'll need to implement the actual download logic here or pass it as a prop
+                onClick={(e) => { e.stopPropagation(); console.log('Download clicked for:', src); /* Add download logic */ }}
+                className="p-2 rounded-full cursor-pointer transition-colors hover:bg-white/20"
+                aria-label="Download image"
+                title="Download image" // Tooltip
+            >
+              <Download size={20} />
+            </button>
+            {/* Example: Info Button (placeholder for more details) */}
+            <button
+                // You'll need to implement the info display logic here or pass it as a prop
+                onClick={(e) => { e.stopPropagation(); console.log('Info clicked for:', src); /* Add info display logic */ }}
+                className="p-2 rounded-full cursor-pointer transition-colors hover:bg-white/20"
+                aria-label="Image information"
+                title="Image information" // Tooltip
+            >
+                <Info size={20} />
+            </button>
+        </div>
+      </motion.div>
+
+      {/* Image Container - This now grows to fill available space */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30, delay: 0.05 }}
+        // flex-1 makes the container grow, and my-4 adds vertical spacing.
+        className="relative my-4 h-full w-full flex-1 flex items-center justify-center" // Added flex for centering image within container
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Using layout="fill" with objectFit="contain" is the key to making the image
+          responsive. It will fill the parent container while maintaining its aspect
+          ratio without being cropped. The parent div now controls the size.
+        */}
+        <Image
+          src={src}
+          alt={alt}
+          layout="fill"
+          objectFit="contain"
+          className="rounded-xl shadow-xl" // Slightly less rounding and shadow for a cleaner look
+        />
       </motion.div>
     </motion.div>
   );

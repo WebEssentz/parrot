@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
     // Also ignore TypeScript errors
     ignoreBuildErrors: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/v0/b/**', // This allows any path under /v0/b/
+      },
+    ],
+  },
 };
 
 export default nextConfig;
