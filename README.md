@@ -7,7 +7,7 @@
 ---
 
 <p align="center">
-  <a href="#-latest-major-update-the-semantic-web-agent"><strong>Latest Update</strong></a> ·
+  <a href="#-latest-major-update-exa-pro-deep-research-2025-06-17"><strong>Latest Update</strong></a> ·
   <a href="#features"><strong>Features</strong></a> ·
   <a href="#deploy-your-own"><strong>Deploy</strong></a> ·
   <a href="#running-locally"><strong>Run Locally</strong></a> ·
@@ -15,7 +15,17 @@
 </p>
 <br/>
 
-## 🚀 Latest Major Update: Exa Pro Deep Research (2025-06-17)
+## 🚀 Latest Major Update: v2.0.0 - Enhanced UI/UX & Input Experience (2025-07-21)
+
+This release significantly refines the user interface and interaction, especially around the chat input.
+
+-   **Immediate Input Clearing:** The chat input textarea now clears instantly upon message submission, providing immediate visual feedback and a smoother interaction flow.
+-   **Uninterrupted Typing during AI Response:** The textarea remains fully enabled for user input even while the AI is streaming its response. This allows for continuous conversation and follow-up questions without interruption.
+-   **Improved Textarea Visuals & Expansion:** Resolved a UI bug where typed text was obscured by the bottom button bar. The textarea now smoothly expands and maintains correct padding, ensuring all text is visible and the input area dynamically adjusts to content.
+
+---
+
+## 🚀 2025-06-17: Exa Pro Deep Research Integration
 
 -   **Exa Pro Deep Research:** Avurna now uses Exa Pro for web research, providing research-grade, multi-source, reasoned answers with direct citations. This is a leap beyond traditional search—it's automated deep research.
 -   **Record-Breaking Speed:** Achieved a new record: 9.8 seconds for a full deep research answer (measured end-to-end, streaming enabled). No URL fails in testing.
@@ -23,6 +33,11 @@
 -   **More Grounded Than Google or ChatGPT:** Every claim is directly cited, with no hallucinated URLs. Exa Pro is more grounded and up-to-date than Google or ChatGPT search.
 -   **Note:** The standard Exa model is even faster than Exa Pro for pure search.
 
+---
+
+## 🚀 2025-06-12: Major Architectural Upgrade: The Semantic Web Agent
+
+This release marks a fundamental shift from a chatbot to a true AI agent.
 
 -   **Semantic Navigation:** Avurna no longer just follows links; it uses a fast AI model to understand the *meaning* of links before navigating. This allows it to make human-like decisions, avoiding irrelevant rabbit holes and finding information more accurately.
 -   **Multi-Modal Understanding:** Avurna can see images and watch videos on webpages using `gemma-3-27b-it` to analyze content, not just text.
@@ -41,21 +56,22 @@
     -   Uses **`gemma-3-27b-it`** for powerful, heavy-lifting tasks (like vision analysis and summarization).
 -   **Modern, Responsive UI:** Built with [shadcn/ui](https://ui.shadcn.com/), [Tailwind CSS](https://tailwindcss.com), and the [Next.js](https://nextjs.org) App Router.
 -   **Streaming Responses:** Text and results stream in real-time, powered by the [Vercel AI SDK](https://sdk.vercel.ai/docs).
+-   **Enhanced Chat Input Experience:** Immediate clearing, uninterrupted typing during AI responses, and smooth textarea expansion.
 
 
 ## 🚀 2025-05-20: Features & Improvements
 
-- **Mobile Safearea for Privacy Message:**
-  - On mobile, the privacy policy message, textarea, and disclaimer are now wrapped in a "safearea". Tapping outside this area dismisses the privacy message, while taps inside do not.
-  - This improves usability and prevents accidental dismissal when interacting with the input or privacy message.
+-   **Mobile Safearea for Privacy Message:**
+    -   On mobile, the privacy policy message, textarea, and disclaimer are now wrapped in a "safearea". Tapping outside this area dismisses the privacy message, while taps inside do not.
+    -   This improves usability and prevents accidental dismissal when interacting with the input or privacy message.
 
-## 🚀 Major 2025 Updates
+## 🚀 Major 2025 Updates (Prior to v2.0.0)
 
-- **One-Shot Search Mode:** When the Search button is selected, the next message always uses real-time web search, then reverts to the default model. No more infinite search loops.
-- **Privacy & Transparency:** Avurna never mentions its training data, internal tools, or the ages of its creators unless specifically asked. Capabilities are described in plain language (e.g., "I can search Google").
-- **Modern UI:** The header now displays "Avurna" in a semibold, modern font on desktop, and the original icon on mobile/tablet. The search button's lit state is user-controlled and visually consistent. The textarea input is cleared after sending a message.
-- **Robust Model Handling:** Improved code structure for model selection and POST handling to avoid race conditions and ensure correct model usage.
-- **Responsive Design:** Enhanced experience for both desktop and mobile users.
+-   **One-Shot Search Mode:** When the Search button is selected, the next message always uses real-time web search, then reverts to the default model. No more infinite search loops.
+-   **Privacy & Transparency:** Avurna never mentions its training data, internal tools, or creator details unless asked. Capabilities are described in plain language (e.g., "I can search Google").
+-   **Modern UI:** The header now displays "Avurna" in a semibold, modern font on desktop, and the original icon on mobile/tablet. The search button's lit state is user-controlled and visually consistent. The textarea input is cleared after sending a message.
+-   **Robust Model Handling:** Improved code structure for model selection and POST handling to avoid race conditions and ensure correct model usage.
+-   **Responsive Design:** Enhanced experience for both desktop and mobile users.
 
 See [CHANGELOG.md](./CHANGELOG.md) for details.
 
@@ -63,38 +79,14 @@ See [CHANGELOG.md](./CHANGELOG.md) for details.
 
 ## ⚡️ 2025-06-17: Exa Pro Deep Research Integration
 
-- Exa Pro is now the default for web research, replacing Google Search.
-- Achieved a record-breaking 9.8 seconds for full deep research answers (streaming, no URL fails).
-- Streaming mode returns partial results in real time.
-- Every claim is directly cited, with no hallucinated URLs.
-- Exa Pro is more grounded and up-to-date than Google or ChatGPT search.
-- According to Exa’s developer, the standard Exa model is even faster than Exa Pro for pure search.
-</p>
+-   Exa Pro is now the default for web research, replacing Google Search.
+-   Achieved a record-breaking 9.8 seconds for full deep research answers (streaming, no URL fails).
+-   Streaming mode returns partial results in real time.
+-   Every claim is directly cited, with no hallucinated URLs.
+-   Exa Pro is more grounded and up-to-date than Google or ChatGPT search.
+-   According to Exa’s developer, the standard Exa model is even faster than Exa Pro for pure search.
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running Locally</strong></a> ·
-  <a href="#authors"><strong>Authors</strong></a>
-</p>
-<br/>
-
-## Features
-
-- Real-time, one-shot search mode for up-to-date answers from the web
-- Privacy-first: never reveals training data, internal tools, or creator details unless asked
-- Modern, branded UI with responsive design and smooth chat experience
-- Streaming text responses powered by the [AI SDK by Vercel](https://sdk.vercel.ai/docs), supporting multiple AI providers
-- Built-in tool integration for extending AI capabilities (weather, web search, and more)
-- Reasoning model support
-- [shadcn/ui](https://ui.shadcn.com/) components for a modern, responsive UI powered by [Tailwind CSS](https://tailwindcss.com)
-- Built with the latest [Next.js](https://nextjs.org) App Router
-
-- **Agent X Web Agent:**
-  - Human-like, vision-guided web agent for dynamic and interactive sites
-  - Recursive link following with safeguards (recursionDepth, maxPages, timeout, domain restriction, visited tracking)
-  - Gemini Vision-powered screenshot and DOM analysis
-  - Progressive, stepwise results and deep web extraction
+---
 
 ## Deploy Your Own
 
@@ -106,47 +98,47 @@ You can deploy your own version to Vercel by clicking the button below:
 
 1. Clone the repository and install dependencies:
 
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   ```
+    ```bash
+    npm install
+    # or
+    yarn install
+    # or
+    pnpm install
+    ```
 
 2. Install the [Vercel CLI](https://vercel.com/docs/cli):
 
-   ```bash
-   npm i -g vercel
-   # or
-   yarn global add vercel
-   # or
-   pnpm install -g vercel
-   ```
+    ```bash
+    npm i -g vercel
+    # or
+    yarn global add vercel
+    # or
+    pnpm install -g vercel
+    ```
 
-   Once installed, link your local project to your Vercel project:
+    Once installed, link your local project to your Vercel project:
 
-   ```bash
-   vercel link
-   ```
+    ```bash
+    vercel link
+    ```
 
-   After linking, pull your environment variables:
+    After linking, pull your environment variables:
 
-   ```bash
-   vercel env pull
-   ```
+    ```bash
+    vercel env pull
+    ```
 
-   This will create a `.env.local` file with all the necessary environment variables.
+    This will create a `.env.local` file with all the necessary environment variables.
 
 3. Run the development server:
 
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
-   ```
+    ```bash
+    npm run dev
+    # or
+    yarn dev
+    # or
+    pnpm dev
+    ```
 
 4. Open [http://localhost:3000](http://localhost:3000) to view your new AI chatbot application.
 

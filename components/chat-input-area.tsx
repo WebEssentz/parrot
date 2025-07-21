@@ -1,5 +1,3 @@
-// FILE: components/chat-input-area.tsx
-
 "use client";
 
 import { AnimatePresence } from "framer-motion";
@@ -7,9 +5,13 @@ import { PredictivePrompts } from "./ui/suggestions/predictive-prompts";
 import { Textarea as CustomTextareaWrapper } from "./textarea";
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
 import { useRef } from "react";
+import { StagedFile } from "@/components/chats/user-chat"; // Import StagedFile type
 
 interface ChatInputAreaProps {
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSendMessage: (message: string) => Promise<void>; // Updated signature
+  onFileStaged: (files: StagedFile[]) => void; // New prop for staging files
+  stagedFiles: StagedFile[]; // Pass staged files from parent
+  setStagedFiles: React.Dispatch<React.SetStateAction<StagedFile[]>>; // Pass setter for staged files
   predictivePrompts: string[];
   input: string;
   setInput: (value: string) => void;
@@ -25,10 +27,17 @@ interface ChatInputAreaProps {
   dynamicSuggestedPrompts: string[];
   isPredictiveVisible: boolean;
   setIsPredictiveVisible: (visible: boolean) => void;
+  disabled?: boolean;
+  offlineState?: 'online' | 'reconnecting' | 'offline';
+  user: any;
+  chatId: string | null;
 }
 
 export function ChatInputArea({
-  handleSubmit,
+  onSendMessage,
+  onFileStaged, // Destructure new prop
+  stagedFiles, // Destructure new prop
+  setStagedFiles, // Destructure new prop
   predictivePrompts,
   input,
   setInput,
@@ -37,35 +46,36 @@ export function ChatInputArea({
   dynamicSuggestedPrompts,
   isPredictiveVisible,
   setIsPredictiveVisible,
+  hasSentMessage,
   ...rest
 }: ChatInputAreaProps) {
   const inputAreaRef = useRef<HTMLDivElement>(null);
-
   useOnClickOutside(inputAreaRef, () => setIsPredictiveVisible(false));
 
   return (
     <div ref={inputAreaRef} className="relative w-full">
-      <form onSubmit={handleSubmit} className="w-full">
-        <CustomTextareaWrapper
-          setInput={setInput}
-          input={input}
-          isLoading={uiIsLoading}
-          suggestedPrompts={dynamicSuggestedPrompts}
-          onFocus={() => setIsPredictiveVisible(true)}
-          {...rest}
-        />
-      </form>
+      <CustomTextareaWrapper
+        setInput={setInput}
+        input={input}
+        isLoading={uiIsLoading}
+        suggestedPrompts={dynamicSuggestedPrompts}
+        onFocus={() => setIsPredictiveVisible(true)}
+        onSendMessage={onSendMessage}
+        onFileStaged={onFileStaged} // Pass onFileStaged down
+        stagedFiles={stagedFiles} // Pass stagedFiles down
+        setStagedFiles={setStagedFiles} // Pass setStagedFiles down
+        hasSentMessage={hasSentMessage}
+        {...rest}
+      />
       <AnimatePresence>
-        {isPredictiveVisible && predictivePrompts.length > 0 && (
+        {isPredictiveVisible && !hasSentMessage && predictivePrompts.length > 0 && (
           <PredictivePrompts
             prompts={predictivePrompts}
             currentUserInput={input}
             onSelect={(prompt) => {
               setInput(prompt);
+              setIsPredictiveVisible(false);
             }}
-            // --- THIS IS THE FIX ---
-            // Add the required onDismiss prop. This allows the child component
-            // to tell the parent to hide the prompts when the user presses Escape.
             onDismiss={() => setIsPredictiveVisible(false)}
           />
         )}

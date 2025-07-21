@@ -2,9 +2,9 @@
 
 import React from "react"
 import { getDefaultModel } from "@/ai/providers"
-import { type Message as TMessage, useChat } from "@ai-sdk/react"
+import { useChat } from "@ai-sdk/react"
 import { useEffect, useRef, useState } from "react"
-import { Share, MoreHorizontal, Pin, Edit3, Archive, Download, Trash2,  MoreVertical } from "lucide-react"
+import { Share, MoreHorizontal, Pin, Edit3, Archive, Download, Trash2, MoreVertical } from "lucide-react"
 import { ThemeToggle } from "../ui/theme-toggle";
 import { useUser } from "@clerk/nextjs"
 import { Messages } from "../messages"
@@ -29,19 +29,47 @@ import {
 import { useRouter } from "next/navigation"
 import { ShareChatModal } from "../share/share-chat-modal"
 
+// Type for data returned from our /api/upload endpoint
+export interface AttachmentRecord {
+  id: string;
+  fileName: string;
+  fileType: string;
+  downloadUrl: string;
+  chatId: string | null;
+  userId: string;
+  fileSize: number;
+  storagePath: string;
+  createdAt: string;
+}
+
+// Type for files staged in the browser's memory
+export interface StagedFile {
+  id: string;
+  file: File;
+  previewUrl: string | null;
+  uploadProgress?: number; // Add uploadProgress to track individual file upload progress
+  uploadedAttachment?: AttachmentRecord; // Store the uploaded attachment record here
+  isUploading: boolean; // Flag to indicate if this specific file is uploading
+  error?: string; // To store upload errors for a specific file
+}
+
+// Type definition for what the Vercel AI SDK's `experimental_attachments` field expects
+export interface Attachment {
+  name?: string;
+  contentType?: string;
+  url: string;
+}
+
 function GreetingBanner() {
   const { user, isLoaded } = useUser()
   let displayName = "User"
-
   if (isLoaded && user) {
     displayName = user.firstName || user.username || "User"
   }
-
   const hour = new Date().getHours()
   let greeting = "Good evening"
   if (hour < 12) greeting = "Good morning"
   else if (hour < 18) greeting = "Good afternoon"
-
   return (
     <div className="w-full flex flex-col items-center">
       <div className="text-2xl sm:text-3xl font-semibold text-zinc-800 dark:text-zinc-200 text-center select-none">
@@ -57,7 +85,6 @@ function GreetingBanner() {
 function useReconnectToClerk() {
   const [offlineState, setOfflineState] = useState<"online" | "reconnecting" | "offline">("online")
   const [hasShownReconnect, setHasShownReconnect] = useState(false)
-
   useEffect(() => {
     const handleOnline = () => {
       setOfflineState("online")
@@ -90,9 +117,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const endRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
   const { user, isLoaded, isSignedIn } = useUser()
   const [selectedModel, setSelectedModel] = useState<string>(() => getDefaultModel(!!isSignedIn))
-  
   const [isTabletOrLarger, setIsTabletOrLarger] = useState<boolean>(false)
-
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false)
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts()
   const { isDesktopSidebarCollapsed } = useSidebar()
@@ -113,8 +138,12 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [showShareModal, setShowShareModal] = useState(false)
   const [isFetchingForShare, setIsFetchingForShare] = useState(false)
   const [fullChatDataForShare, setFullChatDataForShare] = useState<any>(null)
-
   const MAX_COMPLETION_INPUT_LENGTH = 90
+  
+  // State to manage staged files and their upload progress
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+
+
   const userInfo = isLoaded && user ? {
     firstName: user.firstName || user.username || "",
     email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || "",
@@ -181,64 +210,180 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     },
   })
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const hasSentMessage = messages.length > 0
+
+  // New function to handle file staging and immediate upload
+  const handleFileStaged = async (newFiles: StagedFile[]) => {
     if (!dbUser?.id) {
-      toast.error("User profile not loaded yet, please wait!")
-      return
+      toast.error("User profile not loaded. Please wait a moment.");
+      return;
     }
-    const trimmedInput = input.trim()
-    if (!trimmedInput) return
-    if (!chatId) {
-      const userMessage: TMessage = { id: crypto.randomUUID(), role: "user", content: trimmedInput }
-      const tempTitle = trimmedInput.substring(0, 50)
+
+    // Add new files to stagedFiles state with initial uploading status
+    setStagedFiles(prev => [...prev, ...newFiles.map(f => ({ ...f, isUploading: true, uploadProgress: 0 }))]);
+
+    let currentChatId = chatId;
+    let isNewChat = !currentChatId;
+
+    if (isNewChat) {
+      // If it's a new chat, create it first to get a chatId for uploads
+      const tempTitle = "New Chat (Draft)"; // Placeholder title
+      const initialMessageForDb = { role: 'user', content: "Draft chat with attachments." }; // Placeholder content
       try {
         const response = await fetch("/api/chats", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: [userMessage], userId: dbUser.id, title: tempTitle }),
-        })
-        if (!response.ok) throw new Error("Failed to create chat in database.")
-        const newChat = await response.json()
-        const newPersistentId = newChat.id
-        setChatId(newPersistentId)
-        setChatTitle(tempTitle)
-        document.title = tempTitle
-        window.history.replaceState({}, "", `/chat/${newPersistentId}`)
-        mutateChats((currentPagesData = []) => {
-          const newChatSummary = { id: newPersistentId, title: "New Chat", isOptimistic: true }
-          const firstPage = currentPagesData[0] || { chats: [] }
-          const newFirstPage = { ...firstPage, chats: [newChatSummary, ...firstPage.chats] }
-          return [newFirstPage, ...currentPagesData.slice(1)]
-        }, false)
-        append(userMessage)
-        setInput("")
-        await generateAndSyncTitle(newPersistentId, trimmedInput)
-      } catch (error) {
-        toast.error("Could not create new chat. Please try again.")
-        return
+          body: JSON.stringify({
+            messages: [initialMessageForDb],
+            userId: dbUser.id,
+            title: tempTitle
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to create chat in the database for file upload.");
+        
+        const newChat = await response.json();
+        currentChatId = newChat.id;
+        setChatId(currentChatId);
+        setChatTitle(tempTitle);
+        window.history.replaceState({}, "", `/chat/${currentChatId}`);
+        mutateChats();
+      } catch (error: any) {
+        toast.error(error.message || "Failed to initialize chat for file upload.");
+        // Mark all new files as errored if chat creation fails
+        setStagedFiles(prev => prev.map(f => newFiles.some(nf => nf.id === f.id) ? { ...f, isUploading: false, error: 'Chat init failed' } : f));
+        return;
       }
-    } else {
-      append({ id: crypto.randomUUID(), role: "user", content: trimmedInput })
-      setInput("")
     }
-  }
+
+    // Now, upload each new file
+    newFiles.forEach(async (stagedFile) => {
+      const formData = new FormData();
+      formData.append('file', stagedFile.file);
+      if (currentChatId) formData.append('chatId', currentChatId);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload', true);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentCompleted = Math.round((event.loaded * 100) / event.total);
+          setStagedFiles(prev => prev.map(f => f.id === stagedFile.id ? { ...f, uploadProgress: percentCompleted } : f));
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          const result = JSON.parse(xhr.responseText);
+          setStagedFiles(prev => prev.map(f => f.id === stagedFile.id ? { ...f, isUploading: false, uploadProgress: 100, uploadedAttachment: result.attachmentRecord } : f));
+          toast.success(`'${stagedFile.file.name}' uploaded.`);
+        } else {
+          const errorResult = JSON.parse(xhr.responseText);
+          setStagedFiles(prev => prev.map(f => f.id === stagedFile.id ? { ...f, isUploading: false, error: errorResult.error || 'Upload failed' } : f));
+          toast.error(`Failed to upload '${stagedFile.file.name}': ${errorResult.error || 'Unknown error'}`);
+        }
+      };
+
+      xhr.onerror = () => {
+        setStagedFiles(prev => prev.map(f => f.id === stagedFile.id ? { ...f, isUploading: false, error: 'Network error' } : f));
+        toast.error(`Network error uploading '${stagedFile.file.name}'.`);
+      };
+
+      xhr.send(formData);
+    });
+  };
+
+  const handleSendMessage = async (messageText: string) => {
+    if (!dbUser?.id) {
+      toast.error("User profile not loaded. Please wait a moment.");
+      return;
+    }
+  
+    let currentChatId = chatId;
+    let isNewChat = !currentChatId;
+  
+    const uploadedAttachments = stagedFiles.filter(f => f.uploadedAttachment && !f.isUploading && !f.error).map(f => f.uploadedAttachment!);
+    
+    if (!messageText.trim() && uploadedAttachments.length === 0) {
+      toast.error("Please enter a message or wait for files to upload.");
+      return;
+    }
+
+    if (stagedFiles.some(f => f.isUploading)) {
+      toast.info("Please wait for all files to finish uploading.");
+      return;
+    }
+
+    try {
+      if (isNewChat) {
+        const tempTitle = messageText.substring(0, 50) || "New Chat";
+        const initialMessageForDb = { role: 'user', content: messageText };
+        const response = await fetch("/api/chats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [initialMessageForDb],
+            userId: dbUser.id,
+            title: tempTitle
+          }),
+        });
+  
+        if (!response.ok) throw new Error("Failed to create chat in the database.");
+        
+        const newChat = await response.json();
+        currentChatId = newChat.id;
+        setChatId(currentChatId);
+        setChatTitle(tempTitle);
+        window.history.replaceState({}, "", `/chat/${currentChatId}`);
+        mutateChats();
+      }
+  
+      const sdkAttachments: Attachment[] = uploadedAttachments.map(att => ({
+        url: att.downloadUrl,
+        name: att.fileName,
+        contentType: att.fileType,
+      }));
+  
+      // Clear input and staged files BEFORE appending the message to the chat
+      stagedFiles.forEach(sf => {
+        if (sf.previewUrl) URL.revokeObjectURL(sf.previewUrl);
+      });
+      setStagedFiles([]);
+      setInput(''); 
+
+      await append({
+        role: 'user',
+        content: messageText,
+        experimental_attachments: sdkAttachments,
+      }, {
+        data: {
+          attachmentIds: uploadedAttachments.map(a => a.id),
+          chatId: currentChatId
+        }
+      });
+  
+      if (isNewChat && currentChatId) {
+        await generateAndSyncTitle(currentChatId, messageText);
+      }
+  
+    } catch (error: any) {
+      toast.error(error.message || "An unexpected error occurred.");
+    }
+  };
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 768px)")
-    const check = (e: MediaQueryListEvent | MediaQueryList) => {
-      setIsTabletOrLarger(e.matches)
-    }
-    check(mediaQuery) // Initial check
+    const check = (e: MediaQueryListEvent | MediaQueryList) => setIsTabletOrLarger(e.matches)
+    check(mediaQuery)
     mediaQuery.addEventListener('change', check)
     return () => mediaQuery.removeEventListener('change', check)
   }, [])
 
-  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle
-  const isExistingChat = useRef(!!initialChat)
+  // uiIsLoading now includes checks for any file being uploaded
+  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle || stagedFiles.some(f => f.isUploading);
 
   useEffect(() => {
-    if (isExistingChat.current || !isTabletOrLarger || !input.trim() || input.trim().length < 3 || input.trim().length > MAX_COMPLETION_INPUT_LENGTH) {
+    if (hasSentMessage || !isTabletOrLarger || !input.trim() || input.trim().length < 3 || input.trim().length > MAX_COMPLETION_INPUT_LENGTH) {
       setPredictivePrompts([])
       return
     }
@@ -269,9 +414,8 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
       clearTimeout(handler)
       controller.abort()
     }
-  }, [input, isTabletOrLarger])
+  }, [input, isTabletOrLarger, hasSentMessage])
 
-  const hasSentMessage = messages.length > 0
   const authorInfo = {
     username: user?.username || user?.firstName || "Anonymous",
     profilePic: user?.imageUrl || null,
@@ -279,7 +423,10 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   }
 
   const chatInputAreaProps = {
-    handleSubmit,
+    onSendMessage: handleSendMessage, // Updated signature
+    onFileStaged: handleFileStaged, // New prop for staging files
+    stagedFiles: stagedFiles, // Pass staged files to ChatInputArea
+    setStagedFiles: setStagedFiles, // Pass setter for staged files
     predictivePrompts,
     input,
     setInput: (newInput: string) => {
@@ -296,11 +443,14 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     isDesktop: isTabletOrLarger,
     selectedModel,
     setSelectedModel,
-    dynamicSuggestedPrompts,
+    dynamicSuggestedPrompts: dynamicSuggestedPrompts || [],
     isPredictiveVisible,
     setIsPredictiveVisible,
-    disabled: offlineState !== "online",
+    // Modified: Only disable if offline or actively uploading files, NOT during AI streaming
+    disabled: offlineState !== "online" || stagedFiles.some(f => f.isUploading), 
     offlineState: offlineState,
+    user: dbUser,
+    chatId: chatId,
   }
 
   useEffect(() => {
@@ -426,20 +576,13 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   )
   
   return (
-    // FIX 1: Restored the background color to cover the overlay element.
     <div className="flex h-dvh flex-col bg-background w-screen overflow-x-hidden md:w-full md:overflow-auto">
       <Modals />
-      
-       {/* THIS IS THE UPDATED SECTION */}
       <UserChatHeader 
       desktopActions={
           hasSentMessage && (
             <div className="flex items-center gap-1 sm:gap-2">
-              <button
-                disabled={!chatId || isFetchingForShare}
-                onClick={handleShare}
-                className="flex rounded-2xl sm:rounded-3xl cursor-pointer items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <button disabled={!chatId || isFetchingForShare} onClick={handleShare} className="flex rounded-2xl sm:rounded-3xl cursor-pointer items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 <Share size={14} className="sm:w-[15px] sm:h-[15px]" />
                 <span className="hidden sm:inline">{isFetchingForShare ? "Loading..." : "Share"}</span>
               </button>
@@ -454,10 +597,10 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
                   <DropdownMenuItem onSelect={() => setShowRenameModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Edit3 size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Rename</span></DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
                   <DropdownMenuItem onSelect={() => toast.info("Export feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Download size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Export Chat</span></DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.5" />
+                  <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-zinc-700/60 my-1 mx-1.1" />
                   <DropdownMenuItem onSelect={() => toast.info("Archive feature coming soon!")} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg focus:bg-zinc-100 dark:focus:bg-zinc-700/50"><Archive size={14} className="sm:w-[15px] sm:h-[15px] text-zinc-500" /><span>Archive</span></DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => setShowDeleteModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg text-red-600 dark:text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:focus:text-red-500"><Trash2 size={14} className="sm:w-[15px] sm:h-[15px] text-red-600 dark:text-red-500" /><span>Delete</span></DropdownMenuItem>
-              </DropdownMenuContent>
+                </DropdownMenuContent>
               </DropdownMenu>
               <ThemeToggle />
             </div>
@@ -484,9 +627,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           )
         }
       >
-        {/* --- This is the `children` prop --- */}
         {hasSentMessage ? (
-          // On mobile, this will now be centered. On desktop, it's aligned left.
           <span className="truncate -ml-2 text-sm font-medium text-zinc-900 dark:text-white sm:text-base">
             {chatTitle}
           </span>
@@ -534,7 +675,6 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
             <div className="mx-auto w-full max-w-[50rem] px-3 pb-3 sm:px-4 sm:pb-4">
                 <div className={`relative`}>
                     {hasSentMessage && (
-                        // FIX 2: Corrected invalid 'top-13' to a valid 'top-0'
                         <div className="absolute top-3 left-1/2 -translate-x-1/2">
                             <ScrollToBottomButton
                                 isVisible={showScrollButton}
@@ -545,7 +685,6 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
                     <ChatInputArea {...chatInputAreaProps} />
                 </div>
                 {hasSentMessage && (
-                    // FIX 3: Corrected negative margin '-mt-2' to 'mt-2'
                     <p className="text-center text-xs font-base text-zinc-600 dark:text-zinc-200 -mt-1 -mb-2 px-4">
                         Avurna uses AI. Double check response.
                     </p>

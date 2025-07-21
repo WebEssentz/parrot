@@ -194,6 +194,14 @@ const components: Partial<Components> = {
   thead: ({ node, children, ...props }) => {
     return <thead {...props}>{children}</thead>;
   },
+  // --- ADD THIS TO FIX IMAGE RENDERING ---
+  img: ({ node, ...props }) => (
+    <img
+      className="max-w-full h-auto rounded-lg my-2 border dark:border-zinc-700"
+      {...props}
+      alt={props.alt || "Image"}
+    />
+  ),
   tbody: ({ node, children, ...props }) => {
     return <tbody {...props}>{children}</tbody>;
   },

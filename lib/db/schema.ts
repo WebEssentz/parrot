@@ -10,7 +10,8 @@ import {
   primaryKey,
   foreignKey,
   boolean,
-  index
+  index,
+  integer
 } from 'drizzle-orm/pg-core';
 
 export const user = pgTable('User', {
@@ -150,6 +151,42 @@ export const messageVote = pgTable(
 
 export type MessageVote = InferSelectModel<typeof messageVote>;
 
+// --- NEW TABLE: Attachment ---
+// This table stores metadata for every file uploaded to a chat.
+export const attachment = pgTable(
+  'Attachment',
+  {
+    id: uuid('id').primaryKey().notNull().defaultRandom(),
+    // --- FIX: Removed .notNull() to make chatId optional ---
+    // This allows attachments to be uploaded before a chat session formally starts.
+    chatId: uuid('chatId')
+      .references(() => chat.id, { onDelete: 'cascade' }),
+    // Optional: link to the specific message the file was attached to
+    messageId: uuid('messageId').references(() => message.id, { onDelete: 'set null' }),
+    userId: varchar('userId', { length: 255 }).notNull().references(() => user.id, { onDelete: 'cascade' }),
+    
+    // File metadata
+    fileName: text('file_name').notNull(), // e.g., "AVURNA_2025-07-20_10-30-00-report.pdf"
+    fileType: varchar('file_type', { length: 100 }).notNull(), // e.g., "application/pdf"
+    fileSize: integer('file_size').notNull(), // Size in bytes
+    storagePath: text('storage_path').notNull().unique(), // e.g., "avurna_uploads/AVURNA_2025-07-20_10-30-00-report.pdf"
+    downloadUrl: text('download_url').notNull(), // The public URL from Firebase Storage
+
+    createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => {
+    return {
+      // Index to quickly fetch all attachments for a chat
+      chatIdIdx: index('attachment_chat_id_idx').on(table.chatId),
+      // Index to fetch attachments for a user
+      userIdx: index('attachment_user_id_idx').on(table.userId),
+    };
+  },
+);
+
+
+export type Attachment = InferSelectModel<typeof attachment>;
+
 export const document = pgTable(
   'Document',
   {
@@ -278,15 +315,16 @@ export type Snippet = InferSelectModel<typeof snippet>;
 
 // --- RELATIONS DEFINITIONS ---
 
-// A user can have many chats, articles and snippets.
+// A user can have many chats, articles, snippets, and attachments.
 export const userRelations = relations(user, ({ many }) => ({
   chats: many(chat),
   articles: many(article),
   snippets: many(snippet),
-  messageVotes: many(messageVote), // NEW RELATION
+  messageVotes: many(messageVote),
+  attachments: many(attachment), // <-- ADD THIS LINE
 }));
 
-// A chat belongs to one user and can have many messages, votes, articles, and snippets.
+// A chat belongs to one user and can have many messages, votes, articles, snippets and attachments.
 export const chatRelations = relations(chat, ({ one, many }) => ({
   user: one(user, {
     fields: [chat.userId],
@@ -297,6 +335,7 @@ export const chatRelations = relations(chat, ({ one, many }) => ({
   articles: many(article), // NEW
   snippets: many(snippet), // NEW
   messageVotes: many(messageVote), // NEW RELATION
+  attachments: many(attachment), // <-- ADD THIS LINE
 }));
 
 // A message belongs to one chat and can have many votes.
@@ -311,6 +350,22 @@ export const messageRelations = relations(message, ({ one, many }) => ({
     references: [chat.id],
   }),
   votes: many(messageVote), // UPDATED RELATION
+}));
+
+// Add relations for the new attachment table
+export const attachmentRelations = relations(attachment, ({ one }) => ({
+    chat: one(chat, {
+        fields: [attachment.chatId],
+        references: [chat.id],
+    }),
+    message: one(message, {
+        fields: [attachment.messageId],
+        references: [message.id],
+    }),
+    user: one(user, {
+        fields: [attachment.userId],
+        references: [user.id],
+    }),
 }));
 
 export const messageVoteRelations = relations(messageVote, ({ one }) => ({

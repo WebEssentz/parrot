@@ -20,6 +20,7 @@ export function ImageUploadModal({ isOpen, onClose, onImageInsert }: ImageUpload
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadProgress, setUploadProgress] = useState(0); // New state for upload progress
 
   const handleFileUpload = useCallback(
     async (file: File) => {
@@ -29,16 +30,32 @@ export function ImageUploadModal({ isOpen, onClose, onImageInsert }: ImageUpload
       }
 
       setIsUploading(true)
+      setUploadProgress(0); // Reset progress at the start of a new upload
       try {
-        // Create FormData for file upload
         const formData = new FormData()
         formData.append("file", file)
 
-        // Simulate upload to your backend
-        const response = await fetch("/api/upload-image", {
-          method: "POST",
-          body: formData,
-        })
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/upload-image', true);
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentCompleted = Math.round((event.loaded * 100) / event.total);
+            setUploadProgress(percentCompleted); // Update progress
+          }
+        };
+
+        const response = await new Promise<Response>((resolve, reject) => {
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(new Response(xhr.responseText, { status: xhr.status, statusText: xhr.statusText }));
+            } else {
+              reject(new Error(xhr.statusText || 'Upload failed'));
+            }
+          };
+          xhr.onerror = () => reject(new Error("Network error during upload"));
+          xhr.send(formData);
+        });
 
         if (!response.ok) throw new Error("Upload failed")
 
@@ -50,6 +67,7 @@ export function ImageUploadModal({ isOpen, onClose, onImageInsert }: ImageUpload
         toast.error("Failed to upload image")
       } finally {
         setIsUploading(false)
+        setUploadProgress(0); // Reset progress after upload completes or fails
       }
     },
     [altText, onImageInsert, onClose],
@@ -93,6 +111,7 @@ export function ImageUploadModal({ isOpen, onClose, onImageInsert }: ImageUpload
     setAltText("")
     setActiveTab("upload")
     setIsUploading(false)
+    setUploadProgress(0); // Reset progress on form reset
   }
 
   const handleClose = () => {
@@ -112,147 +131,156 @@ export function ImageUploadModal({ isOpen, onClose, onImageInsert }: ImageUpload
             onClick={handleClose}
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-zinc-800 rounded-xl shadow-2xl z-50 overflow-hidden"
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-6 shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-700">
-              <h3 className="text-lg font-semibold">Insert Image</h3>
-              <button
-                onClick={handleClose}
-                className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-md transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <button
+              onClick={handleClose}
+              className="absolute right-4 top-4 rounded-full p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
 
-            <div className="flex border-b border-zinc-200 dark:border-zinc-700">
+            <h2 className="mb-4 text-xl font-semibold text-zinc-900 dark:text-white">
+              Insert Image
+            </h2>
+
+            <div className="mb-4 flex space-x-2 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-700">
               <button
-                onClick={() => setActiveTab("upload")}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
                   activeTab === "upload"
-                    ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50 dark:bg-blue-900/20"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    ? "bg-white text-zinc-900 shadow dark:bg-zinc-900 dark:text-white"
+                    : "text-zinc-600 dark:text-zinc-300"
                 }`}
+                onClick={() => setActiveTab("upload")}
               >
-                <Upload className="w-4 h-4 inline mr-2" />
                 Upload
               </button>
               <button
-                onClick={() => setActiveTab("url")}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
                   activeTab === "url"
-                    ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50 dark:bg-blue-900/20"
-                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    ? "bg-white text-zinc-900 shadow dark:bg-zinc-900 dark:text-white"
+                    : "text-zinc-600 dark:text-zinc-300"
                 }`}
+                onClick={() => setActiveTab("url")}
               >
-                <Link className="w-4 h-4 inline mr-2" />
-                URL
+                Image URL
               </button>
             </div>
 
-            <div className="p-6">
-              <AnimatePresence mode="wait">
-                {activeTab === "upload" ? (
-                  <motion.div
-                    key="upload"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="space-y-4"
-                  >
-                    <div
-                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
-                        dragActive
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-zinc-300 dark:border-zinc-600 hover:border-blue-400"
-                      }`}
-                      onDragEnter={handleDrag}
-                      onDragLeave={handleDrag}
-                      onDragOver={handleDrag}
-                      onDrop={handleDrop}
-                    >
-                      {isUploading ? (
-                        <div className="flex flex-col items-center">
-                          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-2" />
-                          <p className="text-sm text-zinc-600 dark:text-zinc-400">Uploading...</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center">
-                          <ImageIcon className="w-12 h-12 text-zinc-400 mb-4" />
-                          <p className="text-sm font-medium mb-2">Drop your image here, or</p>
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Browse Files
-                          </button>
-                          <p className="text-xs text-zinc-500 mt-2">PNG, JPG, GIF up to 10MB</p>
-                        </div>
-                      )}
+            {activeTab === "upload" ? (
+              <div className="space-y-4">
+                <div
+                  className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center ${
+                    dragActive
+                      ? "border-blue-500 bg-blue-500/10"
+                      : "border-zinc-300 dark:border-zinc-600"
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                >
+                  {isUploading ? (
+                    <div className="flex flex-col items-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                        Uploading... {uploadProgress}%
+                      </p>
+                      <div className="w-full bg-zinc-200 rounded-full h-2.5 dark:bg-zinc-700 mt-2">
+                        <div className="bg-blue-600 h-2.5 rounded-full" style={{width: `${uploadProgress}%`}}></div>
+                      </div>
                     </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) handleFileUpload(file)
-                      }}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="url"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-4"
-                  >
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Image URL</label>
+                  ) : (
+                    <>
+                      <Upload size={32} className="text-zinc-500" />
+                      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                        Drag & drop image here, or
+                      </p>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="mt-2 rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+                      >
+                        Browse Files
+                      </button>
                       <input
-                        type="url"
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        placeholder="https://example.com/image.jpg"
-                        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-zinc-700"
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            handleFileUpload(e.target.files[0])
+                          }
+                        }}
+                        className="hidden"
+                        accept="image/*"
                       />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium mb-2">Alt Text (Optional)</label>
-                <input
-                  type="text"
-                  value={altText}
-                  onChange={(e) => setAltText(e.target.value)}
-                  placeholder="Describe the image..."
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-zinc-700"
-                />
+                    </>
+                  )}
+                </div>
+                <div>
+                  <label
+                    htmlFor="alt-text-upload"
+                    className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                  >
+                    Alt Text (Optional)
+                  </label>
+                  <input
+                    id="alt-text-upload"
+                    type="text"
+                    value={altText}
+                    onChange={(e) => setAltText(e.target.value)}
+                    className="w-full rounded-md border border-zinc-300 p-2 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white"
+                    placeholder="Describe the image for accessibility"
+                    disabled={isUploading}
+                  />
+                </div>
               </div>
-
-              <div className="flex gap-3 mt-6">
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="image-url"
+                    className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                  >
+                    Image URL
+                  </label>
+                  <input
+                    id="image-url"
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="w-full rounded-md border border-zinc-300 p-2 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="alt-text-url"
+                    className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                  >
+                    Alt Text (Optional)
+                  </label>
+                  <input
+                    id="alt-text-url"
+                    type="text"
+                    value={altText}
+                    onChange={(e) => setAltText(e.target.value)}
+                    className="w-full rounded-md border border-zinc-300 p-2 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white"
+                    placeholder="Describe the image for accessibility"
+                  />
+                </div>
                 <button
-                  onClick={handleClose}
-                  className="flex-1 px-4 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
+                  onClick={handleUrlInsert}
+                  className="w-full rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={activeTab === "upload" ? () => fileInputRef.current?.click() : handleUrlInsert}
-                  disabled={isUploading || (activeTab === "url" && !imageUrl.trim())}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {activeTab === "upload" ? "Choose File" : "Insert Image"}
+                  Insert Image
                 </button>
               </div>
-            </div>
+            )}
           </motion.div>
         </>
       )}
