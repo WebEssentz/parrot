@@ -1,6 +1,13 @@
+// FILE: app/layout.tsx
+
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next"
-import { Geist, Geist_Mono, Inter, Roboto, Open_Sans, Lato, Montserrat, Poppins, Source_Sans_3, Nunito, Playfair_Display, Merriweather, Lora, Crimson_Text, PT_Serif, JetBrains_Mono, Fira_Code, Source_Code_Pro, Roboto_Mono } from 'next/font/google';
+import {
+  // Comment out most font imports for now
+  // Geist, Geist_Mono, Inter, Roboto, Open_Sans, Lato, Montserrat, Poppins, Source_Sans_3, Nunito, Playfair_Display, Merriweather, Lora, Crimson_Text, PT_Serif, JetBrains_Mono, Fira_Code, Source_Code_Pro, Roboto_Mono
+  Inter, // Keep Inter for general UI
+  Roboto_Mono // Keep Roboto_Mono for code/monospace text
+} from 'next/font/google';
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
@@ -9,56 +16,63 @@ import {
   ClerkProvider,
 } from '@clerk/nextjs'
 import { cn } from "@/lib/utils";
-import { PWAInstaller } from "@/components/PWAInstaller"; 
+import { PWAInstaller } from "@/components/PWAInstaller";
 
-// --- Instantiate all the fonts you need, assigning a CSS variable to each ---
-const inter = Inter({ 
-  subsets: ['latin'], 
-  variable: '--font-inter' 
+// --- Instantiate only the essential fonts ---
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter'
 });
-const roboto = Roboto({ 
-  weight: ['400', '700'], 
-  subsets: ['latin'], 
-  variable: '--font-roboto' 
+const robotoMono = Roboto_Mono({
+  subsets: ['latin'],
+  variable: '--font-roboto-mono'
 });
-const openSans = Open_Sans({ 
-  subsets: ['latin'], 
-  variable: '--font-open-sans' 
+
+// Comment out all other font instantiations
+/*
+const roboto = Roboto({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  variable: '--font-roboto'
 });
-const lato = Lato({ 
-  weight: ['400', '700'], 
-  subsets: ['latin'], 
-  variable: '--font-lato' 
+const openSans = Open_Sans({
+  subsets: ['latin'],
+  variable: '--font-open-sans'
 });
-const montserrat = Montserrat({ 
-  subsets: ['latin'], 
-  variable: '--font-montserrat' 
+const lato = Lato({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  variable: '--font-lato'
 });
-const poppins = Poppins({ 
-  weight: ['400', '600'], 
-  subsets: ['latin'], 
-  variable: '--font-poppins' 
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  variable: '--font-montserrat'
 });
-const sourceSans3 = Source_Sans_3({ 
-  subsets: ['latin'], 
-  variable: '--font-source-sans-pro' 
+const poppins = Poppins({
+  weight: ['400', '600'],
+  subsets: ['latin'],
+  variable: '--font-poppins'
 });
-const nunito = Nunito({ 
-  subsets: ['latin'], 
-  variable: '--font-nunito' 
+const sourceSans3 = Source_Sans_3({
+  subsets: ['latin'],
+  variable: '--font-source-sans-pro'
 });
-const playfairDisplay = Playfair_Display({ 
-  subsets: ['latin'], 
-  variable: '--font-playfair-display' 
+const nunito = Nunito({
+  subsets: ['latin'],
+  variable: '--font-nunito'
 });
-const merriweather = Merriweather({ 
-  weight: ['400', '700'], 
-  subsets: ['latin'], 
-  variable: '--font-merriweather' 
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair-display'
 });
-const lora = Lora({ 
-  subsets: ['latin'], 
-  variable: '--font-lora' 
+const merriweather = Merriweather({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  variable: '--font-merriweather'
+});
+const lora = Lora({
+  subsets: ['latin'],
+  variable: '--font-lora'
 });
 const crimsonText = Crimson_Text({
   weight: ['400', '600'],
@@ -81,10 +95,6 @@ const sourceCodePro = Source_Code_Pro({
   subsets: ['latin'],
   variable: '--font-source-code-pro'
 });
-const robotoMono = Roboto_Mono({
-  subsets: ['latin'],
-  variable: '--font-roboto-mono'
-});
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -93,6 +103,7 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+*/
 
 
 export const metadata: Metadata = {
@@ -120,7 +131,10 @@ export default function RootLayout({
       <body className={cn(
         "font-sans antialiased",
         "h-full",
-        inter.variable,
+        inter.variable, // Keep this
+        robotoMono.variable, // Keep this
+        // Comment out all other font variables from here:
+        /*
         roboto.variable,
         openSans.variable,
         lato.variable,
@@ -136,16 +150,16 @@ export default function RootLayout({
         jetbrainsMono.variable,
         firaCode.variable,
         sourceCodePro.variable,
-        robotoMono.variable,
         geistMono.variable,
         geistSans.variable,
+        */
       )}
         suppressHydrationWarning
       >
         <ClerkProvider>
-           <ThemeProvider 
-            attribute="class" 
-            defaultTheme="dark" 
+            <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
             enableSystem={false}
           >
             <TooltipProvider delayDuration={0}>
