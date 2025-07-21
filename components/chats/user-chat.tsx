@@ -380,7 +380,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   }, [])
 
   // uiIsLoading now includes checks for any file being uploaded
-  const uiIsLoading = status === "streaming" || status === "submitted" || isSubmittingSearch || isGeneratingTitle || stagedFiles.some(f => f.isUploading);
+  const uiIsLoading = status === "streaming" || 
+                      status === "submitted" || 
+                      isSubmittingSearch || 
+                      isGeneratingTitle || 
+                      (stagedFiles || []).some(f => f.isUploading); // <-- ADDED || []
 
   useEffect(() => {
     if (hasSentMessage || !isTabletOrLarger || !input.trim() || input.trim().length < 3 || input.trim().length > MAX_COMPLETION_INPUT_LENGTH) {
@@ -443,11 +447,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     isDesktop: isTabletOrLarger,
     selectedModel,
     setSelectedModel,
-    dynamicSuggestedPrompts: dynamicSuggestedPrompts || [],
+    dynamicSuggestedPrompts: dynamicSuggestedPrompts || [], // FIX: Add a fallback empty array
     isPredictiveVisible,
     setIsPredictiveVisible,
     // Modified: Only disable if offline or actively uploading files, NOT during AI streaming
-    disabled: offlineState !== "online" || stagedFiles.some(f => f.isUploading), 
+    disabled: offlineState !== "online" || (stagedFiles || []).some(f => f.isUploading),
     offlineState: offlineState,
     user: dbUser,
     chatId: chatId,

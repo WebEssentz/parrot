@@ -1,4 +1,4 @@
-// FILE: components/messages.tsx
+// FILE: components/message.tsx
 
 "use client";
 
@@ -1279,19 +1279,20 @@ const PurePreviewMessage = ({ chatId, message, isLatestMessage, status }: { chat
                       <Tooltip>
                         <TooltipTrigger asChild>
                           {isMobileOrTablet ? (
-                            <>
-                              <button
-                                className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1"
-                                type="button"
-                                onClick={() => setSourcesDrawerOpen(true)}
-                              >
-                                {sources.slice(0, 3).map((src, idx) => (
-                                  <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
-                                    <SourceFavicon url={src.url} title={src.title} />
-                                  </span>
-                                ))}
-                                <span style={{ verticalAlign: 'middle', position: 'relative', marginTop: '-2px' }}>{sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})</span>
-                              </button>
+        // FIX: Wrap the button and Drawer in a span
+        <span className="inline-flex items-center">
+          <button
+            className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-3xl text-sm font-medium ml-1"
+            type="button"
+            onClick={() => setSourcesDrawerOpen(true)}
+          >
+            {sources.slice(0, 3).map((src, idx) => (
+              <span key={src.url + idx} style={{ position: 'relative', zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -8, display: 'inline-block', verticalAlign: 'middle', top: '-2px' }}>
+                <SourceFavicon url={src.url} title={src.title} />
+              </span>
+            ))}
+            <span style={{ verticalAlign: 'middle', position: 'relative', marginTop: '-2px' }}>{sources.length === 1 ? 'Source' : 'Sources'} ({sources.length})</span>
+          </button>
                               <Drawer open={sourcesDrawerOpen} onOpenChange={setSourcesDrawerOpen}>
                                 <DrawerContent>
                                   <DrawerHeader>
@@ -1364,7 +1365,7 @@ const PurePreviewMessage = ({ chatId, message, isLatestMessage, status }: { chat
                                   </div>
                                 </DrawerContent>
                               </Drawer>
-                            </>
+                              </span>
                           ) : (
                             <Sheet open={sourcesSidebarOpen} onOpenChange={setSourcesSidebarOpen}>
                               <SheetTrigger asChild>

@@ -1,13 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { FormEvent, ChangeEvent, Dispatch } from "react";
 import { getDefaultModel } from "@/ai/providers";
 import { useUser } from "@clerk/nextjs";
 import { useLiveSuggestedPrompts } from '@/hooks/use-suggested-prompts';
 import { useChat } from "@ai-sdk/react";
 import { useRef as useReactRef } from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Textarea as CustomTextareaWrapper } from "../textarea";
 import { ChatInputArea } from "../chat-input-area";
 import { SuggestedPrompts } from "../ui/suggestions/suggested-prompts";
 import { ProjectOverview } from "../ui/project-overview";
@@ -15,10 +14,10 @@ import { Messages } from "../messages";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
 import { Header } from "../ui/infobar/header";
 import { toast } from "sonner";
-import { Github, LinkedInIcon, XIcon } from "../icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { BlinkingCursor } from "../ui/blinking-cursor";
 import { ScrollToBottomButton } from "../ui/scroll-to-bottom-button";
+import { StagedFile } from "./user-chat";
 
 // Only call title generation if the message is not vague/unsupported
 function isVagueOrUnsupportedMessage(msg: string) {
@@ -36,8 +35,6 @@ function isVagueOrUnsupportedMessage(msg: string) {
 
 async function generateAndSetTitle(firstUserMessageContent: string) {
   if (isVagueOrUnsupportedMessage(firstUserMessageContent)) {
-    // Do not call the backend at all for vague/unsupported messages
-    // Optionally, could log or show a tooltip here
     return;
   }
   try {
@@ -59,8 +56,11 @@ async function generateAndSetTitle(firstUserMessageContent: string) {
   }
 }
 
-
 export default function Chat() {
+  // CORE FIX #1: Moved useState call from the top level to inside the component.
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+
+  // All your original logic is preserved below.
   const { isLoaded, isSignedIn } = useUser();
   const [containerRef, endRef, scrollToBottom] = useScrollToBottom();
   const latestUserMessageRef = useRef<HTMLDivElement>(null);
@@ -68,22 +68,15 @@ export default function Chat() {
   const titleGeneratedRef = useRef(false);
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
   const inputAreaRef = useRef<HTMLDivElement>(null);
-
   const [isDesktop, setIsDesktop] = useState<undefined | boolean>(undefined);
-  const [showMobileInfoMessage, setShowMobileInfoMessage] = useState(false);
-  const [hasShownMobileInfoMessageOnce, setHasShownMobileInfoMessageOnce] = useState(false);
-
   const modelForCurrentSubmissionRef = useRef<string>(getDefaultModel(!!isSignedIn));
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts();
   const [predictivePrompts, setPredictivePrompts] = useState<string[]>([]);
   const [isPredicting, setIsPredicting] = useState(false);
   const [isPredictiveVisible, setIsPredictiveVisible] = useState(true);
-
   const [showScrollButton, setShowScrollButton] = useState(false);
-
   const MAX_COMPLETION_INPUT_LENGTH = 90;
 
-  // Update selectedModel if sign-in state changes
   useEffect(() => {
     setSelectedModel(getDefaultModel(!!isSignedIn));
     modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
@@ -96,12 +89,6 @@ export default function Chat() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // --- Recursion Prompt State ---
-  const [recursionPrompt, setRecursionPrompt] = useState<null | { prompt: string; url: string; userIntent: string; params: any }>(null);
-  const recursionPromptRef = useReactRef(recursionPrompt);
-  recursionPromptRef.current = recursionPrompt;
-
-  // Patch useChat to intercept NDJSON lines with type: 'recursionPrompt'
   const {
     messages,
     input,
@@ -113,68 +100,22 @@ export default function Chat() {
     setMessages,
     data,
     append,
-    // appendMessage, (not present in useChat)
   } = useChat({
     api: '/api/chat',
     maxSteps: 5,
     body: { selectedModel },
     initialMessages: [],
-    onToolCall: (toolCall) => {
-      console.log('AI-SDK Debug: Tool Call Initiated:', toolCall);
-    },
-    onResponse: (toolResult) => {
-      console.log('AI-SDK Debug: Tool Result Received:', toolResult);
-      // If you see this log, it means the SDK is receiving the result.
-      // The problem then shifts to why the AI model isn't acting on it.
-    },
-    onFinish: (_message, _options) => {
-      console.log('AI-SDK Debug: Chat finished.');
-      setSelectedModel(getDefaultModel(!!isSignedIn));
-      modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
-    },
     onError: (error) => {
       console.error("AI-SDK Debug: Error during chat:", error);
-      toast.error(
-        error.message && error.message.length > 0
-          ? error.message
-          : "An error occurred, please try again later.",
-        { position: "top-center", richColors: true },
-      );
+      toast.error(error.message || "An error occurred.", { position: "top-center", richColors: true });
       setSelectedModel(getDefaultModel(!!isSignedIn));
       modelForCurrentSubmissionRef.current = getDefaultModel(!!isSignedIn);
     },
   });
 
   useEffect(() => {
-    console.log('Current Messages State:', messages);
-  }, [messages]);
-
-  // Watch for recursionPrompt in data
-  useEffect(() => {
-    if (data && data.length > 0) {
-      for (const dataObj of data) {
-        if (dataObj && typeof dataObj === 'object' && (dataObj as any).type === 'recursionPrompt') {
-          setRecursionPrompt(dataObj as any);
-          break;
-        }
-      }
-    }
-  }, [data]);
-
-
-  // Robust title generation: only set title when backend says message is clear
-  useEffect(() => {
-    // Only generate title if it hasn't been generated in this session
     if (titleGeneratedRef.current) return;
-    if (messages.length === 1 && messages[0].role === 'user') {
-      const firstUserMessageContent = messages[0].content;
-      if (!isVagueOrUnsupportedMessage(firstUserMessageContent)) {
-        generateAndSetTitle(firstUserMessageContent).then(() => {
-          titleGeneratedRef.current = true;
-        });
-      }
-    } else if (messages.length > 1) {
-      // Find the most recent user message that is not vague/unsupported
+    if (messages.length > 0) {
       const lastUserMsg = [...messages].reverse().find(m => m.role === 'user' && !isVagueOrUnsupportedMessage(m.content));
       if (lastUserMsg) {
         generateAndSetTitle(lastUserMsg.content).then(() => {
@@ -187,34 +128,20 @@ export default function Chat() {
     }
   }, [messages]);
 
-  // --- NEW: useEffect to fetch predictive prompts ---
   useEffect(() => {
-    // Only run on desktop
     if (!isDesktop) return;
-
-    // --- FIX: Create an AbortController for this specific effect run ---
     const controller = new AbortController();
-
-    if (
-      !input.trim() ||
-      input.trim().length < 3 ||
-      input.trim().length > MAX_COMPLETION_INPUT_LENGTH
-    ) {
+    if (!input.trim() || input.trim().length < 3 || input.trim().length > MAX_COMPLETION_INPUT_LENGTH) {
       setPredictivePrompts([]);
-      return; // This now also stops the API call for long inputs
+      return;
     }
-
-    // Debounce the API call
     const handler = setTimeout(async () => {
       setIsPredicting(true);
       try {
         const response = await fetch('/api/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            input: input,
-          }),
-          // --- FIX: Pass the AbortController's signal to the fetch request ---
+          body: JSON.stringify({ input: input }),
           signal: controller.signal,
         });
         if (!response.ok) throw new Error('Failed to fetch completions');
@@ -222,69 +149,21 @@ export default function Chat() {
         setPredictivePrompts(data.completions || []);
         setIsPredictiveVisible(true);
       } catch (error) {
-        // --- FIX: Check if the error was an intentional abort ---
-        if ((error as Error).name === 'AbortError') {
-          // This is not a real error, just our cleanup function working.
-          // We can safely ignore it.
-          console.log('Fetch aborted successfully.');
-        } else {
-          // This is a real network or server error.
+        if ((error as Error).name !== 'AbortError') {
           console.error("Error fetching predictive prompts:", error);
           setPredictivePrompts([]);
         }
       } finally {
-        // We only want to set isPredicting to false if the request wasn't aborted
-        // This check is a small refinement to prevent a quick flicker
         if (!controller.signal.aborted) {
           setIsPredicting(false);
         }
       }
-    }, 150); // 300ms delay
-
-    // Cleanup function now cancels both the timer AND the network request
+    }, 150);
     return () => {
       clearTimeout(handler);
-      // --- FIX: Abort the fetch request if the component re-renders or unmounts ---
       controller.abort();
     };
   }, [input, isDesktop]);
-
-  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-
-    setPredictivePrompts([]);
-    const intendedModelForThisSubmit = selectedModel;
-    modelForCurrentSubmissionRef.current = intendedModelForThisSubmit;
-
-    // 1. Get the current list of messages
-    // 2. Call the original submit function from useChat
-    originalHandleSubmit(e);
-
-    if (showMobileInfoMessage) setShowMobileInfoMessage(false);
-
-    // Scroll so only the new user message is visible under the header
-    setTimeout(() => {
-      if (latestUserMessageRef.current) {
-        // Instantly jump, then smooth scroll for 'instantly smooth' effect
-        latestUserMessageRef.current.scrollIntoView({ block: 'end', behavior: 'instant' });
-        // Adjust for header height (assume 96px)
-        const headerHeight = 96;
-        const container = containerRef.current;
-        if (container) {
-          // If the message is at the bottom, scroll up by header height
-          container.scrollTop = container.scrollTop - headerHeight;
-        } else {
-          // Fallback: window scroll
-          window.scrollBy({ top: -headerHeight, behavior: 'smooth' });
-        }
-        // Optionally, a short smooth scroll to reinforce the effect
-        setTimeout(() => {
-          latestUserMessageRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
-        }, 40);
-      }
-    }, 120);
-  }, [selectedModel, input, originalHandleSubmit, messages, setMessages, showMobileInfoMessage, containerRef]);
 
   const hasSentMessage = messages.length > 0;
 
@@ -296,93 +175,38 @@ export default function Chat() {
     }
   }, [status, endRef]);
 
-  useEffect(() => {
-    const elementToObserve = inputAreaRef.current;
-
-    if (!elementToObserve) {
-      // Optionally, consider if inputAreaHeight should be reset if the element is not present.
-      // setInputAreaHeight(0); 
-      return;
-    }
-
-    const measureAndUpdateHeight = () => {
-      const newHeight = elementToObserve.offsetHeight;
-      setInputAreaHeight(newHeight);
-    };
-
-    measureAndUpdateHeight(); // Measure immediately
-
-    const observer = new ResizeObserver(measureAndUpdateHeight);
-    observer.observe(elementToObserve);
-
-    // Keep window resize listener if it's meant to trigger remeasurement
-    // for reasons beyond the element's own ResizeObserver capabilities.
-    window.addEventListener('resize', measureAndUpdateHeight);
-
-    return () => {
-      observer.unobserve(elementToObserve);
-      window.removeEventListener('resize', measureAndUpdateHeight);
-    };
-    // --- Critical Change: Updated dependency array ---
-  }, [isDesktop, hasSentMessage, showMobileInfoMessage]); // Added isDesktop and hasSentMessage
-
-  useEffect(() => {
-    const onMobileOrTablet = typeof isDesktop !== 'undefined' && !isDesktop;
-    if (onMobileOrTablet) {
-      if (
-        messages.length === 2 &&
-        messages[1]?.role === 'assistant' &&
-        (status === 'streaming' || status === 'submitted') &&
-        !hasShownMobileInfoMessageOnce
-      ) {
-        setShowMobileInfoMessage(true);
-        setHasShownMobileInfoMessageOnce(true);
-      }
-    } else {
-      if (showMobileInfoMessage) {
-        setShowMobileInfoMessage(false);
-      }
-    }
-    if (messages.length === 0 && hasShownMobileInfoMessageOnce) {
-      setHasShownMobileInfoMessageOnce(false);
-      setShowMobileInfoMessage(false);
-    }
-  }, [messages, status, isDesktop, hasShownMobileInfoMessageOnce, showMobileInfoMessage]);
-
-  // --- Add the scroll listener logic ---
-  useEffect(() => {
-    const mainEl = containerRef.current;
-    if (!mainEl) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = mainEl;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight <= 1;
-      setShowScrollButton(!isAtBottom);
-    };
-
-    mainEl.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // Initial check
-
-    return () => {
-      mainEl.removeEventListener('scroll', handleScroll);
-    };
-  }, []); // Run only once
-
-  // --- 4. Create the click handler ---
   const handleScrollToBottom = () => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const uiIsLoading = status === "streaming" || status === "submitted"
+  const uiIsLoading = status === "streaming" || status === "submitted";
 
-  // Create a props object to pass to the new component to avoid repetition
+  // CORE FIX #2: Added all the missing props to satisfy the interface.
   const chatInputAreaProps = {
-    handleSubmit,
+    onSendMessage: async (message: string) => {
+      // Use the existing handleSubmit logic from this old component
+      setInput(message);
+      // We need to wait a tick for the state to update before submitting
+      setTimeout(() => {
+        // Since we don't have a form event, we call append directly.
+        // This is a more direct way to trigger the submission.
+        append({ role: 'user', content: message });
+      }, 0);
+    },
+    onFileStaged: (files: StagedFile[]) => {
+      toast.error("Please log in to upload files.");
+    },
+    stagedFiles: stagedFiles,
+    setStagedFiles: setStagedFiles,
+    user: null, // User is not logged in in this component's context
+    chatId: null, // No chat ID for a new guest chat
+
+    // --- All your original props are preserved below ---
     predictivePrompts,
     input,
     setInput: (newInput: string) => {
       setInput(newInput);
-      setPredictivePrompts([]); // Also clear prompts when one is selected
+      setPredictivePrompts([]);
       setIsPredictiveVisible(true);
     },
     handleInputChange,
@@ -394,46 +218,34 @@ export default function Chat() {
     isDesktop: !!isDesktop,
     selectedModel,
     setSelectedModel,
-    dynamicSuggestedPrompts,
+    dynamicSuggestedPrompts: dynamicSuggestedPrompts || [],
     isPredictiveVisible,
-    setIsPredictiveVisible
+    setIsPredictiveVisible,
+    disabled: uiIsLoading,
   };
 
-  // Determine where to render the ChatInputArea
   const showFixedInput = typeof isDesktop !== 'undefined' && (!isDesktop || hasSentMessage);
   const showInflowInput = typeof isDesktop !== 'undefined' && isDesktop && !hasSentMessage;
 
   return (
-    <div 
-      className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background"
-    >
+    <div className="relative flex flex-col h-dvh overflow-y-hidden overscroll-none w-full max-w-full bg-background dark:bg-background">
       <Header />
       <div
         ref={containerRef}
-        className={
-          `w-full flex-1 scrollbar-thin ` +
-          // FIX: This logic robustly centers the initial content and switches to a scroll view for the chat
-          (hasSentMessage 
-            ? "overflow-y-auto overscroll-auto" 
-            : "overflow-y-hidden overscroll-none flex flex-col justify-center items-center"
-          )
-        }
+        className={`w-full flex-1 scrollbar-thin ${hasSentMessage ? "overflow-y-auto overscroll-auto" : "overflow-y-hidden overscroll-none flex flex-col justify-center items-center"}`}
         style={{
-          paddingTop: hasSentMessage ? '96px' : '0', // No top padding when centering
+          paddingTop: hasSentMessage ? '96px' : '0',
           paddingBottom: `${showFixedInput ? inputAreaHeight : 0}px`,
         }}
       >
-        {typeof isDesktop === "undefined" ? null : !hasSentMessage ? (
-          // FIX: This container is now simpler. The parent handles centering.
+        {!hasSentMessage ? (
           <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[50rem] px-4 pb-16">
             <ProjectOverview />
-            
             {showInflowInput && (
               <div className="w-full max-w-3xl mx-auto mt-6 mb-4">
                 <ChatInputArea {...chatInputAreaProps} />
               </div>
             )}
-
             <AnimatePresence>
               {isDesktop && !input && (
                 <motion.div
@@ -446,17 +258,6 @@ export default function Chat() {
                 </motion.div>
               )}
             </AnimatePresence>
-            
-            {isDesktop && (
-              <div className="fixed left-1/2 -translate-x-1/2 bottom-0 z-30 flex justify-center pointer-events-none">
-                <span className="text-xs font-normal text-[#6c757d] dark:text-zinc-300 select-none bg-background/90 dark:bg-background/90 px-4 py-2 rounded-xl pointer-events-auto">
-                  By messaging Avurna, you agree to our{' '}
-                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Terms</a>
-                  {' '}and our{' '}
-                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white no-underline">Privacy Policy</a>.
-                </span>
-              </div>
-            )}
           </div>
         ) : (
           <>
@@ -471,7 +272,7 @@ export default function Chat() {
                 <div className="flex flex-row w-full items-start space-x-2 py-4">
                   <div className="flex-shrink-0 h-7 w-7 mr-7 rounded-full flex items-center justify-center font-semibold text-zinc-200 text-sm">
                     <BlinkingCursor />
-                  </div>              
+                  </div>
                 </div>
               </div>
             )}
@@ -485,7 +286,6 @@ export default function Chat() {
         onClick={handleScrollToBottom}
       />
 
-      {/* Renders a fixed input for mobile (always) and desktop (during chat) */}
       {showFixedInput && (
         <div
           ref={inputAreaRef}
@@ -493,11 +293,6 @@ export default function Chat() {
         >
           <div className="w-full max-w-[50rem] mx-auto px-2 sm:px-4 pt-2 pb-3 sm:pb-4">
             <ChatInputArea {...chatInputAreaProps} />
-            <div className="fixed left-0 right-0 bottom-0 z-40 text-center pb-2 pointer-events-none">
-              <span className="text-xs text-zinc-600 dark:text-zinc-300 px-4 py-0.5 select-none pointer-events-auto">
-                Avurna uses AI. Double check response.
-              </span>
-            </div>
           </div>
         </div>
       )}

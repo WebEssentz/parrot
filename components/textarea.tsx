@@ -189,7 +189,7 @@ const addFilesToStage = (files: File[]) => {
 
   React.useEffect(() => {
     let fadeOutTimer: NodeJS.Timeout | undefined, showSuggestionsTimer: NodeJS.Timeout | undefined;
-    if (featureActive && !input && suggestedPrompts.length > 0) {
+    if (featureActive && !input && (suggestedPrompts || []).length > 0) {
       setIsTabToAcceptEnabled(true);
       setStaticPlaceholderAnimatesOut(false);
       setShowAnimatedSuggestions(false);
@@ -214,12 +214,12 @@ const addFilesToStage = (files: File[]) => {
 
   React.useEffect(() => {
     let promptInterval: NodeJS.Timeout | undefined;
-    if (showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && featureActive) {
+    if (showAnimatedSuggestions && (suggestedPrompts || []).length > 0 && isTabToAcceptEnabled && featureActive) {
       promptInterval = setInterval(() => {
         setPromptVisible(false);
         setTimeout(() => {
           setPreviousPromptIndex(currentPromptIndex);
-          setCurrentPromptIndex(prevIndex => (prevIndex + 1) % suggestedPrompts.length);
+          setCurrentPromptIndex(prevIndex => (prevIndex + 1) % (suggestedPrompts || []).length);
           setTimeout(() => setPromptVisible(true), 50);
         }, 300);
       }, 2000 + 300);
@@ -239,7 +239,7 @@ const addFilesToStage = (files: File[]) => {
   // 👆 END: ADDED THIS HOOK
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (featureActive && showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && e.key === "Tab") {
+    if (featureActive && showAnimatedSuggestions && (suggestedPrompts || []).length > 0 && isTabToAcceptEnabled && e.key === "Tab") {
       e.preventDefault();
       const currentDynamicPromptText = suggestedPrompts[currentPromptIndex];
       if (currentDynamicPromptText) {
@@ -257,9 +257,9 @@ const addFilesToStage = (files: File[]) => {
       e.preventDefault();
       // Only prevent sending if there's no content and it's loading (e.g., AI streaming)
       // Otherwise, allow sending even if AI is streaming to enable follow-up questions.
-      if ((input.trim().length > 0 || stagedFiles.length > 0) && !isActivelyUploadingFiles && offlineState === "online") {
+      if ((input.trim().length > 0 || (stagedFiles || []).length > 0) && !isActivelyUploadingFiles && offlineState === "online") {
         handleFormSubmit();
-      } else if (isLoading && (input.trim().length === 0 && stagedFiles.length === 0)) {
+      } else if (isLoading && (input.trim().length === 0 && (stagedFiles || []).length === 0)) {
         // If it's loading (AI streaming) and input is empty, do nothing (don't send empty message)
         return;
       }
@@ -335,11 +335,11 @@ const addFilesToStage = (files: File[]) => {
   };
 
   // Modified isDisabled: Only disable if offline or actively uploading files, not during AI streaming
-  const isActivelyUploadingFiles = stagedFiles.some(f => f.isUploading);
+  const isActivelyUploadingFiles = (stagedFiles || []).some(f => f.isUploading);
   const isDisabled = disabled || offlineState !== "online" || isActivelyUploadingFiles; 
 
-  const hasContent = (input.trim().length > 0 || stagedFiles.length > 0);
-  
+  const hasContent = (input.trim().length > 0 || (stagedFiles || []).length > 0);
+
   const textareaStyle = React.useMemo(() => ({ minHeight: 48, maxHeight: 200 }), []);
 
   return (
