@@ -1,10 +1,8 @@
-// FILE: components/ui/suggested-prompts.tsx
-
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../button";
-import { memo, useState } from "react";
+import { memo, useState, useMemo } from "react";
 import {
   Edit3, Terminal, GitForkIcon, Globe, LinkIcon, Zap, MessageSquareHeart,
   Scale, Lightbulb, Map, HeartPulse, Coffee, Drama, Bot, FileCode, Brain, 
@@ -13,9 +11,9 @@ import {
 
 interface SuggestedPromptsProps {
   onPromptClick: (prompt: string) => void;
+  isDesktop: boolean; // Prop to control rendering logic
 }
 
-// --- 1. Re-structure your data into MODES ---
 const PROMPT_MODES = {
   developer: {
     title: "Or, let's build something...",
@@ -68,8 +66,7 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-function PureSuggestedPrompts({ onPromptClick }: SuggestedPromptsProps) {
-  // --- 2. Set up state for the two modes on mount ---
+function PureSuggestedPrompts({ onPromptClick, isDesktop }: SuggestedPromptsProps) {
   const [promptModes] = useState(() => {
     const modes = shuffleArray(Object.keys(PROMPT_MODES) as Array<keyof typeof PROMPT_MODES>);
     return {
@@ -78,77 +75,79 @@ function PureSuggestedPrompts({ onPromptClick }: SuggestedPromptsProps) {
     };
   });
 
-  const [showSecondary, setShowSecondary] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  // --- 3. Render the new two-row structure ---
-  return (
-    <div className="flex flex-col items-center gap-3 w-full">
-      {/* --- Initial Row + "More" Button --- */}
-      <div className="flex flex-wrap gap-3 justify-center">
-        {shuffleArray(promptModes.initialMode.prompts).slice(0, 4).map((prompt, index) => (
-          <motion.div
-            key={prompt.label}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 * index, duration: 0.2 }}
-          >
-            <Button variant="outline" onClick={() => onPromptClick(prompt.action)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10">
-              <div className="flex items-center gap-2">
-                <prompt.icon className={`size-4 ${prompt.color}`} />
-                <span className="text-gray-700/80 dark:text-[#828282]">{prompt.label}</span>
-              </div>
-            </Button>
-          </motion.div>
-        ))}
+  const initialPrompts = useMemo(() => shuffleArray(promptModes.initialMode.prompts).slice(0, 4), [promptModes.initialMode]);
+  const allPrompts = useMemo(() => shuffleArray([...initialPrompts, ...promptModes.secondaryMode.prompts]), [initialPrompts, promptModes.secondaryMode]);
 
-        {/* The "More" button now only shows if the secondary row is hidden */}
+  const visiblePrompts = isExpanded ? allPrompts : initialPrompts;
+
+  if (isDesktop) {
+    return (
+      <div className="flex flex-col items-center gap-3 w-full">
+        <div className="flex flex-wrap gap-3 justify-center">
+          {initialPrompts.map((prompt, index) => (
+            <motion.div key={prompt.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * index, duration: 0.2 }}>
+              <Button variant="outline" onClick={() => onPromptClick(prompt.action)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10">
+                <div className="flex items-center gap-2"><prompt.icon className={`size-4 ${prompt.color}`} /><span className="text-gray-700/80 dark:text-[#828282]">{prompt.label}</span></div>
+              </Button>
+            </motion.div>
+          ))}
+          <AnimatePresence>
+            {!isExpanded && (
+              <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ delay: 0.2, duration: 0.2 }}>
+                <Button variant="outline" onClick={() => setIsExpanded(true)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10">
+                  <span className="text-gray-700/80 dark:text-[#828282]">More</span>
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
         <AnimatePresence>
-          {!showSecondary && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ delay: 0.2, duration: 0.2 }}
-            >
-              <Button variant="outline" onClick={() => setShowSecondary(true)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10">
+          {isExpanded && (
+            <motion.div className="flex flex-col items-center gap-3 w-full" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }}>
+              <div className="relative w-full max-w-sm flex items-center my-2">
+                <div className="flex-grow border-t border-zinc-700"></div><span className="flex-shrink mx-4 text-xs text-zinc-500">{promptModes.secondaryMode.title}</span><div className="flex-grow border-t border-zinc-700"></div>
+              </div>
+              <div className="flex flex-wrap gap-3 justify-center">
+                {shuffleArray(promptModes.secondaryMode.prompts).slice(0, 4).map((prompt, index) => (
+                  <Button key={prompt.label} variant="outline" onClick={() => onPromptClick(prompt.action)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10">
+                    <div className="flex items-center gap-2"><prompt.icon className={`size-4 ${prompt.color}`} /><span className="text-gray-700/80 dark:text-[#828282]">{prompt.label}</span></div>
+                  </Button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // --- MOBILE / TABLET RENDER PATH ---
+  return (
+    <div className="w-full overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <motion.div layout className="flex flex-nowrap items-center space-x-2">
+        <AnimatePresence>
+          {visiblePrompts.map((prompt) => (
+            <motion.div key={prompt.label} layout initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.7 }} transition={{ duration: 0.2 }}>
+              <Button variant="outline" onClick={() => onPromptClick(prompt.action)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10 flex-shrink-0">
+                <div className="flex items-center gap-2"><prompt.icon className={`size-4 ${prompt.color}`} /><span className="text-gray-700/80 dark:text-[#828282]">{prompt.label}</span></div>
+              </Button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        <AnimatePresence>
+          {!isExpanded && (
+            <motion.div layout initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.15 }}>
+              <Button variant="outline" onClick={() => setIsExpanded(true)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10 flex-shrink-0">
                 <span className="text-gray-700/80 dark:text-[#828282]">More</span>
               </Button>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
-      
-      {/* --- Conditionally Rendered Secondary Row --- */}
-      <AnimatePresence>
-        {showSecondary && (
-          <motion.div
-            className="flex flex-col items-center gap-3 w-full"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
-            <div className="relative w-full max-w-sm flex items-center my-2">
-              <div className="flex-grow border-t border-zinc-700"></div>
-              <span className="flex-shrink mx-4 text-xs text-zinc-500">
-                {promptModes.secondaryMode.title}
-              </span>
-              <div className="flex-grow border-t border-zinc-700"></div>
-            </div>
-            <div className="flex flex-wrap gap-3 justify-center">
-              {shuffleArray(promptModes.secondaryMode.prompts).slice(0, 4).map((prompt, index) => (
-                <Button key={prompt.label} variant="outline" onClick={() => onPromptClick(prompt.action)} className="h-auto rounded-4xl cursor-pointer px-3 py-2.5 text-sm font-medium border border-zinc-200 dark:border-zinc-700/80 bg-transparent text-zinc-700 dark:text-zinc-300 dark:bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-600/10">
-                  <div className="flex items-center gap-2">
-                    <prompt.icon className={`size-4 ${prompt.color}`} />
-                    <span className="text-gray-700/80 dark:text-[#828282]">{prompt.label}</span>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </motion.div>
     </div>
   );
 }
 
-export const SuggestedPrompts = memo(PureSuggestedPrompts, () => true);
+export const SuggestedPrompts = memo(PureSuggestedPrompts);

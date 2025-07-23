@@ -1,9 +1,8 @@
-// components/AvurnaDropOverlay.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { UploadCloud } from 'lucide-react'; // Keeping UploadCloud as per "KEEP THE AVURNA THINGS"
+import React, { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { UploadCloud } from "lucide-react";
 
 interface AvurnaDropOverlayProps {
   isVisible: boolean;
@@ -23,90 +22,85 @@ const avurnaMessages = [
   "Don't be shy, just drop it.",
 ];
 
+// 🧹 Hook for typewriter effect
+function useTypewriter(text: string, speed: number = 50) {
+  const [display, setDisplay] = useState("");
+  const indexRef = useRef(0);
+  const frameRef = useRef<number>();
+
+  useEffect(() => {
+    if (!text) {
+      setDisplay("");
+      return;
+    }
+
+    const step = () => {
+      indexRef.current++;
+      if (indexRef.current <= text.length) {
+        setDisplay(text.slice(0, indexRef.current));
+        frameRef.current = window.setTimeout(step, speed);
+      }
+    };
+
+    step();
+
+    return () => {
+      if (frameRef.current) clearTimeout(frameRef.current);
+      indexRef.current = 0;
+    };
+  }, [text, speed]);
+
+  return display;
+}
+
 export const AvurnaDropOverlay: React.FC<AvurnaDropOverlayProps> = ({ isVisible }) => {
-  const [displayedMessage, setDisplayedMessage] = useState('');
-  const [fullMessage, setFullMessage] = useState('');
-  const messageIndexRef = useRef(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (isVisible) {
-      // Pick a random message when the overlay becomes visible
       const randomIndex = Math.floor(Math.random() * avurnaMessages.length);
-      const chosenMessage = avurnaMessages[randomIndex];
-      setFullMessage(chosenMessage);
-      setDisplayedMessage('');
-      messageIndexRef.current = 0;
-
-      // Start typewriter effect
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      intervalRef.current = setInterval(() => {
-        setDisplayedMessage((prev) => {
-          if (messageIndexRef.current < chosenMessage.length) {
-            messageIndexRef.current += 1;
-            return chosenMessage.substring(0, messageIndexRef.current);
-          } else {
-            if (intervalRef.current) {
-              clearInterval(intervalRef.current);
-            }
-            return prev;
-          }
-        });
-      }, 50); // Typing speed (50ms per character)
+      setMessage(avurnaMessages[randomIndex]);
     } else {
-      // Reset when not visible
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      setDisplayedMessage('');
-      setFullMessage('');
-      messageIndexRef.current = 0;
+      setMessage("");
     }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
   }, [isVisible]);
+
+  const displayedMessage = useTypewriter(message);
 
   return (
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          // This outer div provides the full-screen blur effect.
-          // It now directly contains the icon and text, without an inner box.
           className="fixed inset-0 z-30 flex flex-col items-center justify-center backdrop-blur-md transition-all duration-300"
-          style={{
-            backgroundColor: 'transparent', // Explicitly transparent to allow blur to show
-          }}
+          style={{ backgroundColor: "transparent" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Upload icon - now directly on the blurred background */}
           <motion.div
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1, type: "spring", stiffness: 100, damping: 15 }}
             className="flex flex-col items-center"
           >
-            <UploadCloud size={64} className="text-[var(--primary-accent)] mb-4 animate-pulse-gentle" /> {/* Adjusted size and color variable */}
-            
-            {/* "Drop Files Here" text - smaller font size */}
-            <p className="text-xl font-semibold text-[var(--dropzone-foreground)]">Drop files here</p> {/* Adjusted font size and color variable */}
+            <UploadCloud
+              size={64}
+              className="text-[var(--primary-accent)] mb-4 animate-pulse-gentle"
+              aria-hidden="true"
+            />
+            <h2 className="text-xl font-semibold text-[var(--dropzone-foreground)]">
+              Drop files here
+            </h2>
           </motion.div>
 
-          {/* Avurna's message - now directly on the blurred background */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3, type: "spring", stiffness: 100, damping: 15 }}
-            className="mt-4 text-center text-lg font-medium text-[var(--dropzone-muted-foreground)] px-8" // Adjusted font size and color variable
+            className="mt-4 text-center text-lg font-medium text-[var(--dropzone-muted-foreground)] px-8"
+            aria-live="polite"
           >
-            {displayedMessage}
+            {displayedMessage || "Awaiting your drop..."}
           </motion.div>
         </motion.div>
       )}

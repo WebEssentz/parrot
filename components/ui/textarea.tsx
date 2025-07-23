@@ -19,15 +19,21 @@ export const AttachButton = React.forwardRef<
 >(({ className, disabled, isUploading, isActive, ...props }, ref) => {
   const effectiveDisabled = disabled || isUploading;
 
+  // Animation variants for the icon rotation
+  const iconVariants = {
+    closed: { rotate: 0 },
+    open: { rotate: 45 },
+  };
+
   return (
     <button
       ref={ref}
       disabled={effectiveDisabled}
       className={cn(
         "inline-flex items-center cursor-pointer justify-center h-8 w-8 rounded-full text-zinc-500 dark:text-zinc-400 bg-transparent font-medium transition-colors",
-        "hover:bg-zinc-100 dark:hover:bg-zinc-700/70",
+        "hover:bg-zinc-100 dark:hover:bg-zinc-700/40",
         effectiveDisabled ? "opacity-50 cursor-not-allowed" : "",
-        isActive && "bg-zinc-200 dark:bg-[#3b3b3b]",
+        isActive && "bg-zinc-200 dark:bg-[#303030]",
         className
       )}
       data-testid="composer-button-attach"
@@ -37,7 +43,13 @@ export const AttachButton = React.forwardRef<
       {isUploading ? (
         <Loader2 className="h-5 w-5 animate-spin" />
       ) : (
-        <Plus className="h-5 w-5" />
+         <motion.div
+          variants={iconVariants}
+          animate={isActive ? "open" : "closed"}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
+          <Plus className="h-5 w-5" />
+        </motion.div>
       )}
     </button>
   );
