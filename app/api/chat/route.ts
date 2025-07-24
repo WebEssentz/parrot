@@ -149,12 +149,12 @@ export async function POST(req: Request) {
   }
 
   // --- Suggested Prompts Handling ---
-if (action === 'getSuggestedPrompts') {
-  // The server's only job is to send the full, unchanging list of all prompts.
-  return new Response(JSON.stringify({ promptGroups: PROMPT_GROUPS }), {
-    headers: { 'Content-Type': 'application/json' }, status: 200,
-  });
-}
+  if (action === 'getSuggestedPrompts') {
+    // The server's only job is to send the full, unchanging list of all prompts.
+    return new Response(JSON.stringify({ promptGroups: PROMPT_GROUPS }), {
+      headers: { 'Content-Type': 'application/json' }, status: 200,
+    });
+  }
 
   // --- Title Generation Handling (Robust: Only generate if message is clear) ---
   if (action === 'generateTitle' && messages && messages.length > 0) {
@@ -369,51 +369,25 @@ if (action === 'getSuggestedPrompts') {
     return { result, informMessages };
   }
 
-  // const currentDate = now.toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  // const birthDate = new Date('2009-06-17T00:00:00Z');
-  // let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
-  // const m = now.getUTCMonth() - birthDate.getUTCMonth();
-  // if (m < 0 || (m === 0 && now.getUTCDate() < birthDate.getUTCDate())) { age--; }
-  // const BirthDate = new Date('2009-05-28T00:00:00Z');
-  // let Age = now.getUTCFullYear() - BirthDate.getUTCFullYear();
-  // const M = now.getUTCMonth() - BirthDate.getUTCMonth();
-  // if (M < 0 || (M === 0 && now.getUTCDate() < BirthDate.getUTCDate())) { Age--; }
-
-  // Dynamic prompt assembly
+  // --- Dynamic prompt assembly ---
   const fs = require("fs");
   const path = require("path");
   const promptDir = path.resolve(process.cwd(), "prompts");
-  let systemPrompt = fs.readFileSync(path.join(promptDir, "criticalPrompt.txt"), "utf8");
-  // Always include critical rules
-  // Always include the tool selection policy and system prompt
-  let systemPromptTxt = fs.readFileSync(path.join(promptDir, "systemPrompt.txt"), "utf8");
-  // === THE CRITICAL FIX IS HERE ===
-  // 1. Get the current date and time at the moment of the request.
+  
+  // Load the single, consolidated system prompt. This is the only prompt file needed.
+  let systemPrompt = fs.readFileSync(path.join(promptDir, "systemPrompt.txt"), "utf8");
+
+  // Inject all dynamic values into the single prompt string
   const now = new Date();
   const currentYear = now.getUTCFullYear();
-  // 2. Format it into a clear, human-readable string. toUTCString() is perfect.
-  const currentDateString = now.toUTCString(); // e.g., "Thu, 27 Jun 2024 12:00:00 GMT"
-
-  // 3. Inject the current year and date string into the system prompt.
-  systemPrompt = systemPrompt.replace(/\{currentYear\}/g, currentYear.toString());
-  systemPrompt = systemPrompt.replace(/\{currentDate\}/g, currentDateString);
-  // === END OF FIX ===
-
-  // --- Personalization Injection ---
+  const currentDateString = now.toUTCString();
   const userFirstName = user?.firstName || "there";
   const userEmail = user?.email || "";
-  // Replace placeholders in systemPromptTxt
-  systemPromptTxt = systemPromptTxt.replace(/\{userFirstName\}/g, userFirstName);
-  systemPromptTxt = systemPromptTxt.replace(/\{userEmail\}/g, userEmail);
 
-  const personalizationPrompt = `\n# Personalization Rules:\n    - The user's name is: ${userFirstName}\n    - The user's email is: ${userEmail}\n    - Always use the user's name frequently in your responses to make the conversation feel personal and engaging.\n    - Never mention the user's email unless the user explicitly asks for it.\n`;
-
-  systemPrompt += "\n\n" + personalizationPrompt + "\n" + systemPromptTxt;
-  // Add Agent X prompt if user intent is web/automation (URL present or web task keywords)
-  // const agentXNeeded = !!urlToAnalyze || /website|site|web|browser|agent|automation|scrape|extract|analyze|navigate|product|video|post|news|shopping|social|table|data|csv|spreadsheet/i.test(userIntent);
-  // if (agentXNeeded) {
-  //   systemPrompt += "\n\n" + fs.readFileSync(path.join(promptDir, "agentXPrompt.txt"), "utf8");
-  // }
+  systemPrompt = systemPrompt.replace(/\{currentYear\}/g, currentYear.toString());
+  systemPrompt = systemPrompt.replace(/\{currentDate\}/g, currentDateString);
+  systemPrompt = systemPrompt.replace(/\{userFirstName\}/g, userFirstName);
+  systemPrompt = systemPrompt.replace(/\{userEmail\}/g, userEmail);
 
   // Dynamically select the reasoning model based on user sign-in status
   const REASON_MODEL_ID = getReasonModelId(user);
