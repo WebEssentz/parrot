@@ -1,33 +1,33 @@
-// components/auth/logo.tsx
+// FILE: // components/auth/logo.tsx (CORRECTED)
+
 'use client'
 
 import { motion } from "framer-motion";
-
+import Link from "next/link";
 
 export const BrandLogo = () => {
   return (
-    <motion.div 
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="fixed top-5 left-6 sm:top-5 sm:left-6 flex items-center gap-2 sm:gap-3 z-50"
-    >
-      <div className="relative w-6 h-6 sm:w-8 sm:h-8">
-        <img
-          src="/favicon.ico"
-          alt="Avurna Logo"
-          className="w-full h-full rounded"
-          style={{ display: 'block' }}
-        />
-      </div>
-      <motion.span 
-        className="text-base sm:text-lg font-semibold hidden sm:block text-zinc-800 dark:text-white"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        style={{ marginTop: '-2px' }}
-      >
-        Avurna
-      </motion.span>
-    </motion.div>
+    <Link href="/" className="absolute top-6 left-6 z-50">
+        <motion.div 
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex items-center gap-2"
+        >
+          <div className="w-7 h-7">
+            {/* Using your brand gradient for the logo background */}
+            <div className="w-full h-full rounded-md flex items-center justify-center bg-gradient-to-r from-[#F59E0B] to-[#EF4444]">
+                <img
+                src="/favicon.ico"
+                alt="Avurna Logo"
+                className="w-4 h-4"
+                />
+            </div>
+          </div>
+          <span className="font-heading text-lg font-medium text-zinc-900 dark:text-white">
+            Avurna
+          </span>
+        </motion.div>
+    </Link>
   );
 };
