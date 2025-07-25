@@ -1,7 +1,8 @@
 "use client"
 
 import { Textarea as ShadcnTextarea, AttachButton } from "@/components/ui/textarea"
-import { ArrowUp, ArrowRight, AudioLines, SquareStack, UploadCloud } from "lucide-react"
+// --- ADDED ChevronLeft and ChevronRight ---
+import { ArrowUp, ArrowRight, AudioLines, SquareStack, UploadCloud, ChevronLeft, ChevronRight } from "lucide-react"
 import { PauseIcon } from "./icons"
 import React, { useImperativeHandle, forwardRef, type DragEvent } from "react"
 import { Room, RoomEvent } from "livekit-client"
@@ -46,24 +47,8 @@ interface InputProps {
 }
 
 const containerVariants = {
-  hidden: {
-    opacity: 0,
-    height: 0,
-    overflow: "hidden",
-    transition: {
-      when: "afterChildren",
-      duration: 0.2,
-    },
-  },
-  visible: {
-    opacity: 1,
-    height: "auto",
-    transition: {
-      when: "beforeChildren",
-      staggerChildren: 0.1,
-      duration: 0.3,
-    },
-  },
+  hidden: { opacity: 0, height: 0, overflow: "hidden", transition: { when: "afterChildren", duration: 0.2 } },
+  visible: { opacity: 1, height: "auto", transition: { when: "beforeChildren", staggerChildren: 0.1, duration: 0.3 } },
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
@@ -105,8 +90,37 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     const [isFlowActive, setIsFlowActive] = React.useState(false)
     const [flowSession, setFlowSession] = React.useState<{ room: Room; roomName: string } | null>(null)
     const [isDraggingFileOverApp, setIsDraggingFileOverApp] = React.useState(false)
-    // --- UPDATED: Store the clicked image ID for filmstrip modal ---
     const [filmstripImageId, setFilmstripImageId] = React.useState<string | null>(null)
+
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null)
+    const [canScrollLeft, setCanScrollLeft] = React.useState(false)
+    const [canScrollRight, setCanScrollRight] = React.useState(false)
+
+    const checkScrollability = React.useCallback(() => {
+      const el = scrollContainerRef.current
+      if (el) {
+        const hasOverflow = el.scrollWidth > el.clientWidth
+        setCanScrollLeft(hasOverflow && el.scrollLeft > 0)
+        setCanScrollRight(hasOverflow && el.scrollLeft < el.scrollWidth - el.clientWidth - 1)
+      }
+    }, [])
+
+    React.useEffect(() => {
+      const el = scrollContainerRef.current
+      if (!el) return
+      checkScrollability()
+      const resizeObserver = new ResizeObserver(checkScrollability)
+      resizeObserver.observe(el)
+      return () => resizeObserver.disconnect()
+    }, [stagedFiles, checkScrollability])
+
+    const handleScroll = (direction: "left" | "right") => {
+      const el = scrollContainerRef.current
+      if (el) {
+        const scrollAmount = el.clientWidth * 0.8
+        el.scrollBy({ left: direction === "left" ? -scrollAmount : scrollAmount, behavior: "smooth" })
+      }
+    }
 
     useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement)
 
@@ -114,68 +128,18 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
 
     const handleTriggerUpload = () => fileInputRef.current?.click()
 
-    const SUPPORTED_MIME_TYPES = new Set([
-      "image/png",
-      "image/jpeg",
-      "image/gif",
-      "image/webp",
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.ms-powerpoint",
-      "text/csv",
-      "text/tab-separated-values",
-      "text/plain",
-      "text/html",
-      "application/json",
-      "application/javascript",
-      "application/xml",
-      "video/mp4",
-      "video/mpeg",
-      "video/quicktime",
-      "video/avi",
-      "video/x-flv",
-      "video/mpegps",
-      "video/mpg",
-      "video/webm",
-      "video/wmv",
-      "video/3gpp",
-      "audio/x-aac",
-      "audio/flac",
-      "audio/mp3",
-      "audio/m4a",
-      "audio/mpeg",
-      "audio/mpga",
-      "audio/mp4",
-      "audio/opus",
-      "audio/pcm",
-      "audio/wav",
-      "audio/webm",
-    ])
+    const SUPPORTED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-powerpoint", "text/csv", "text/tab-separated-values", "text/plain", "text/html", "application/json", "application/javascript", "application/xml", "video/mp4", "video/mpeg", "video/quicktime", "video/avi", "video/x-flv", "video/mpegps", "video/mpg", "video/webm", "video/wmv", "video/3gpp", "audio/x-aac", "audio/flac", "audio/mp3", "audio/m4a", "audio/mpeg", "audio/mpga", "audio/mp4", "audio/opus", "audio/pcm", "audio/wav", "audio/webm",])
 
     const addFilesToStage = (files: File[]) => {
       const validFiles = files.filter((file) => SUPPORTED_MIME_TYPES.has(file.type))
-
-      if (validFiles.length !== files.length) {
-        toast.error("Only supported images, audio, video, docs, code, and text files are allowed.")
-      }
-
-      const newFiles: StagedFile[] = validFiles.map((file) => ({
-        id: uuidv4(),
-        file,
-        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-        isUploading: true,
-        uploadProgress: 0,
-      }))
-
+      if (validFiles.length !== files.length) { toast.error("Only supported images, audio, video, docs, code, and text files are allowed.") }
+      const newFiles: StagedFile[] = validFiles.map((file) => ({ id: uuidv4(), file, previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null, isUploading: true, uploadProgress: 0, }))
       onFileStaged(newFiles)
     }
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files
       if (!files || files.length === 0) return
-
       addFilesToStage(Array.from(files))
       if (fileInputRef.current) fileInputRef.current.value = ""
     }
@@ -183,414 +147,189 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     const handleRemoveStagedFile = (idToRemove: string) => {
       setStagedFiles((currentFiles) => {
         const fileToRemove = currentFiles.find((f) => f.id === idToRemove)
-        if (fileToRemove?.previewUrl) {
-          URL.revokeObjectURL(fileToRemove.previewUrl)
-        }
+        if (fileToRemove?.previewUrl) { URL.revokeObjectURL(fileToRemove.previewUrl) }
         return currentFiles.filter((f) => f.id !== idToRemove)
       })
     }
 
-    const handleFormSubmit = () => {
-      const trimmedInput = input.trim()
-      onSendMessage(trimmedInput)
-    }
+    const handleFormSubmit = () => { onSendMessage(input.trim()) }
 
-    React.useEffect(() => {
-      return () => {
-        stagedFiles.forEach((sf) => {
-          if (sf.previewUrl) URL.revokeObjectURL(sf.previewUrl)
-        })
-      }
-    }, [stagedFiles])
+    React.useEffect(() => { return () => { stagedFiles.forEach((sf) => { if (sf.previewUrl) URL.revokeObjectURL(sf.previewUrl) }) } }, [stagedFiles])
 
     React.useEffect(() => {
       let fadeOutTimer: NodeJS.Timeout | undefined, showSuggestionsTimer: NodeJS.Timeout | undefined
-
       if (featureActive && !input && suggestedPrompts.length > 0) {
         setIsTabToAcceptEnabled(true)
         setStaticPlaceholderAnimatesOut(false)
         setShowAnimatedSuggestions(false)
         setPromptVisible(false)
-
-        fadeOutTimer = setTimeout(() => {
-          if (featureActive && !input) setStaticPlaceholderAnimatesOut(true)
-        }, 700)
-        showSuggestionsTimer = setTimeout(() => {
-          if (featureActive && !input) {
-            setShowAnimatedSuggestions(true)
-            setCurrentPromptIndex(0)
-            setPreviousPromptIndex(null)
-            setTimeout(() => setPromptVisible(true), 50)
-          }
-        }, 1000)
+        fadeOutTimer = setTimeout(() => { if (featureActive && !input) setStaticPlaceholderAnimatesOut(true) }, 700)
+        showSuggestionsTimer = setTimeout(() => { if (featureActive && !input) { setShowAnimatedSuggestions(true); setCurrentPromptIndex(0); setPreviousPromptIndex(null); setTimeout(() => setPromptVisible(true), 50) } }, 1000)
       } else {
         setStaticPlaceholderAnimatesOut(false)
         setShowAnimatedSuggestions(false)
         setPromptVisible(false)
         if (input) setIsTabToAcceptEnabled(false)
       }
-
-      return () => {
-        clearTimeout(fadeOutTimer)
-        clearTimeout(showSuggestionsTimer)
-      }
+      return () => { clearTimeout(fadeOutTimer); clearTimeout(showSuggestionsTimer) }
     }, [featureActive, input, suggestedPrompts])
 
     React.useEffect(() => {
       let promptInterval: NodeJS.Timeout | undefined
-
       if (showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && featureActive) {
         promptInterval = setInterval(() => {
           setPromptVisible(false)
-          setTimeout(() => {
-            setPreviousPromptIndex(currentPromptIndex)
-            setCurrentPromptIndex((prevIndex) => (prevIndex + 1) % suggestedPrompts.length)
-            setTimeout(() => setPromptVisible(true), 50)
-          }, 300)
+          setTimeout(() => { setPreviousPromptIndex(currentPromptIndex); setCurrentPromptIndex((prevIndex) => (prevIndex + 1) % suggestedPrompts.length); setTimeout(() => setPromptVisible(true), 50) }, 300)
         }, 2000 + 300)
       }
-
       return () => clearInterval(promptInterval)
     }, [showAnimatedSuggestions, suggestedPrompts.length, isTabToAcceptEnabled, featureActive, currentPromptIndex])
 
     React.useEffect(() => {
       const textarea = textareaRef.current
-      if (textarea) {
-        textarea.style.height = "auto"
-        const scrollHeight = textarea.scrollHeight
-        textarea.style.height = `${scrollHeight}px`
-      }
+      if (textarea) { textarea.style.height = "auto"; const scrollHeight = textarea.scrollHeight; textarea.style.height = `${scrollHeight}px` }
     }, [input, stagedFiles])
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (
-        featureActive &&
-        showAnimatedSuggestions &&
-        suggestedPrompts.length > 0 &&
-        isTabToAcceptEnabled &&
-        e.key === "Tab"
-      ) {
+      if (featureActive && showAnimatedSuggestions && suggestedPrompts.length > 0 && isTabToAcceptEnabled && e.key === "Tab") {
         e.preventDefault()
         const currentDynamicPromptText = suggestedPrompts[currentPromptIndex]
-        if (currentDynamicPromptText) {
-          setInput(currentDynamicPromptText)
-          setShowAnimatedSuggestions(false)
-          setIsTabToAcceptEnabled(false)
-          setPromptVisible(false)
-        }
+        if (currentDynamicPromptText) { setInput(currentDynamicPromptText); setShowAnimatedSuggestions(false); setIsTabToAcceptEnabled(false); setPromptVisible(false) }
         return
       }
-
-      if (e.key !== "Tab" && input.length === 0 && e.key.length === 1) {
-        setIsTabToAcceptEnabled(false)
-      }
-
+      if (e.key !== "Tab" && input.length === 0 && e.key.length === 1) { setIsTabToAcceptEnabled(false) }
       if (isDesktop && e.key === "Enter" && !e.shiftKey) {
         e.preventDefault()
-        if (
-          (input.trim().length > 0 || stagedFiles.length > 0) &&
-          !isActivelyUploadingFiles &&
-          offlineState === "online"
-        ) {
-          handleFormSubmit()
-        } else if (isLoading && input.trim().length === 0 && stagedFiles.length === 0) {
-          return
-        }
+        if ((input.trim().length > 0 || stagedFiles.length > 0) && !isActivelyUploadingFiles && offlineState === "online") { handleFormSubmit() }
+        else if (isLoading && input.trim().length === 0 && stagedFiles.length === 0) { return }
       }
     }
 
     const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
       const items = event.clipboardData?.items
       if (items) {
-        const files = Array.from(items)
-          .map((item) => item.getAsFile())
-          .filter((file): file is File => file !== null)
-
-        if (files.length > 0) {
-          event.preventDefault()
-          addFilesToStage(files)
-        }
+        const files = Array.from(items).map((item) => item.getAsFile()).filter((file): file is File => file !== null)
+        if (files.length > 0) { event.preventDefault(); addFilesToStage(files) }
       }
     }
 
-    const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-      event.preventDefault()
-      if (!hasContent) {
-        setIsDraggingFileOverApp(true)
-      }
-    }
-
-    const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-      event.preventDefault()
-      setIsDraggingFileOverApp(false)
-    }
-
+    const handleDragOver = (event: DragEvent<HTMLDivElement>) => { event.preventDefault(); if (!hasContent) { setIsDraggingFileOverApp(true) } }
+    const handleDragLeave = (event: DragEvent<HTMLDivElement>) => { event.preventDefault(); setIsDraggingFileOverApp(false) }
     const handleDrop = (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault()
       setIsDraggingFileOverApp(false)
-
       const droppedFiles = event.dataTransfer.files
-      if (droppedFiles && droppedFiles.length > 0) {
-        addFilesToStage(Array.from(droppedFiles))
-      }
+      if (droppedFiles && droppedFiles.length > 0) { addFilesToStage(Array.from(droppedFiles)) }
     }
 
     const handleVoiceClick = async () => {
-      if (input.trim().length > 0 || stagedFiles.length > 0) {
-        handleFormSubmit()
-        return
-      }
-
+      if (input.trim().length > 0 || stagedFiles.length > 0) { handleFormSubmit(); return }
       setIsFlowActive(true)
       try {
-        const response = await fetch("/api/flow/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identity: user?.id || `user-${uuidv4()}` }),
-        })
-
+        const response = await fetch("/api/flow/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identity: user?.id || `user-${uuidv4()}` }), })
         if (!response.ok) throw new Error(`Failed to start flow session: ${response.statusText}`)
-
         const { user_token, livekit_url, room_name } = await response.json()
         const room = new Room()
-
-        room.on(RoomEvent.Disconnected, () => {
-          setIsFlowActive(false)
-          setFlowSession(null)
-        })
-
+        room.on(RoomEvent.Disconnected, () => { setIsFlowActive(false); setFlowSession(null) })
         await room.connect(livekit_url, user_token)
         await room.localParticipant.setMicrophoneEnabled(true)
         setFlowSession({ room, roomName: room_name })
       } catch (error) {
         console.error("Critical error during Flow activation:", error)
         setIsFlowActive(false)
-        if (flowSession?.room) {
-          await flowSession.room.disconnect()
-        }
+        if (flowSession?.room) { await flowSession.room.disconnect() }
       }
     }
 
     const handleCloseFlow = async () => {
-      if (flowSession?.room) {
-        await flowSession.room.localParticipant.setMicrophoneEnabled(false)
-        await flowSession.room.disconnect()
-      } else {
-        setIsFlowActive(false)
-      }
+      if (flowSession?.room) { await flowSession.room.localParticipant.setMicrophoneEnabled(false); await flowSession.room.disconnect() }
+      else { setIsFlowActive(false) }
     }
 
-    // --- UPDATED: Handle image preview by finding the clicked image and opening filmstrip ---
     const handleImagePreview = (url: string, name: string) => {
-      // Find the image file that was clicked
-      const clickedImage = stagedFiles.find((file) => {
-        const displayUrl = file.uploadedAttachment?.downloadUrl || file.previewUrl
-        return displayUrl === url && file.file.name === name
-      })
-
-      if (clickedImage) {
-        setFilmstripImageId(clickedImage.id)
-      }
+      const clickedImage = stagedFiles.find((file) => { const displayUrl = file.uploadedAttachment?.downloadUrl || file.previewUrl; return displayUrl === url && file.file.name === name })
+      if (clickedImage) { setFilmstripImageId(clickedImage.id) }
     }
 
     const isActivelyUploadingFiles = stagedFiles.some((f) => f.isUploading)
     const isDisabled = disabled || offlineState !== "online"
     const hasContent = input.trim().length > 0 || stagedFiles.length > 0
-
     const textareaStyle = React.useMemo(() => ({ minHeight: 48, maxHeight: 200 }), [])
 
     return (
       <>
         <TooltipProvider delayDuration={100}>
-          <motion.div
-            animate={{ opacity: isFlowActive ? 0 : 1, y: isFlowActive ? 10 : 0 }}
-            transition={{ duration: 0.3 }}
-            className="relative flex w-full items-end px-3 py-3"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
+          <motion.div animate={{ opacity: isFlowActive ? 0 : 1, y: isFlowActive ? 10 : 0 }} transition={{ duration: 0.3 }} className="relative flex w-full items-end px-3 py-3" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
             <AvurnaDropOverlay isVisible={isDraggingFileOverApp && !hasContent} />
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              disabled={isDisabled}
-              multiple
-              accept="image/*,audio/*,video/*,application/pdf,text/*,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-            />
-
-            <motion.div
-              layout
-              transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              className="relative flex w-full flex-auto flex-col rounded-[1.8rem] border-[1px] border-zinc-500/40 dark:border-transparent dark:shadow-black/20 bg-[#ffffff] dark:bg-[#2a2a2a] focus-within:ring-1 focus-within:ring-primary/10 transition-shadow"
-            >
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" disabled={isDisabled} multiple accept="image/*,audio/*,video/*,application/pdf,text/*,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx" />
+            <motion.div layout transition={{ type: "spring", stiffness: 350, damping: 30 }} className="relative flex w-full flex-auto flex-col rounded-[1.8rem] border-[1px] border-zinc-500/40 dark:border-transparent dark:shadow-black/20 bg-[#ffffff] dark:bg-[#2a2a2a] focus-within:ring-1 focus-within:ring-primary/10 transition-shadow">
               <AnimatePresence>
                 {stagedFiles.length > 0 && (
-                  <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="hidden"
-                    className="flex flex-wrap gap-3 p-3"
-                  >
-                    {stagedFiles.map((sf) => (
-                      <FilePreview
-                        key={sf.id}
-                        previewUrl={sf.previewUrl}
-                        fileName={sf.file.name}
-                        fileType={sf.file.type}
-                        onRemove={() => handleRemoveStagedFile(sf.id)}
-                        onPreview={handleImagePreview}
-                        uploadProgress={sf.uploadProgress}
-                        isUploading={sf.isUploading}
-                        error={sf.error}
-                        uploadedAttachment={sf.uploadedAttachment}
-                      />
-                    ))}
+                  <motion.div variants={containerVariants} initial="hidden" animate="visible" exit="hidden" className="relative px-3 pt-3">
+                    <div ref={scrollContainerRef} onScroll={checkScrollability} className="flex gap-3 overflow-x-auto scroll-smooth no-scrollbar">
+                      {stagedFiles.map((sf) => (
+                        <FilePreview
+                          key={sf.id}
+                          previewUrl={sf.previewUrl}
+                          fileName={sf.file.name}
+                          fileType={sf.file.type}
+                          onRemove={() => handleRemoveStagedFile(sf.id)}
+                          onPreview={handleImagePreview}
+                          uploadProgress={sf.uploadProgress}
+                          isUploading={sf.isUploading}
+                          error={sf.error}
+                          uploadedAttachment={sf.uploadedAttachment}
+                        />
+                      ))}
+                    </div>
+                    <AnimatePresence>
+                      {canScrollLeft && (
+                        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} onClick={() => handleScroll("left")} className="absolute left-0 top-1/2 cursor-pointer -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-black/40 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors">
+                          <ChevronLeft size={20} />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                    <AnimatePresence>
+                      {canScrollRight && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="absolute right-3 top-3 bottom-3 w-12 bg-gradient-to-l from-[#ffffff] cursor-pointer dark:from-[#2a2a2a] to-transparent pointer-events-none" />
+                      )}
+                    </AnimatePresence>
+                    <AnimatePresence>
+                      {canScrollRight && (
+                        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} onClick={() => handleScroll("right")} className="absolute right-0 top-1/2 cursor-pointer -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-black/40 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors">
+                          <ChevronRight size={20} />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 )}
               </AnimatePresence>
-
               <div className="relative">
-                <ShadcnTextarea
-                  ref={textareaRef}
-                  className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-6 pt-4 pb-[2.5rem] text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0"
-                  value={input}
-                  autoFocus
-                  onFocus={onFocus}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => e.preventDefault()}
-                  onDragLeave={(e) => e.preventDefault()}
-                  placeholder={"Ask Avurna..."}
-                  disabled={isDisabled}
-                  style={textareaStyle}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handlePaste}
-                />
+                <ShadcnTextarea ref={textareaRef} className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-6 pt-4 pb-[2.5rem] text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0" value={input} autoFocus onFocus={onFocus} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onDragLeave={(e) => e.preventDefault()} placeholder={"Ask Avurna..."} disabled={isDisabled} style={textareaStyle} onChange={handleInputChange} onKeyDown={handleKeyDown} onPaste={handlePaste} />
               </div>
-
               <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-[1.8rem] bg-[#ffffff] px-3 pb-2 pt-2 dark:bg-[#2a2a2a]">
                 <div className="flex w-full items-center justify-between">
-                  <DropdownMenu
-                    onOpenChange={(isOpen) => {
-                      setIsMenuOpen(isOpen)
-                      if (isOpen) {
-                        setIsTooltipOpen(false)
-                      } else {
-                        menuJustClosedRef.current = true
-                      }
-                    }}
-                  >
-                    <Tooltip
-                      open={isTooltipOpen}
-                      onOpenChange={(isOpen) => {
-                        if (menuJustClosedRef.current) {
-                          menuJustClosedRef.current = false
-                          return
-                        }
-                        if (!isMenuOpen) {
-                          setIsTooltipOpen(isOpen)
-                        }
-                      }}
-                    >
-                      <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild disabled={isDisabled}>
-                          <AttachButton isUploading={false} disabled={isDisabled} isActive={isMenuOpen} />
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side={"top"}
-                        className="select-none bg-black text-white dark:bg-white dark:text-black rounded-md font-medium shadow-lg"
-                      >
-                        <p>{isDisabled ? "Processing..." : "Add photos, files, and apps"}</p>
-                      </TooltipContent>
+                  <DropdownMenu onOpenChange={(isOpen) => { setIsMenuOpen(isOpen); if (isOpen) { setIsTooltipOpen(false) } else { menuJustClosedRef.current = true } }}>
+                    <Tooltip open={isTooltipOpen} onOpenChange={(isOpen) => { if (menuJustClosedRef.current) { menuJustClosedRef.current = false; return } if (!isMenuOpen) { setIsTooltipOpen(isOpen) } }}>
+                      <TooltipTrigger asChild><DropdownMenuTrigger asChild disabled={isDisabled}><AttachButton isUploading={false} disabled={isDisabled} isActive={isMenuOpen} /></DropdownMenuTrigger></TooltipTrigger>
+                      <TooltipContent side={"top"} className="select-none bg-black text-white dark:bg-white dark:text-black rounded-md font-medium shadow-lg"><p>{isDisabled ? "Processing..." : "Add photos, files, and apps"}</p></TooltipContent>
                     </Tooltip>
-
-                    <DropdownMenuContent
-                      side={hasSentMessage ? "top" : "bottom"}
-                      sideOffset={12}
-                      align="start"
-                      className="w-64 p-2 bg-zinc-50 dark:bg-[#2A2A2A] border border-zinc-200 dark:border-zinc-700/50 shadow-2xl shadow-black/10 rounded-[1.25rem]"
-                    >
-                      <DropdownMenuItem
-                        onClick={handleTriggerUpload}
-                        className="flex items-center gap-3 cursor-pointer p-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 rounded-lg data-[highlighted]:bg-zinc-200/60 dark:data-[highlighted]:bg-white/10 outline-none"
-                      >
-                        <UploadCloud className="h-5 w-5 text-zinc-500 dark:text-zinc-400" />
-                        <span>Add photos & files</span>
-                      </DropdownMenuItem>
-
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="flex w-full items-center gap-3 cursor-pointer p-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 rounded-lg data-[state=open]:bg-zinc-200/60 data-[highlighted]:bg-zinc-200/60 dark:data-[state=open]:bg-white/10 dark:data-[highlighted]:bg-white/10 outline-none">
-                          <SquareStack className="h-5 w-5 text-zinc-500 dark:text-zinc-400" />
-                          <span>Add from apps</span>
-                        </DropdownMenuSubTrigger>
-                      </DropdownMenuSub>
+                    <DropdownMenuContent side={hasSentMessage ? "top" : "bottom"} sideOffset={12} align="start" className="w-64 p-2 bg-zinc-50 dark:bg-[#2A2A2A] border border-zinc-200 dark:border-zinc-700/50 shadow-2xl shadow-black/10 rounded-[1.25rem]">
+                      <DropdownMenuItem onClick={handleTriggerUpload} className="flex items-center gap-3 cursor-pointer p-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 rounded-lg data-[highlighted]:bg-zinc-200/60 dark:data-[highlighted]:bg-white/10 outline-none"><UploadCloud className="h-5 w-5 text-zinc-500 dark:text-zinc-400" /><span>Add photos & files</span></DropdownMenuItem>
+                      <DropdownMenuSub><DropdownMenuSubTrigger className="flex w-full items-center gap-3 cursor-pointer p-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 rounded-lg data-[state=open]:bg-zinc-200/60 data-[highlighted]:bg-zinc-200/60 dark:data-[state=open]:bg-white/10 dark:data-[highlighted]:bg-white/10 outline-none"><SquareStack className="h-5 w-5 text-zinc-500 dark:text-zinc-400" /><span>Add from apps</span></DropdownMenuSubTrigger></DropdownMenuSub>
                     </DropdownMenuContent>
                   </DropdownMenu>
-
                   <div className="flex items-center">
                     {status === "streaming" || status === "submitted" ? (
-                      <motion.div
-                        key="loading-stop"
-                        initial={{ opacity: 0, scale: 0.5 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                      >
-                        <button
-                          type="button"
-                          onClick={stop}
-                          className="rounded-full flex items-center justify-center bg-black dark:bg-white"
-                          style={{ width: 40, height: 40 }}
-                        >
-                          <PauseIcon size={28} className="h-6 w-6 text-white dark:text-black" />
-                        </button>
-                      </motion.div>
+                      <motion.div key="loading-stop" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}><button type="button" onClick={stop} className="rounded-full flex items-center justify-center bg-black dark:bg-white" style={{ width: 40, height: 40 }}><PauseIcon size={28} className="h-6 w-6 text-white dark:text-black" /></button></motion.div>
                     ) : (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <motion.button
-                            type="button"
-                            onClick={handleVoiceClick}
-                            disabled={isDisabled}
-                            className="rounded-full flex items-center justify-center bg-black dark:bg-white text-white dark:text-black cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            style={{ width: 36, height: 36 }}
-                            aria-label={hasContent ? "Send" : "Activate Flow"}
-                            whileHover={!isDisabled && hasContent ? { scale: 1.1 } : {}}
-                            whileTap={!isDisabled && hasContent ? { scale: 0.95 } : {}}
-                            transition={{ type: "spring", stiffness: 500, damping: 15 }}
-                          >
-                            <AnimatePresence mode="wait" initial={false}>
-                              <motion.span
-                                key={hasContent ? "send" : "voice"}
-                                initial={{ opacity: 0, y: 5 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -5 }}
-                                transition={{ duration: 0.15 }}
-                              >
-                                {hasContent ? (
-                                  hasSentMessage ? (
-                                    <ArrowUp size={20} />
-                                  ) : (
-                                    <ArrowRight size={20} />
-                                  )
-                                ) : (
-                                  <AudioLines size={20} />
-                                )}
-                              </motion.span>
-                            </AnimatePresence>
+                          <motion.button type="button" onClick={handleVoiceClick} disabled={isDisabled} className="rounded-full flex items-center justify-center bg-black dark:bg-white text-white dark:text-black cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" style={{ width: 36, height: 36 }} aria-label={hasContent ? "Send" : "Activate Flow"} whileHover={!isDisabled && hasContent ? { scale: 1.1 } : {}} whileTap={!isDisabled && hasContent ? { scale: 0.95 } : {}} transition={{ type: "spring", stiffness: 500, damping: 15 }}>
+                            <AnimatePresence mode="wait" initial={false}><motion.span key={hasContent ? "send" : "voice"} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} transition={{ duration: 0.15 }}>{hasContent ? (hasSentMessage ? <ArrowUp size={20} /> : <ArrowRight size={20} />) : (<AudioLines size={20} />)}</motion.span></AnimatePresence>
                           </motion.button>
                         </TooltipTrigger>
-                        <TooltipContent
-                          side="top"
-                          align="center"
-                          className="select-none bg-black text-white dark:bg-white dark:text-black rounded-md font-medium"
-                        >
-                          <p>{hasContent ? "Send" : "Activate Flow"}</p>
-                        </TooltipContent>
+                        <TooltipContent side="top" align="center" className="select-none bg-black text-white dark:bg-white dark:text-black rounded-md font-medium"><p>{hasContent ? "Send" : "Activate Flow"}</p></TooltipContent>
                       </Tooltip>
                     )}
                   </div>
@@ -599,21 +338,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
             </motion.div>
           </motion.div>
         </TooltipProvider>
-
-        <AnimatePresence>
-          {isFlowActive && <FlowOverlay onClose={handleCloseFlow} session={flowSession} user={user} />}
-        </AnimatePresence>
-
-        {/* --- UPDATED: Show filmstrip modal when an image is clicked --- */}
-        <AnimatePresence>
-          {filmstripImageId && (
-            <ImageFilmstripModal
-              images={stagedFiles}
-              initialImageId={filmstripImageId}
-              onClose={() => setFilmstripImageId(null)}
-            />
-          )}
-        </AnimatePresence>
+        <AnimatePresence>{isFlowActive && <FlowOverlay onClose={handleCloseFlow} session={flowSession} user={user} />}</AnimatePresence>
+        <AnimatePresence>{filmstripImageId && (<ImageFilmstripModal images={stagedFiles} initialImageId={filmstripImageId} onClose={() => setFilmstripImageId(null)} />)}</AnimatePresence>
       </>
     )
   },

@@ -48,7 +48,7 @@ export const DiscordIconSvg = ({ size = 20, className = "", ...props }: { size?:
 );
 // END: New Social Icon Components
 
-export const PauseIcon = ({ size = 32, className = "", ...props }: { size?: number; className?: string } & SVGProps<SVGSVGElement>) => (
+export const PauseIcon = ({ size = 40, className = "", ...props }: { size?: number; className?: string } & SVGProps<SVGSVGElement>) => (
   <svg
     width={size}
     height={size}
@@ -58,22 +58,13 @@ export const PauseIcon = ({ size = 32, className = "", ...props }: { size?: numb
     className={className}
     {...props}
   >
-    <circle
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="2"
-      fill="none"
-      strokeDasharray="62.832"
-      strokeDashoffset="15.708"
-      className="pause-spinner"
-    />
     <rect
-      x="7"
-      y="7"
-      width="10"
-      height="10"
+      x="5.5" // Centered horizontally
+      y="5.5" // Centered vertically
+      width="13"
+      height="13"
+      rx="2"  // X-axis radius for rounded corners
+      ry="2"  // Y-axis radius for rounded corners
       fill="currentColor"
       className="pause-stop"
     />

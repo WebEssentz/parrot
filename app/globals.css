@@ -549,6 +549,16 @@ mark[data-color="#e5e7eb"],
 }
 /* --- END OF FINAL STYLES --- */
 
+/* For Webkit-based browsers (Chrome, Safari, Edge) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* For other browsers */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
 
 /* PauseIcon spinner animation */
 .pause-spinner {

@@ -580,7 +580,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   )
 
   return (
-    <div className="flex h-dvh flex-col bg-background w-screen overflow-x-hidden md:w-full md:overflow-auto">
+    <div className="flex h-dvh flex-col bg-background w-screen overflow-x-hidden md:w-full overflow-hidden">
       <Modals />
       <UserChatHeader
         desktopActions={

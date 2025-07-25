@@ -139,14 +139,14 @@ export const ImageFilmstripModal = ({ images, initialImageId, onClose }: ImageFi
               <>
                 <button
                   onClick={goToPrevious}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-all lg:w-11 lg:h-11 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="absolute left-2 top-1/2 cursor-pointer -translate-y-1/2 w-9 h-9 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-all lg:w-11 lg:h-11 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label={prevLabel}
                 >
                   <ChevronLeft size={20} />
                 </button>
                 <button
                   onClick={goToNext}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-all lg:w-11 lg:h-11 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="absolute right-2 top-1/2 cursor-pointer -translate-y-1/2 w-9 h-9 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-all lg:w-11 lg:h-11 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   aria-label={nextLabel}
                 >
                   <ChevronRight size={20} />
@@ -160,7 +160,7 @@ export const ImageFilmstripModal = ({ images, initialImageId, onClose }: ImageFi
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-9 h-9 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-all z-20 lg:w-11 lg:h-11 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="absolute top-4 right-4 w-9 h-9 bg-black/50 cursor-pointer hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-all z-20 lg:w-11 lg:h-11 focus:outline-none focus:ring-2 focus:ring-blue-500"
           aria-label={closeLabel}
         >
           <X size={20} />
