@@ -6,60 +6,90 @@ import { useSidebar } from "@/lib/sidebar-context"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 import { motion, AnimatePresence } from "framer-motion"
 import { useUser } from "@clerk/nextjs"
-import { Search, ChevronLeft, ChevronsRight, ChevronsLeft } from "lucide-react"
-import { CustomChevronsLeft } from "@/components/icons"
+import { Search, ChevronLeft, Plus } from "lucide-react"
+import { ButtonIcon, CustomChevronsLeft } from "@/components/icons"
 import clsx from "clsx"
 import { SidebarIconButton } from "@/components/ui/sidebar-icon-button"
 import { useRouter, usePathname } from "next/navigation"
 import { ChatHistoryList } from "./ChatHistoryList"
 import { CustomUserMenu, UserAvatar } from "@/components/ui/CustomUserMenu"
 
+// --- THE DEFINITIVE, SearchInput COMPONENT ---
 const SearchInput = ({ shouldShowContent }: { shouldShowContent: boolean }) => {
   return (
-    <div className="px-2">
-      <motion.button
-        layout
-        transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
-        className={clsx("h-10 w-full group flex items-center overflow-hidden rounded-full relative", "cursor-pointer border text-zinc-500", "bg-[#FFFFFF] border-zinc-200 hover:bg-zinc-200 hover:border-zinc-300", "dark:bg-zinc-700/20 dark:border-zinc-700/75 dark:text-zinc-400 dark:hover:bg-[#3b3b3b] dark:hover:border-zinc-700", { "w-full px-3": shouldShowContent, "w-10 justify-center": !shouldShowContent, })}>
-        <div className="w-full flex items-center justify-center">
-          <AnimatePresence>
-            {shouldShowContent && (<motion.span key="search-text" layout={false} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.2, duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }} className="mr-auto text-sm whitespace-nowrap">Search...</motion.span>)}
-          </AnimatePresence>
-          <Search size={17} className="text-black dark:text-white" />
-        </div>
-      </motion.button>
-    </div>
+    // REMOVED the redundant px-2 wrapper div that caused misalignment
+    <motion.button
+      layout="position"
+      transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
+      className={clsx(
+        "h-10 w-full group cursor-pointer flex items-center overflow-hidden relative transition-colors",
+        "rounded-lg text-black dark:text-white hover:bg-zinc-200/60 dark:hover:bg-zinc-800/80",
+        { "w-full justify-start px-3": shouldShowContent, "w-10 justify-center": !shouldShowContent }
+      )}
+    >
+  <Search size={18} className="flex-shrink-0 text-zinc-800 dark:text-white" />
+      <AnimatePresence>
+        {shouldShowContent && (
+          <motion.span
+            key="search-text"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { delay: 0.15, duration: 0.2 } }}
+            exit={{ opacity: 0, transition: { duration: 0.1 } }}
+            // --- FIX: Reduced spacing ---
+            className="ml-[0.43rem] text-sm font-normal text-zinc-800 dark:text-zinc-200 hover:cursor-pointer"
+          >
+            Search chats
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
   )
 }
-const NewChatIcon = ({ className }: { className?: string }) => {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={clsx("stroke-[2] text-black dark:text-white", className)}>
-      <path d="M10 4V4C8.13623 4 7.20435 4 6.46927 4.30448C5.48915 4.71046 4.71046 5.48915 4.30448 6.46927C4 7.20435 4 8.13623 4 10V13.6C4 15.8402 4 16.9603 4.43597 17.816C4.81947 18.5686 5.43139 19.1805 6.18404 19.564C7.03968 20 8.15979 20 10.4 20H14C15.8638 20 16.7956 20 17.5307 19.6955C18.5108 19.2895 19.2895 18.5108 19.6955 17.5307C20 16.7956 20 15.8638 20 14V14" stroke="currentColor" strokeLinecap="square"></path>
-      <path d="M12.4393 14.5607L19.5 7.5C20.3284 6.67157 20.3284 5.32843 19.5 4.5C18.6716 3.67157 17.3284 3.67157 16.5 4.5L9.43934 11.5607C9.15804 11.842 9 12.2235 9 12.6213V15H11.3787C11.7765 15 12.158 14.842 12.4393 14.5607Z" stroke="currentColor" strokeLinecap="square"></path>
-    </svg>
-  )
-}
+
+// --- THE DEFINITIVE, CHATGPT-STYLE NewChatButton COMPONENT ---
 const NewChatButton = ({ shouldShowContent }: { shouldShowContent: boolean }) => {
   const { isDesktopSidebarCollapsed, toggleSidebar, isSidebarOpen } = useSidebar()
   const router = useRouter()
   const pathname = usePathname()
+
   const handleNewChat = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation(); 
-    if (isSidebarOpen) { toggleSidebar() }; 
-    if (pathname === "/chat") { window.location.href = "/chat" } else { router.push("/chat"); router.refresh() }
+    e.preventDefault(); e.stopPropagation();
+    if (!isDesktopSidebarCollapsed && isSidebarOpen) { toggleSidebar() };
+    if (pathname === "/chat") { window.location.href = "/chat" }
+    else { router.push("/chat"); router.refresh() }
   }
+
   return (
-    <div className="px-2">
-      <button onClick={handleNewChat} className={clsx("h-10 w-full group flex items-center justify-start px-3 overflow-hidden relative", "border border-transparent text-zinc-500 dark:text-zinc-300 cursor-pointer", "rounded-lg hover:text-primary hover:bg-zinc-200/70 dark:hover:bg-zinc-700/30", "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", { "justify-start px-3 -ml-[0.2rem]": shouldShowContent, "justify-center pl-[0.57rem]": !shouldShowContent, })}>
-        <NewChatIcon className="flex-shrink-0" />
-        <AnimatePresence>
-          {shouldShowContent && (<motion.span key="new-chat-text" initial={{ opacity: 0 }} layout={false} animate={{ opacity: 1, transition: { delay: 0.1, duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }} className="text-sm whitespace-nowrap ml-2 -mt-[0.2rem]">New chat</motion.span>)}
-        </AnimatePresence>
-      </button>
-    </div>
+    // REMOVED the redundant px-2 wrapper div that caused misalignment
+    <motion.button
+      layout="position"
+      transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
+      onClick={handleNewChat}
+      className={clsx(
+        "h-10 w-full group flex cursor-pointer items-center overflow-hidden relative transition-colors",
+        "rounded-lg text-black dark:text-white hover:bg-zinc-200/60 dark:hover:bg-zinc-800/80",
+        { "justify-start px-3": shouldShowContent },
+        { "justify-center w-10": !shouldShowContent }
+      )}
+    >
+  <ButtonIcon className="flex-shrink-0" />
+      <AnimatePresence>
+        {shouldShowContent && (
+          <motion.span
+            key="new-chat-text"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { delay: 0.15, duration: 0.2 } }}
+            exit={{ opacity: 0, transition: { duration: 0.1 } }}
+            // --- FIX: Reduced spacing ---
+            className="ml-[0.43rem] text-sm font-normal text-zinc-800 dark:text-zinc-200 hover:cursor-pointer"
+          >
+            New chat
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
   )
 }
-
 
 
 export const Sidebar = () => {
@@ -75,7 +105,7 @@ export const Sidebar = () => {
   useEffect(() => {
     if (hasMounted && !initialLoadHandled.current) {
       if (!isDesktop && !isSidebarOpen) {
-        toggleSidebar(); 
+        toggleSidebar();
       }
       initialLoadHandled.current = true;
     }
@@ -102,88 +132,103 @@ export const Sidebar = () => {
       layout
       initial={false}
       animate={isDesktop && isDesktopSidebarCollapsed ? "collapsed" : "open"}
-      variants={isDesktop ? { open: { width: "16rem" }, collapsed: { width: "3.2rem" } } : {}}
+      variants={isDesktop ? { open: { width: "16rem" }, collapsed: { width: "3.5rem" } } : {}}
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       className={clsx(
-        "flex h-full flex-col border-r overflow-x-hidden", 
-        "border-zinc-200 dark:border-zinc-800", 
-        { 
-          "fixed top-0 left-0 z-50": isDesktop, 
+        "flex h-full flex-col border-r overflow-x-hidden",
+        isDesktop && !isDesktopSidebarCollapsed ? "bg-[#F9F9F9] border-zinc-200" : "bg-white border-zinc-100",
+        "dark:bg-[#1C1C1C] dark:border-zinc-800",
+        {
+          "fixed top-0 left-0 z-50": isDesktop,
           "cursor-ew-resize": isDesktop && isDesktopSidebarCollapsed,
-          "bg-[#FFFFFF] dark:bg-[#1C1C1C] border-r-[#f] dark:border-r-[#333333]": isDesktop && isDesktopSidebarCollapsed, 
-          "bg-[#f3f5f6] dark:bg-[#1E1E1E] dark:border-r-[#333333]": isDesktop && !isDesktopSidebarCollapsed, 
-          "w-64 bg-[#f3f5f6] dark:bg-[#1E1E1E] dark:border-r-[#333333]": !isDesktop && isSidebarOpen,
+          "w-64": !isDesktop && isSidebarOpen,
           "w-0": !isDesktop && !isSidebarOpen,
-      })}>
+        })}
+    >
       <div className="flex flex-col h-full w-full">
-        <div onClick={(e) => e.stopPropagation()}>
-          <div className="flex-shrink-0 p-2 min-h-[56px] w-full flex items-center relative">
+        {/* --- Header & Actions Section with corrected padding and layout --- */}
+        <div onClick={(e) => e.stopPropagation()} className="p-2 space-y-2">
+          <div className="flex h-10 w-full items-center">
             <AnimatePresence>
               {shouldShowContent && (
-                <motion.div 
-                  key="avurna-title" 
-                  initial={{ opacity: 0, x: -20 }} 
-                  animate={{ opacity: 1, x: 0 }} 
-                  exit={{ opacity: 0, x: -20, transition: { duration: 0.1 } }} 
-                  transition={{ duration: 0.3, ease: "easeOut" }} 
-                  className="font-heading absolute left-4 select-none text-xl font-medium text-zinc-900 dark:text-white"
+                <motion.div
+                  key="avurna-title"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0, transition: { delay: 0.1 } }}
+                  exit={{ opacity: 0, x: -10, transition: { duration: 0.1 } }}
+                  className="font-heading select-none text-xl font-medium px-2"
                 >
-                  <span className="bg-gradient-to-r from-[#3B82F6] to-[#06B6D4] dark:from-[#F59E0B] dark:to-[#EF4444] bg-clip-text text-transparent font-semibold">
+                  <span className="bg-gradient-to-r from-[#F59E0B] to-[#EF4444] bg-clip-text text-transparent">
                     Avurna
                   </span>
                 </motion.div>
               )}
             </AnimatePresence>
-            <motion.div layout transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }} className={clsx({ "absolute right-2 top-2 text-black": !shouldShowContent, "ml-auto": shouldShowContent })}>
+            <motion.div layout transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }} className="ml-auto">
               {isDesktop && (
-                <SidebarIconButton 
-                  icon={isDesktopSidebarCollapsed
-                    ? (props => <CustomChevronsLeft {...props} className="text-black dark:text-white" />)
-                    : (props => <CustomChevronsLeft {...props} className="text-gray-400 dark:text-white" />)
-                  }
+                <SidebarIconButton
+                  icon={CustomChevronsLeft}
                   onClick={handleToggleIconClick}
-                  className={clsx("cursor-pointer", { "pl-[0.68rem]": isDesktopSidebarCollapsed, "pl-[0.5rem]": !isDesktopSidebarCollapsed, })}
+                  className={clsx(
+                    "cursor-ew-resize transition-transform",
+                    isDesktopSidebarCollapsed ? "text-zinc-900 dark:text-white" : "text-zinc-500 dark:text-zinc-400",
+                    !isDesktopSidebarCollapsed && "rotate-180"
+                  )}
                 />
               )}
             </motion.div>
           </div>
-          <div className="h-[0.60rem]" />
-          <SearchInput shouldShowContent={shouldShowContent} /> 
-          <div className="h-1.5" />
-          <NewChatButton shouldShowContent={shouldShowContent} />
+          <div className={clsx(
+            shouldShowContent ? "space-y-0.5" : "gap-y-0.5 flex flex-col items-center"
+          )}> {/* Reduced spacing between buttons when collapsed */}
+            <NewChatButton shouldShowContent={shouldShowContent} />
+            <SearchInput shouldShowContent={shouldShowContent} />
+          </div>
         </div>
-        
-        <div className="flex-grow overflow-y-auto mt-4">
+
+        {/* --- Chat History Section --- */}
+        <div className="flex-grow overflow-y-auto mt-4 px-2">
           <AnimatePresence>
-            {shouldShowContent && (<motion.div key="chat-history-list" layout={false} initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.25, duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}><ChatHistoryList /></motion.div>)}
+            {shouldShowContent && (
+              <motion.div
+                key="chat-history-list"
+                layout={false}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: { delay: 0.2, duration: 0.2 } }}
+                exit={{ opacity: 0, transition: { duration: 0.1 } }}
+              >
+                {/* --- FIX: REMOVED the "Chats" text header --- */}
+                <ChatHistoryList />
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
-        
-        <div className="flex-shrink-0 w-full p-1 px-1" onClick={(e) => e.stopPropagation()}>
-            <CustomUserMenu>
-                <button className={clsx("user-profile-button w-full flex items-center p-2 rounded-lg", "cursor-pointer")}> 
-                    <span className="hover-circle"></span>
-                    <div className="flex items-center flex-grow min-w-0">
-                      <UserAvatar />
-                      <AnimatePresence>
-                        {shouldShowContent && (
-                            <motion.div key="user-info" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0, transition: { delay: 0.2, duration: 0.2 } }} exit={{ opacity: 0, x: -10, transition: { duration: 0.1 } }} className="truncate ml-3">
-                                <span className="truncate text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                                    {user?.firstName || user?.username || "User"} {user?.lastName || ""}
-                                </span>
-                            </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                      <AnimatePresence>
-                        {shouldShowContent && (
-                          <motion.div key="user-menu-chevron" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.2, duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }} className="p-1 flex-shrink-0">
-                            <ChevronLeft size={19} className="text-black dark:text-white" />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                </button>
-            </CustomUserMenu>
+
+        {/* --- User Menu Section --- */}
+  <div className="flex-shrink-0 w-full p-2 mt-0" onClick={(e) => e.stopPropagation()}>
+          <CustomUserMenu>
+            <button className={clsx("user-profile-button w-full flex items-center p-2 rounded-lg transition-colors", "hover:bg-zinc-200/60 dark:hover:bg-zinc-800/80", "cursor-pointer")}>
+              <div className="flex items-center flex-grow min-w-0 mt-0">
+                <UserAvatar />
+                <AnimatePresence>
+                  {shouldShowContent && (
+                    <motion.div key="user-info" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0, transition: { delay: 0.2, duration: 0.2 } }} exit={{ opacity: 0, x: -10, transition: { duration: 0.1 } }} className="truncate ml-3">
+                      <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200" style={{ position: 'relative', top: '-4px' }}>
+                        {user?.firstName || user?.username || "User"}
+                      </span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <AnimatePresence>
+                {shouldShowContent && (
+                  <motion.div key="user-menu-chevron" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.2, duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }} className="flex-shrink-0">
+                    <ChevronLeft size={19} className="text-zinc-500 dark:text-zinc-400" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </button>
+          </CustomUserMenu>
         </div>
       </div>
     </motion.aside>

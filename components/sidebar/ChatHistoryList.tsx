@@ -83,8 +83,8 @@ export const ChatHistoryList = () => {
 
   return (
     <div className="flex flex-col">
-      <div className="px-4 py-1 mb-1">
-        <span className="text-sm font-semibold tracking-wide text-zinc-900/40 dark:text-zinc-600/90">Chats</span>
+      <div className="px-2 py-1 mb-1">
+        <span className="text-sm font-semibold tracking-wide text-zinc-900 dark:text-zinc-600/90">Chats</span>
       </div>
 
       {/* UPDATED: Changed div to motion.div, added layout, and replaced space-y-1 with gap-1 for smoother animations */}

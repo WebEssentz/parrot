@@ -124,7 +124,7 @@ export function Greeting() {
           Shall we continue our discussion on{' '}
           <button 
             onClick={handleContinueChat}
-            className="font-medium text-zinc-800 dark:text-zinc-200 hover:underline focus:outline-none focus:ring-1 focus:ring-orange-500 rounded-sm transition-all"
+            className="font-medium text-zinc-800 cursor-pointer dark:text-zinc-200 hover:underline focus:outline-none focus:ring-1 focus:ring-orange-500 rounded-sm transition-all"
           >
             {recentChat.title}?
           </button>          

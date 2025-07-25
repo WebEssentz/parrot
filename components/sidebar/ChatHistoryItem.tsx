@@ -260,9 +260,9 @@ export const ChatHistoryItem = ({ chat, isActive, onClick, updateChatTitle, dele
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="w-full h-full flex items-center text-left cursor-pointer"
+              className="w-full h-full justify-start flex items-center text-left cursor-pointer"
             >
-              <span className="flex-grow truncate px-3 pr-10">{finalTitle}</span>
+              <span className="flex-grow truncate px-1 pr-10">{finalTitle}</span>
               <div
                 className={clsx("absolute right-1 top-0 h-full flex items-center transition-opacity", {
                   "opacity-100": isActive,
