@@ -640,7 +640,7 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
     );
   }
 
-  const bubbleBgColor = theme === 'dark' ? '#2A2A2A' : '#f4f4f4';
+  const bubbleBgColor = theme === 'dark' ? '#2A2A2A' : '#f3f5f6';
   const tailBorderColor = theme === 'dark' ? '#2A2A2A' : '#efeff3ff';
 
   return (

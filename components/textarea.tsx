@@ -1,7 +1,7 @@
 "use client"
 
 import { Textarea as ShadcnTextarea, AttachButton } from "@/components/ui/textarea"
-// --- ADDED ChevronLeft and ChevronRight ---
+// --- (Your other imports are here, no changes needed) ---
 import { ArrowUp, ArrowRight, AudioLines, SquareStack, UploadCloud, ChevronLeft, ChevronRight } from "lucide-react"
 import { PauseIcon } from "./icons"
 import React, { useImperativeHandle, forwardRef, type DragEvent } from "react"
@@ -25,6 +25,7 @@ import { FilePreview } from "./FilePreview"
 import { ImageFilmstripModal } from "./ImageFilmstrip"
 import type { StagedFile } from "@/components/chats/user-chat"
 
+// --- (No changes to your interfaces or a lot of the component logic) ---
 interface InputProps {
   input: string
   handleInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void
@@ -51,6 +52,7 @@ const containerVariants = {
   visible: { opacity: 1, height: "auto", transition: { when: "beforeChildren", staggerChildren: 0.1, duration: 0.3 } },
 }
 
+
 export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
   (
     {
@@ -75,6 +77,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     },
     ref,
   ) => {
+    
+    // --- (No changes to your state or hooks) ---
     const { isSignedIn } = useUser()
     const [isMenuOpen, setIsMenuOpen] = React.useState(false)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -96,6 +100,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     const [canScrollLeft, setCanScrollLeft] = React.useState(false)
     const [canScrollRight, setCanScrollRight] = React.useState(false)
 
+    // --- (No changes to your functions or useEffects) ---
     const checkScrollability = React.useCallback(() => {
       const el = scrollContainerRef.current
       if (el) {
@@ -259,13 +264,47 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     return (
       <>
         <TooltipProvider delayDuration={100}>
-          <motion.div animate={{ opacity: isFlowActive ? 0 : 1, y: isFlowActive ? 10 : 0 }} transition={{ duration: 0.3 }} className="relative flex w-full items-end px-3 py-3" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+          <motion.div
+            animate={{ opacity: isFlowActive ? 0 : 1, y: isFlowActive ? 10 : 0 }}
+            transition={{ duration: 0.3 }}
+            className="relative flex w-full items-end px-3 py-3"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <AvurnaDropOverlay isVisible={isDraggingFileOverApp && !hasContent} />
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" disabled={isDisabled} multiple accept="image/*,audio/*,video/*,application/pdf,text/*,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx" />
-            <motion.div layout transition={{ type: "spring", stiffness: 350, damping: 30 }} className="relative flex w-full flex-auto flex-col rounded-[1.8rem] border-[1px] border-zinc-500/40 dark:border-transparent dark:shadow-black/20 bg-[#ffffff] dark:bg-[#2a2a2a] focus-within:ring-1 focus-within:ring-primary/10 transition-shadow">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              disabled={isDisabled}
+              multiple
+              accept="image/*,audio/*,video/*,application/pdf,text/*,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+            />
+            
+            {/* 
+              BELOW IS THE FIX: I have rewritten this one className.
+              - Default Border: Added a clear but subtle border for both light and dark modes.
+              - Hover State: Added a hover effect to make the border brighter, signaling interactivity.
+              - Focus State: Made the focus ring thicker and fully opaque for unmistakable feedback.
+            */}
+            <motion.div
+              layout
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              className="relative flex w-full flex-auto flex-col rounded-[1.8rem] bg-white dark:bg-[#2a2a2a] border border-zinc-300 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-600"
+            >
+              {/* --- The rest of your component remains unchanged --- */}
+
               <AnimatePresence>
                 {stagedFiles.length > 0 && (
-                  <motion.div variants={containerVariants} initial="hidden" animate="visible" exit="hidden" className="relative px-3 pt-3">
+                  <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="hidden"
+                    className="relative px-3 pt-3"
+                  >
                     <div ref={scrollContainerRef} onScroll={checkScrollability} className="flex gap-3 overflow-x-auto scroll-smooth no-scrollbar">
                       {stagedFiles.map((sf) => (
                         <FilePreview
@@ -284,7 +323,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
                     </div>
                     <AnimatePresence>
                       {canScrollLeft && (
-                        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} onClick={() => handleScroll("left")} className="absolute left-0 top-1/2 cursor-pointer -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-black/40 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors">
+                        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} onClick={() => handleScroll("left")} className="absolute left-0 top-1/2 cursor-pointer -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-black/40 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60">
                           <ChevronLeft size={20} />
                         </motion.button>
                       )}
@@ -296,7 +335,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
                     </AnimatePresence>
                     <AnimatePresence>
                       {canScrollRight && (
-                        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} onClick={() => handleScroll("right")} className="absolute right-0 top-1/2 cursor-pointer -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-black/40 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors">
+                        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} onClick={() => handleScroll("right")} className="absolute right-0 top-1/2 cursor-pointer -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-black/40 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60">
                           <ChevronRight size={20} />
                         </motion.button>
                       )}

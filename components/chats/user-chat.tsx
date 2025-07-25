@@ -28,6 +28,7 @@ import {
 } from "../ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { ShareChatModal } from "../share/share-chat-modal"
+import { Greeting } from "../ui/Greeting"
 
 // Type for data returned from our /api/upload endpoint
 export interface AttachmentRecord {
@@ -58,28 +59,6 @@ export interface Attachment {
   name?: string;
   contentType?: string;
   url: string;
-}
-
-function GreetingBanner() {
-  const { user, isLoaded } = useUser()
-  let displayName = "User"
-  if (isLoaded && user) {
-    displayName = user.firstName || user.username || "User"
-  }
-  const hour = new Date().getHours()
-  let greeting = "Good evening"
-  if (hour < 12) greeting = "Good morning"
-  else if (hour < 18) greeting = "Good afternoon"
-  return (
-    <div className="w-full flex flex-col items-center">
-      <div className="text-2xl sm:text-3xl font-semibold text-zinc-800 dark:text-zinc-200 text-center select-none">
-        {greeting},{' '}
-        <span className="bg-gradient-to-r from-[#3B82F6] to-[#06B6D4] dark:from-[#F59E0B] dark:to-[#EF4444] bg-clip-text text-transparent font-bold">
-          {displayName}
-        </span>
-      </div>
-    </div>
-  )
 }
 
 function useReconnectToClerk() {
@@ -649,7 +628,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           {!hasSentMessage ? (
             <div className="flex h-full w-full items-center justify-center">
               <div className="flex w-full flex-col items-center gap-8 px-4 mb-20">
-                <GreetingBanner />
+                <Greeting />
                 {isTabletOrLarger && <div className="w-full"><ChatInputArea {...chatInputAreaProps} /></div>}
               </div>
             </div>
