@@ -1,6 +1,6 @@
 'use client'
 
-import { useSignUp } from "@clerk/nextjs";
+import { useSignIn } from "@clerk/nextjs";
 import { OAuthStrategy } from "@clerk/types";
 import { FcGoogle } from "react-icons/fc";
 import { FaApple, FaDiscord } from "react-icons/fa";
@@ -8,12 +8,12 @@ import Link from "next/link";
 import { AuthContainer, OAuthButton } from "@/components/auth/shared";
 import { motion } from "framer-motion";
 
-export default function SignUpPage() {
-  const { signUp, isLoaded } = useSignUp();
+export default function SignInPage() {
+  const { signIn, isLoaded } = useSignIn();
 
-  const signUpWith = (strategy: OAuthStrategy) => {
+  const signInWith = (strategy: OAuthStrategy) => {
     if (!isLoaded) return;
-    return signUp.authenticateWithRedirect({
+    return signIn.authenticateWithRedirect({
       strategy,
       redirectUrl: "/callback",
       redirectUrlComplete: "/",
@@ -53,7 +53,7 @@ export default function SignUpPage() {
                 <OAuthButton
                     icon={provider.icon}
                     label={`Continue with ${provider.name}`}
-                    onClick={() => signUpWith(provider.strategy as OAuthStrategy)}
+                    onClick={() => signInWith(provider.strategy as OAuthStrategy)}
                 />
             </motion.div>
           ))}
