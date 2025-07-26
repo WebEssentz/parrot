@@ -118,6 +118,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [isFetchingForShare, setIsFetchingForShare] = useState(false)
   const [fullChatDataForShare, setFullChatDataForShare] = useState<any>(null)
   const MAX_COMPLETION_INPUT_LENGTH = 90
+  // At the top of your UserChat component
+const [userStoppedAnimation, setUserStoppedAnimation] = useState(false);
+ // This state is our optimistic flag. It turns on the moment the user sends a message.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
 
   // State to manage staged files and their upload progress
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
@@ -187,10 +192,38 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
       setSelectedModel(getDefaultModel(!!isSignedIn))
       setIsSubmittingSearch(false)
     },
+    onFinish: () => {
+      // 1. Mark the submission as fully complete.
+      setIsSubmitting(false);
+
+      // 3. Persist the final state of the chat to the database.
+      handleSaveChat();
+    },
   })
 
   const hasSentMessage = messages.length > 0
 
+ // 1. Find the last message in the array.
+const lastMessage = messages[messages.length - 1];
+
+// 2. Check if the last message is from the assistant.
+const isLastMessageAssistant = lastMessage?.role === 'assistant';
+
+// 3. The data stream is active if the status is 'streaming' or 'submitted'.
+const isDataStreaming = status === 'streaming' || status === 'submitted';
+
+// 4. The animation is considered "potentially active" if the last message is from
+//    the assistant AND the data stream has finished, but the user hasn't manually stopped it.
+//    This gives the typewriter time to finish.
+const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming && !userStoppedAnimation;
+
+// 5. Therefore, the user "perceives" that the AI is generating a response if
+//    the data is actively streaming OR if the animation might still be running.
+// --- THIS IS THE FIX ---
+  // The user "perceives" that the AI is generating a response if the data is actively
+  // streaming OR if the animation might still be running. This logic is now corrected.
+  const isPerceivedStreaming = (isDataStreaming || !!animatingMessageId) && !userStoppedAnimation;
+  
   // New function to handle file staging and immediate upload
   const handleFileStaged = async (newFiles: StagedFile[]) => {
     if (!dbUser?.id) {
@@ -272,12 +305,48 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     });
   };
 
+
+  // This effect resets the "stopped" flag whenever a new message starts streaming.
+  useEffect(() => {
+    if (status === 'streaming') {
+      setUserStoppedAnimation(false);
+    }
+  }, [status]);
+
+
+// We can simplify handleStop now.
+  const handleStop = () => {
+    // Just call the hook's stop function. 
+    // The logic inside the onFinish callback will handle the rest.
+    stop();
+    setUserStoppedAnimation(true);
+  };
+  
+  // // --- NEW useEffect FOR ROBUST SAVING ---
+  // // This effect will run whenever the `status` changes.
+  // useEffect(() => {
+  //   // Check if the stream has just finished (either by completing or being stopped).
+  //   if (prevStatusRef.current === 'streaming' && status !== 'streaming') {
+  //     handleSaveChat();
+  //   }
+  //   // Update the ref to the current status for the next render.
+  //   prevStatusRef.current = status;
+  // }, [status]); // Dependency array ensures this runs only when status changes.
+
+
   const handleSendMessage = async (messageText: string) => {
     if (!dbUser?.id) {
       toast.error("User profile not loaded. Please wait a moment.");
       return;
     }
 
+    // --- CRITICAL CHANGE ---
+    // The very first thing we do is set the submission state to true.
+    setIsSubmitting(true);
+    
+    // Reset the stopped flag for the new message
+    setUserStoppedAnimation(false);
+     
     let currentChatId = chatId;
     let isNewChat = !currentChatId;
 
@@ -412,6 +481,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     setStagedFiles: setStagedFiles, // Pass setter for staged files
     predictivePrompts,
     input,
+    isPerceivedStreaming,
     setInput: (newInput: string) => {
       setInput(newInput)
       setPredictivePrompts([])
@@ -421,7 +491,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     isPredicting,
     uiIsLoading,
     status,
-    stop,
+    stop: handleStop, // Pass the stop function
     hasSentMessage,
     isDesktop: isTabletOrLarger,
     selectedModel,
@@ -436,25 +506,20 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     chatId: chatId,
   }
 
-  useEffect(() => {
-    if (prevStatusRef.current === "streaming" && status === "ready") {
-      if (!chatId || messages.length < 2) return
-      const saveChat = async () => {
-        try {
-          await fetch(`/api/chats/${chatId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ messages: messages, title: chatTitle }),
-          })
-          mutateChats()
-        } catch {
-          toast.error("Could not save the conversation.")
-        }
-      }
-      saveChat()
+   // --- THIS IS THE NEW SAVE LOGIC ---
+const handleSaveChat = async () => {
+    if (!chatId || messages.length < 1) return;
+    try {
+      await fetch(`/api/chats/${chatId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages, title: chatTitle }),
+      });
+      mutateChats();
+    } catch {
+      toast.error("Could not save the conversation.");
     }
-    prevStatusRef.current = status
-  }, [status, messages, chatId, chatTitle, mutateChats])
+  };
 
   useEffect(() => {
     if (!hasSentMessage) return
@@ -635,7 +700,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           ) : (
             <>
               <div className="px-2 sm:px-4 pt-4">
-                <Messages messages={messages} isLoading={uiIsLoading} status={status as any} endRef={endRef} />
+                <Messages messages={messages} isLoading={uiIsLoading} status={status as any} endRef={endRef} stop={handleStop} userStoppedAnimation={userStoppedAnimation} animatingMessageId={animatingMessageId} onAnimationComplete={handleSaveChat} setAnimatingMessageId={setAnimatingMessageId}/>
               </div>
               <ChatScrollAnchor containerRef={containerRef} />
               <div ref={endRef} className="h-px" />

@@ -13,6 +13,7 @@ interface ChatInputAreaProps {
   stagedFiles: StagedFile[]; // Pass staged files from parent
   setStagedFiles: React.Dispatch<React.SetStateAction<StagedFile[]>>; // Pass setter for staged files
   predictivePrompts: string[];
+  isPerceivedStreaming: boolean;
   input: string;
   setInput: (value: string) => void;
   handleInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -46,6 +47,7 @@ export function ChatInputArea({
   dynamicSuggestedPrompts,
   isPredictiveVisible,
   setIsPredictiveVisible,
+  isPerceivedStreaming,
   hasSentMessage,
   ...rest
 }: ChatInputAreaProps) {
@@ -64,6 +66,7 @@ export function ChatInputArea({
         onFileStaged={onFileStaged} // Pass onFileStaged down
         stagedFiles={stagedFiles} // Pass stagedFiles down
         setStagedFiles={setStagedFiles} // Pass setStagedFiles down
+        isPerceivedStreaming={isPerceivedStreaming}
         hasSentMessage={hasSentMessage}
         {...rest}
       />

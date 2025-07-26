@@ -14,9 +14,13 @@ interface MessagesProps {
   isLoading: boolean
   status: "error" | "submitted" | "streaming" | "ready"
   endRef?: React.RefObject<HTMLDivElement>
+  stop: () => void;
+  animatingMessageId: string | null;
+  setAnimatingMessageId: React.Dispatch<React.SetStateAction<string | null>>;
+  userStoppedAnimation: boolean;
 }
 
-export const Messages = ({ messages, isLoading, status }: MessagesProps) => {
+export const Messages = ({ messages, isLoading, status, stop, userStoppedAnimation, animatingMessageId, setAnimatingMessageId }: MessagesProps) => {
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-6 space-y-1">
       <AnimatePresence initial={false}>
@@ -53,6 +57,10 @@ export const Messages = ({ messages, isLoading, status }: MessagesProps) => {
                 isLoading={messageIsLoading}
                 message={m}
                 status={messageStatus}
+                stop={stop} // Pass it down
+                userStoppedAnimation={userStoppedAnimation}
+                animatingMessageId={animatingMessageId}
+                setAnimatingMessageId={setAnimatingMessageId}
               />
               {isPending && m.role === "user" && (
                 <div className="absolute right-4 top-4 flex items-center gap-1 z-10">

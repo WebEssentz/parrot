@@ -36,6 +36,7 @@ interface InputProps {
   hasSentMessage: boolean
   isDesktop: boolean
   disabled?: boolean
+  isPerceivedStreaming: boolean;
   offlineState?: "online" | "reconnecting" | "offline"
   onFocus?: () => void
   user: { id: string } | null | undefined
@@ -63,6 +64,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
       status,
       stop,
       onFocus,
+      isPerceivedStreaming,
       hasSentMessage,
       isDesktop,
       disabled = false,
@@ -256,9 +258,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
       if (clickedImage) { setFilmstripImageId(clickedImage.id) }
     }
 
-  const isActivelyUploadingFiles = stagedFiles.some((f) => f.isUploading)
-  // Only disable if explicitly disabled or offline, NOT when uploading files
-  const isDisabled = disabled || offlineState !== "online"
+    const isActivelyUploadingFiles = stagedFiles.some((f) => f.isUploading)
+    // Only disable if explicitly disabled or offline, NOT when uploading files
+    const isDisabled = disabled || offlineState !== "online"
     const hasContent = input.trim().length > 0 || stagedFiles.length > 0
     const textareaStyle = React.useMemo(() => ({ minHeight: 48, maxHeight: 200 }), [])
 
@@ -360,7 +362,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <div className="flex items-center">
-                    {status === "streaming" || status === "submitted" ? (
+                    {isPerceivedStreaming ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <motion.div
