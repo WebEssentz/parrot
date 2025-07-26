@@ -440,7 +440,6 @@ export async function POST(req: Request) {
     model: languageModel,
     system: systemPrompt,
     messages: messages as UIMessage[],
-    experimental_transform: smoothStream({ delayInMs: 20, chunking: 'word' }),
     temperature: 0,
     tools: wrappedTools,
     toolCallStreaming: true,
