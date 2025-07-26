@@ -167,7 +167,10 @@ export default function Chat() {
   };
 
   const chatInputAreaProps = {
-    onSendMessage: (message: string) => append({ role: 'user', content: message }),
+    onSendMessage: (message: string) => {
+      append({ role: 'user', content: message });
+      setInput("");
+    },
     onFileStaged: () => toast.error("Please log in to upload files."),
     stagedFiles,
     setStagedFiles,
@@ -192,11 +195,11 @@ export default function Chat() {
     dynamicSuggestedPrompts: dynamicSuggestedPrompts || [],
     isPredictiveVisible,
     setIsPredictiveVisible,
-    disabled: uiIsLoading,
+    disabled: false,
   };
 
   return (
-    <div className="relative flex flex-col h-dvh overflow-hidden overscroll-none w-full bg-background">
+    <div className="relative flex flex-col h-dvh overflow-hidden overscroll-none w-full bg-transparent">
       <Header />
       
       <div
@@ -205,7 +208,7 @@ export default function Chat() {
         style={{ paddingBottom: isDesktop ? '0px' : `${inputAreaHeight}px` }}
       >
         {!hasSentMessage ? (
-          <div className="flex-1 flex flex-col justify-center items-center px-4 pb-16">
+          <div className="flex-1 flex flex-col justify-center items-center px-4">
             <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[50rem]">
               <ProjectOverview />
               {isDesktop && (
@@ -228,7 +231,7 @@ export default function Chat() {
             </div>
           </div>
         ) : (
-          <div className="w-full max-w-[50rem] mx-auto px-4 pt-24">
+          <div className="w-full max-w-[50rem] mx-auto px-4 pt-14">
             <Messages
               messages={messages}
               isLoading={uiIsLoading}

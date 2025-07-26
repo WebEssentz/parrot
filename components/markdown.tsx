@@ -13,6 +13,14 @@ import { cn } from "@/lib/utils";
 import type { KatexOptions } from "katex";
 
 const components: Partial<Components> = {
+  // THIS IS THE CORRECT, CHATGPT-STYLE VERSION
+  hr: ({ node, ...props }) => (
+    <hr
+      className="w-full h-0.5 my-3 border-t border-zinc-200 dark:border-zinc-700/70"
+      {...props}
+    />
+  ),
+
   // ... other components like blockquote, p, ul, etc. remain the same ...
   blockquote: ({ node, children, ...props }) => (
     <blockquote
@@ -51,13 +59,10 @@ const components: Partial<Components> = {
     </blockquote>
   ),
 
-  // --- THIS IS THE FIX ---
   code(props) {
     const { children, className, node, ...rest } = props;
     const match = /language-(\w+)/.exec(className || "");
 
-    // If 'match' exists, it's a block-level code snippet (```).
-    // It should be rendered by our full-featured <CodeBlock> component.
     if (match) {
       return (
         <CodeBlock
@@ -71,12 +76,9 @@ const components: Partial<Components> = {
       );
     }
 
-    // Otherwise, it's an inline code snippet (`code`).
-    // Render it with a simple, styled <code> tag.
     return (
       <code
         className={cn(
-          // Consistent styling for inline code
           "relative rounded bg-zinc-200 dark:bg-zinc-700/50 px-[0.4rem] py-[0.2rem] font-mono text-[0.9em]",
           className,
         )}
@@ -86,7 +88,7 @@ const components: Partial<Components> = {
       </code>
     );
   },
-  // ... other components like p, pre, ol, etc. remain the same ...
+
   p: ({ node, children, ...props }) => (
     <p className="mb-2 leading-relaxed" style={{ fontSize: "16px" }} {...props}>
       {children}
@@ -104,7 +106,7 @@ const components: Partial<Components> = {
     </ul>
   ),
   li: ({ node, children, ...props }) => (
-    <li className="pl-1 pb-4 leading-relaxed" {...props}>
+    <li className="pl-1 pb-2 leading-relaxed" {...props}>
       {children}
     </li>
   ),
@@ -194,7 +196,6 @@ const components: Partial<Components> = {
   thead: ({ node, children, ...props }) => {
     return <thead {...props}>{children}</thead>;
   },
-  // --- ADD THIS TO FIX IMAGE RENDERING ---
   img: ({ node, ...props }) => (
     <img
       className="max-w-full h-auto rounded-lg my-2 border dark:border-zinc-700"

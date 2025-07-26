@@ -429,8 +429,8 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     dynamicSuggestedPrompts: dynamicSuggestedPrompts || [], // FIX: Add a fallback empty array
     isPredictiveVisible,
     setIsPredictiveVisible,
-    // Modified: Only disable if offline or actively uploading files, NOT during AI streaming
-    disabled: offlineState !== "online" || (stagedFiles || []).some(f => f.isUploading),
+    // Modified: Only disable if offline
+    disabled: offlineState !== "online",
     offlineState: offlineState,
     user: dbUser,
     chatId: chatId,
@@ -559,7 +559,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   )
 
   return (
-    <div className="flex h-dvh flex-col bg-background w-screen overflow-x-hidden md:w-full overflow-hidden">
+    <div className="flex h-dvh flex-col bg-transparent w-screen overflow-x-hidden md:w-full overflow-hidden">
       <Modals />
       <UserChatHeader
         desktopActions={

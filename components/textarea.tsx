@@ -77,7 +77,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     },
     ref,
   ) => {
-    
+
     // --- (No changes to your state or hooks) ---
     const { isSignedIn } = useUser()
     const [isMenuOpen, setIsMenuOpen] = React.useState(false)
@@ -256,8 +256,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
       if (clickedImage) { setFilmstripImageId(clickedImage.id) }
     }
 
-    const isActivelyUploadingFiles = stagedFiles.some((f) => f.isUploading)
-    const isDisabled = disabled || offlineState !== "online"
+  const isActivelyUploadingFiles = stagedFiles.some((f) => f.isUploading)
+  // Only disable if explicitly disabled or offline, NOT when uploading files
+  const isDisabled = disabled || offlineState !== "online"
     const hasContent = input.trim().length > 0 || stagedFiles.length > 0
     const textareaStyle = React.useMemo(() => ({ minHeight: 48, maxHeight: 200 }), [])
 
@@ -282,7 +283,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
               multiple
               accept="image/*,audio/*,video/*,application/pdf,text/*,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
             />
-            
+
             {/* 
               BELOW IS THE FIX: I have rewritten this one className.
               - Default Border: Added a clear but subtle border for both light and dark modes.
@@ -346,7 +347,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
               <div className="relative">
                 <ShadcnTextarea ref={textareaRef} className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-6 pt-4 pb-[2.5rem] text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0" value={input} autoFocus onFocus={onFocus} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onDragLeave={(e) => e.preventDefault()} placeholder={"Ask Avurna..."} disabled={isDisabled} style={textareaStyle} onChange={handleInputChange} onKeyDown={handleKeyDown} onPaste={handlePaste} />
               </div>
-              <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-[1.8rem] bg-[#ffffff] px-3 pb-2 pt-2 dark:bg-[#2a2a2a]">
+              <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-[1.8rem] px-3 pb-2 pt-2">
                 <div className="flex w-full items-center justify-between">
                   <DropdownMenu onOpenChange={(isOpen) => { setIsMenuOpen(isOpen); if (isOpen) { setIsTooltipOpen(false) } else { menuJustClosedRef.current = true } }}>
                     <Tooltip open={isTooltipOpen} onOpenChange={(isOpen) => { if (menuJustClosedRef.current) { menuJustClosedRef.current = false; return } if (!isMenuOpen) { setIsTooltipOpen(isOpen) } }}>
@@ -360,7 +361,27 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
                   </DropdownMenu>
                   <div className="flex items-center">
                     {status === "streaming" || status === "submitted" ? (
-                      <motion.div key="loading-stop" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}><button type="button" onClick={stop} className="rounded-full flex items-center justify-center bg-black dark:bg-white" style={{ width: 40, height: 40 }}><PauseIcon size={28} className="h-6 w-6 text-white dark:text-black" /></button></motion.div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <motion.div
+                            key="loading-stop"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                          >
+                            <button
+                              type="button"
+                              onClick={stop}
+                              className="rounded-full flex items-center justify-center bg-black dark:bg-white cursor-pointer"
+                              style={{ width: 40, height: 40 }}
+                            >
+                              <PauseIcon size={28} className="h-6 w-6 text-white dark:text-black" />
+                            </button>
+                          </motion.div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="center" className="select-none bg-black text-white dark:bg-white dark:text-black rounded-md font-medium">
+                          <p>Stop Response</p>
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
                       <Tooltip>
                         <TooltipTrigger asChild>

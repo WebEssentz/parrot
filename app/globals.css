@@ -236,7 +236,9 @@ body.loading-prevent-scroll {
 
 .markdown-body, .prose, .markdown {
   word-break: break-word;
+  overflow-wrap: break-word;
 }
+
 .markdown-body pre, .prose pre, .markdown pre {
   overflow-x: auto;
   max-width: 100%;

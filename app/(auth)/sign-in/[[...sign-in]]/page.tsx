@@ -1,3 +1,5 @@
+// app/(auth)/sign-in/[[...sign-in]]/page.tsx (CORRECTED)
+
 'use client'
 
 import { useSignIn } from "@clerk/nextjs";
@@ -33,9 +35,9 @@ export default function SignInPage() {
 
         {/* --- THIS IS THE FIX: Applying the precise Notion styles --- */}
         <div className="text-left mb-8">
-            <h2 className="font-heading text-[22px] leading-[26px] font-semibold text-zinc-900 dark:text-white">
+            <h1 className="font-heading text-[22px] leading-[26px] font-semibold text-zinc-900 dark:text-white">
                 Your thoughts. Your flow.
-            </h2>
+            </h1>
             <h2 className="font-heading text-[22px] leading-[26px] font-semibold text-[#46444073] dark:text-white/[.45]">
                 Create your Avurna account
             </h2>

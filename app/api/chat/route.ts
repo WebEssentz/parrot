@@ -131,7 +131,6 @@ export async function POST(req: Request) {
     selectedModel,
     action, // Expect 'action' in the request body
     user, // { firstName, email }
-    input
   } = requestBody;
 
   // --- FILTER OUT EMPTY MESSAGES (prevents Gemini API error) ---
