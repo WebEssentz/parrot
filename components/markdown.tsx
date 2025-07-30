@@ -90,10 +90,14 @@ const components: Partial<Components> = {
   },
 
   p: ({ node, children, ...props }) => (
-    <p className="mb-2 leading-relaxed" style={{ fontSize: "16px" }} {...props}>
-      {children}
-    </p>
-  ),
+  <p 
+    className="mb-4 leading-relaxed max-w-none" 
+    style={{ fontSize: "16px", lineHeight: "1.8" }}
+    {...props}
+  >
+    {children}
+  </p>
+),
   pre: ({ children }) => <>{children}</>,
   ol: ({ node, children, ...props }) => (
     <ol className="list-decimal list-outside ml-6 my-4 space-y-1.5" {...props}>

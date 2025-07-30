@@ -69,6 +69,8 @@ export default function Chat() {
 
   const inputAreaRef = useRef<HTMLDivElement>(null);
   const [inputAreaHeight, setInputAreaHeight] = useState(0);
+  const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
+  const [userStoppedAnimation, setUserStoppedAnimation] = useState(false);
 
   const MAX_COMPLETION_INPUT_LENGTH = 90;
 
@@ -166,6 +168,24 @@ export default function Chat() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Reset the "stopped" flag when a new stream begins
+  useEffect(() => {
+    if (status === 'streaming') {
+      setUserStoppedAnimation(false);
+    }
+  }, [status]);
+  
+  const handleStop = () => {
+    stop();
+    setUserStoppedAnimation(true);
+    setAnimatingMessageId(null); // Immediately stop any perceived animation
+  }
+
+  // --- THIS IS THE CRITICAL LOGIC ---
+  const isDataStreaming = status === 'streaming' || status === 'submitted';
+  // The UI is "perceived" as streaming if the server is sending data OR if a UI animation is active.
+  const isPerceivedStreaming = (isDataStreaming || !!animatingMessageId) && !userStoppedAnimation;
+
   const chatInputAreaProps = {
     onSendMessage: (message: string) => {
       append({ role: 'user', content: message });
@@ -185,9 +205,10 @@ export default function Chat() {
     },
     handleInputChange,
     isPredicting,
-    uiIsLoading,
+    isPerceivedStreaming: isPerceivedStreaming,
+    uiIsLoading: isDataStreaming,
     status,
-    stop,
+    stop: handleStop,
     hasSentMessage,
     isDesktop,
     selectedModel,
@@ -237,6 +258,11 @@ export default function Chat() {
               isLoading={uiIsLoading}
               status={status as any}
               endRef={endRef as React.RefObject<HTMLDivElement>}
+              stop={handleStop}
+              userStoppedAnimation={userStoppedAnimation}
+              animatingMessageId={animatingMessageId}
+              setAnimatingMessageId={setAnimatingMessageId}
+              onAnimationComplete={() => { /* Can be used for saving chat later */ }}
             />
             {status === 'submitted' && (
               <div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[46rem]">

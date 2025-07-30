@@ -1551,7 +1551,7 @@ export const Message = memo(PurePreviewMessage, (prevProps, nextProps) => {
     return false;
   }
 
-  // --- ADD THIS BLOCK ---
+  // --- I ADDED THIS BLOCK ---
   // Always re-render if the animation state for this specific message changes.
   if (prevProps.animatingMessageId !== nextProps.animatingMessageId) {
     return false;

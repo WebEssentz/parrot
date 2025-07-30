@@ -349,11 +349,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
               <div className="relative">
                 <ShadcnTextarea ref={textareaRef} className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-6 pt-4 pb-[2.5rem] text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0" value={input} autoFocus onFocus={onFocus} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onDragLeave={(e) => e.preventDefault()} placeholder={"Ask Avurna..."} disabled={isDisabled} style={textareaStyle} onChange={handleInputChange} onKeyDown={handleKeyDown} onPaste={handlePaste} />
               </div>
-              <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-[1.8rem] px-3 pb-2 pt-2">
+              <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-[1.8rem] px-2 pb-2 pt-1">
                 <div className="flex w-full items-center justify-between">
                   <DropdownMenu onOpenChange={(isOpen) => { setIsMenuOpen(isOpen); if (isOpen) { setIsTooltipOpen(false) } else { menuJustClosedRef.current = true } }}>
                     <Tooltip open={isTooltipOpen} onOpenChange={(isOpen) => { if (menuJustClosedRef.current) { menuJustClosedRef.current = false; return } if (!isMenuOpen) { setIsTooltipOpen(isOpen) } }}>
-                      <TooltipTrigger asChild><DropdownMenuTrigger asChild disabled={isDisabled}><AttachButton isUploading={false} disabled={isDisabled} isActive={isMenuOpen} /></DropdownMenuTrigger></TooltipTrigger>
+                      <TooltipTrigger asChild><DropdownMenuTrigger asChild disabled={isDisabled}><AttachButton className="dark:text-zinc-200 text-zinc-700" isUploading={false} disabled={isDisabled} isActive={isMenuOpen} /></DropdownMenuTrigger></TooltipTrigger>
                       <TooltipContent side={"top"} className="select-none bg-black text-white dark:bg-white dark:text-black rounded-md font-medium shadow-lg"><p>{isDisabled ? "Processing..." : "Add photos, files, and apps"}</p></TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent side={hasSentMessage ? "top" : "bottom"} sideOffset={12} align="start" className="w-64 p-2 bg-zinc-50 dark:bg-[#2A2A2A] border border-zinc-200 dark:border-zinc-700/50 shadow-2xl shadow-black/10 rounded-[1.25rem]">

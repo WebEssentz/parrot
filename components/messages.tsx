@@ -15,12 +15,22 @@ interface MessagesProps {
   status: "error" | "submitted" | "streaming" | "ready"
   endRef?: React.RefObject<HTMLDivElement>
   stop: () => void;
+  onAnimationComplete: () => void;
   animatingMessageId: string | null;
   setAnimatingMessageId: React.Dispatch<React.SetStateAction<string | null>>;
   userStoppedAnimation: boolean;
 }
 
-export const Messages = ({ messages, isLoading, status, stop, userStoppedAnimation, animatingMessageId, setAnimatingMessageId }: MessagesProps) => {
+export const Messages = ({ 
+  messages, 
+  isLoading, 
+  status, 
+  stop, 
+  userStoppedAnimation, 
+  animatingMessageId, 
+  setAnimatingMessageId,
+  onAnimationComplete 
+}: MessagesProps) => {
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-6 space-y-1">
       <AnimatePresence initial={false}>
@@ -52,15 +62,16 @@ export const Messages = ({ messages, isLoading, status, stop, userStoppedAnimati
               className="w-full relative"
             >
               <Message
-                chatId="default"
+                chatId="default" // Assuming a default or you can pass it as a prop
                 isLatestMessage={isLatest}
-                isLoading={messageIsLoading}
+                isLoading={isLoading && isLatest}
                 message={m}
-                status={messageStatus}
-                stop={stop} // Pass it down
-                userStoppedAnimation={userStoppedAnimation}
+                status={isLatest ? status : "ready"}
+                stop={stop}
+                userStoppedAnimation={userStoppedAnimation && isLatest}
                 animatingMessageId={animatingMessageId}
                 setAnimatingMessageId={setAnimatingMessageId}
+                onAnimationComplete={onAnimationComplete}
               />
               {isPending && m.role === "user" && (
                 <div className="absolute right-4 top-4 flex items-center gap-1 z-10">

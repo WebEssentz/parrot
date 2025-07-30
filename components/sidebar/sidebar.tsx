@@ -27,7 +27,7 @@ const SearchInput = ({ shouldShowContent }: { shouldShowContent: boolean }) => {
         { "w-full justify-start px-3": shouldShowContent, "w-10 justify-center": !shouldShowContent }
       )}
     >
-  <Search size={18} className="flex-shrink-0 text-zinc-800 dark:text-white" />
+      <Search size={18} className="flex-shrink-0 text-zinc-800 dark:text-white" />
       <AnimatePresence>
         {shouldShowContent && (
           <motion.span
@@ -72,7 +72,7 @@ const NewChatButton = ({ shouldShowContent }: { shouldShowContent: boolean }) =>
         { "justify-center w-10": !shouldShowContent }
       )}
     >
-  <ButtonIcon className="flex-shrink-0" />
+      <ButtonIcon className="flex-shrink-0" />
       <AnimatePresence>
         {shouldShowContent && (
           <motion.span
@@ -205,7 +205,7 @@ export const Sidebar = () => {
         </div>
 
         {/* --- User Menu Section --- */}
-  <div className="flex-shrink-0 w-full p-2 mt-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 w-full p-2 mt-0" onClick={(e) => e.stopPropagation()}>
           <CustomUserMenu>
             <button className={clsx("user-profile-button w-full flex items-center p-2 rounded-lg transition-colors", "hover:bg-zinc-200/60 dark:hover:bg-zinc-800/80", "cursor-pointer")}>
               <div className="flex items-center flex-grow min-w-0 mt-0">

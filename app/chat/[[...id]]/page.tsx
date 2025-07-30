@@ -32,9 +32,13 @@ export default function UnifiedChatPage({ params }: { params: { id?: string[] } 
     );
   }
 
+  // WIP: We want to check the type of error it is? 
+  // If a network error we show a different message and add a retry button.
+  // If not we keep the default error message.
+
   if (error) {
     return (
-      <div className="flex h-full w-full items-center justify-center text-red-500">
+      <div className="flex min-h-screen w-full items-center justify-center text-red-500">
         <p>{error.message}</p>
       </div>
     );

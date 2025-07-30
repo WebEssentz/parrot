@@ -99,13 +99,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [isTabletOrLarger, setIsTabletOrLarger] = useState<boolean>(false)
   const [isSubmittingSearch, setIsSubmittingSearch] = useState(false)
   const dynamicSuggestedPrompts = useLiveSuggestedPrompts()
-  const { isDesktopSidebarCollapsed } = useSidebar()
   const [chatId, setChatId] = useState<string | null>(initialChat?.id ?? null)
   const [dbUser, setDbUser] = useState<any>(null)
   const [chatTitle, setChatTitle] = useState(initialChat?.title || "New Chat")
   const { mutateChats, updateChatTitle, deleteChat } = useChats()
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
-  const prevStatusRef = useRef<string | null>(null)
   const [predictivePrompts, setPredictivePrompts] = useState<string[]>([])
   const [isPredicting, setIsPredicting] = useState(false)
   const [isPredictiveVisible, setIsPredictiveVisible] = useState(true)
@@ -118,20 +116,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [isFetchingForShare, setIsFetchingForShare] = useState(false)
   const [fullChatDataForShare, setFullChatDataForShare] = useState<any>(null)
   const MAX_COMPLETION_INPUT_LENGTH = 90
-  // At the top of your UserChat component
-const [userStoppedAnimation, setUserStoppedAnimation] = useState(false);
- // This state is our optimistic flag. It turns on the moment the user sends a message.
+  const [userStoppedAnimation, setUserStoppedAnimation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
-
+  const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
   // State to manage staged files and their upload progress
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
-
-
-  const userInfo = isLoaded && user ? {
-    firstName: user.firstName || user.username || "",
-    email: user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.emailAddress || "",
-  } : undefined
 
   useEffect(() => {
     const syncUser = async () => {
@@ -193,54 +182,32 @@ const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null
       setIsSubmittingSearch(false)
     },
     onFinish: () => {
-      // 1. Mark the submission as fully complete.
       setIsSubmitting(false);
-
-      // 3. Persist the final state of the chat to the database.
       handleSaveChat();
     },
   })
 
   const hasSentMessage = messages.length > 0
-
- // 1. Find the last message in the array.
-const lastMessage = messages[messages.length - 1];
-
-// 2. Check if the last message is from the assistant.
-const isLastMessageAssistant = lastMessage?.role === 'assistant';
-
-// 3. The data stream is active if the status is 'streaming' or 'submitted'.
-const isDataStreaming = status === 'streaming' || status === 'submitted';
-
-// 4. The animation is considered "potentially active" if the last message is from
-//    the assistant AND the data stream has finished, but the user hasn't manually stopped it.
-//    This gives the typewriter time to finish.
-const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming && !userStoppedAnimation;
-
-// 5. Therefore, the user "perceives" that the AI is generating a response if
-//    the data is actively streaming OR if the animation might still be running.
-// --- THIS IS THE FIX ---
-  // The user "perceives" that the AI is generating a response if the data is actively
-  // streaming OR if the animation might still be running. This logic is now corrected.
+  const lastMessage = messages[messages.length - 1];
+  const isLastMessageAssistant = lastMessage?.role === 'assistant';
+  const isDataStreaming = status === 'streaming' || status === 'submitted';
+  const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming && !userStoppedAnimation;
   const isPerceivedStreaming = (isDataStreaming || !!animatingMessageId) && !userStoppedAnimation;
   
-  // New function to handle file staging and immediate upload
   const handleFileStaged = async (newFiles: StagedFile[]) => {
     if (!dbUser?.id) {
       toast.error("User profile not loaded. Please wait a moment.");
       return;
     }
 
-    // Add new files to stagedFiles state with initial uploading status
     setStagedFiles(prev => [...prev, ...newFiles.map(f => ({ ...f, isUploading: true, uploadProgress: 0 }))]);
 
     let currentChatId = chatId;
     let isNewChat = !currentChatId;
 
     if (isNewChat) {
-      // If it's a new chat, create it first to get a chatId for uploads
-      const tempTitle = "New Chat (Draft)"; // Placeholder title
-      const initialMessageForDb = { role: 'user', content: "Draft chat with attachments." }; // Placeholder content
+      const tempTitle = "New Chat (Draft)";
+      const initialMessageForDb = { role: 'user', content: "Draft chat with attachments." };
       try {
         const response = await fetch("/api/chats", {
           method: "POST",
@@ -262,13 +229,11 @@ const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming 
         mutateChats();
       } catch (error: any) {
         toast.error(error.message || "Failed to initialize chat for file upload.");
-        // Mark all new files as errored if chat creation fails
         setStagedFiles(prev => prev.map(f => newFiles.some(nf => nf.id === f.id) ? { ...f, isUploading: false, error: 'Chat init failed' } : f));
         return;
       }
     }
 
-    // Now, upload each new file
     newFiles.forEach(async (stagedFile) => {
       const formData = new FormData();
       formData.append('file', stagedFile.file);
@@ -305,46 +270,24 @@ const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming 
     });
   };
 
-
-  // This effect resets the "stopped" flag whenever a new message starts streaming.
   useEffect(() => {
     if (status === 'streaming') {
       setUserStoppedAnimation(false);
     }
   }, [status]);
 
-
-// We can simplify handleStop now.
   const handleStop = () => {
-    // Just call the hook's stop function. 
-    // The logic inside the onFinish callback will handle the rest.
     stop();
     setUserStoppedAnimation(true);
   };
   
-  // // --- NEW useEffect FOR ROBUST SAVING ---
-  // // This effect will run whenever the `status` changes.
-  // useEffect(() => {
-  //   // Check if the stream has just finished (either by completing or being stopped).
-  //   if (prevStatusRef.current === 'streaming' && status !== 'streaming') {
-  //     handleSaveChat();
-  //   }
-  //   // Update the ref to the current status for the next render.
-  //   prevStatusRef.current = status;
-  // }, [status]); // Dependency array ensures this runs only when status changes.
-
-
   const handleSendMessage = async (messageText: string) => {
     if (!dbUser?.id) {
       toast.error("User profile not loaded. Please wait a moment.");
       return;
     }
 
-    // --- CRITICAL CHANGE ---
-    // The very first thing we do is set the submission state to true.
     setIsSubmitting(true);
-    
-    // Reset the stopped flag for the new message
     setUserStoppedAnimation(false);
      
     let currentChatId = chatId;
@@ -392,7 +335,6 @@ const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming 
         contentType: att.fileType,
       }));
 
-      // Clear input and staged files BEFORE appending the message to the chat
       stagedFiles.forEach(sf => {
         if (sf.previewUrl) URL.revokeObjectURL(sf.previewUrl);
       });
@@ -427,12 +369,11 @@ const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming 
     return () => mediaQuery.removeEventListener('change', check)
   }, [])
 
-  // uiIsLoading now includes checks for any file being uploaded
   const uiIsLoading = status === "streaming" ||
     status === "submitted" ||
     isSubmittingSearch ||
     isGeneratingTitle ||
-    (stagedFiles || []).some(f => f.isUploading); // <-- ADDED || []
+    (stagedFiles || []).some(f => f.isUploading);
 
   useEffect(() => {
     if (hasSentMessage || !isTabletOrLarger || !input.trim() || input.trim().length < 3 || input.trim().length > MAX_COMPLETION_INPUT_LENGTH) {
@@ -475,10 +416,10 @@ const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming 
   }
 
   const chatInputAreaProps = {
-    onSendMessage: handleSendMessage, // Updated signature
-    onFileStaged: handleFileStaged, // New prop for staging files
-    stagedFiles: stagedFiles, // Pass staged files to ChatInputArea
-    setStagedFiles: setStagedFiles, // Pass setter for staged files
+    onSendMessage: handleSendMessage,
+    onFileStaged: handleFileStaged,
+    stagedFiles: stagedFiles,
+    setStagedFiles: setStagedFiles,
     predictivePrompts,
     input,
     isPerceivedStreaming,
@@ -491,23 +432,21 @@ const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming 
     isPredicting,
     uiIsLoading,
     status,
-    stop: handleStop, // Pass the stop function
+    stop: handleStop,
     hasSentMessage,
     isDesktop: isTabletOrLarger,
     selectedModel,
     setSelectedModel,
-    dynamicSuggestedPrompts: dynamicSuggestedPrompts || [], // FIX: Add a fallback empty array
+    dynamicSuggestedPrompts: dynamicSuggestedPrompts || [],
     isPredictiveVisible,
     setIsPredictiveVisible,
-    // Modified: Only disable if offline
     disabled: offlineState !== "online",
     offlineState: offlineState,
     user: dbUser,
     chatId: chatId,
   }
 
-   // --- THIS IS THE NEW SAVE LOGIC ---
-const handleSaveChat = async () => {
+  const handleSaveChat = async () => {
     if (!chatId || messages.length < 1) return;
     try {
       await fetch(`/api/chats/${chatId}`, {
@@ -521,6 +460,7 @@ const handleSaveChat = async () => {
     }
   };
 
+  // --- SCROLL LOGIC RESTORED ---
   useEffect(() => {
     if (!hasSentMessage) return
     const mainEl = containerRef.current
@@ -552,6 +492,10 @@ const handleSaveChat = async () => {
       toast.error("An error occurred while deleting the chat.")
     }
   }
+
+  const handleAnimationComplete = () => {
+    setAnimatingMessageId(null);
+  };
 
   const handleRename = async (newTitle: string) => {
     if (!chatId) return
@@ -675,14 +619,11 @@ const handleSaveChat = async () => {
           )
         }
       >
-        {/* --- MODIFIED BLOCK --- */}
         {hasSentMessage && (
           <span className="truncate -ml-2 text-sm font-medium text-zinc-900 dark:text-white sm:text-base">
             {chatTitle}
           </span>
         )}
-        {/* The conditional "Avurna" span has been removed. */}
-        {/* --- END MODIFIED BLOCK --- */}
       </UserChatHeader>
 
       <main
@@ -700,7 +641,7 @@ const handleSaveChat = async () => {
           ) : (
             <>
               <div className="px-2 sm:px-4 pt-4">
-                <Messages messages={messages} isLoading={uiIsLoading} status={status as any} endRef={endRef} stop={handleStop} userStoppedAnimation={userStoppedAnimation} animatingMessageId={animatingMessageId} onAnimationComplete={handleSaveChat} setAnimatingMessageId={setAnimatingMessageId}/>
+                <Messages messages={messages} isLoading={uiIsLoading} status={status as any} onAnimationComplete={handleAnimationComplete} endRef={endRef} stop={handleStop} userStoppedAnimation={userStoppedAnimation} animatingMessageId={animatingMessageId}  setAnimatingMessageId={setAnimatingMessageId}/>
               </div>
               <ChatScrollAnchor containerRef={containerRef} />
               <div ref={endRef} className="h-px" />

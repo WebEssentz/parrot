@@ -1,0 +1,21 @@
+/* FILE: components/TypewriterStream.css */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px); /* Start slightly below */
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0); /* End at the normal position */
+  }
+}
+
+.char-fade-in {
+  display: inline-block; /* Essential for transforms to work */
+  opacity: 0; /* Start invisible */
+  animation-name: fadeIn;
+  animation-duration: 0.4s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards; /* Stay visible after animation */
+}
