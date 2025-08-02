@@ -630,7 +630,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
         ref={containerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden pt-14"
       >
-        <div className="mx-auto h-full w-full max-w-[53rem]">
+        <div className="mx-auto h-full w-full max-w-[52rem]">
           {!hasSentMessage ? (
             <div className="flex h-full w-full items-center justify-center">
               <div className="flex w-full flex-col items-center gap-8 px-4 mb-20">
@@ -652,7 +652,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
 
       {((!hasSentMessage && !isTabletOrLarger) || hasSentMessage) && (
         <div className="w-full pt-2">
-          <div className="mx-auto w-full max-w-[50rem] px-3 pb-3 sm:px-4 sm:pb-4">
+          <div className="mx-auto w-full max-w-[52rem] px-3 pb-3 sm:px-4 sm:pb-4">
             <div className={`relative`}>
               {hasSentMessage && (
                 <div className="absolute top-3 left-1/2 -translate-x-1/2">

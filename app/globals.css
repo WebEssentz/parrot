@@ -234,6 +234,13 @@ body.loading-prevent-scroll {
   overscroll-behavior: none;
 }
 
+/* Disable animations on syntax-highlighted code blocks */
+pre,
+pre > code {
+  transition: none !important;
+  animation: none !important;
+}
+
 .markdown-body, .prose, .markdown {
   word-break: break-word;
   overflow-wrap: break-word;

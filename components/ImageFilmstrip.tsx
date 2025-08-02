@@ -64,6 +64,7 @@ export const ImageFilmstripModal = ({ images, initialImageId, onClose }: ImageFi
   const initialYPositions = imageFiles.map((_, index) => (index - currentIndex) * STACK_ITEM_SEPARATION)
   const sumOfY = initialYPositions.reduce((sum, y) => sum + y, 0)
   const yCorrection = sumOfY / imageFiles.length
+  const imageORImages = imageFiles.length > 1 ? "Images" : "Image";
 
   return (
     <motion.div
@@ -87,7 +88,7 @@ export const ImageFilmstripModal = ({ images, initialImageId, onClose }: ImageFi
         >
           {/* --- DESKTOP VIEW (Vertical Stack) --- */}
           <div className="hidden h-full w-full p-4 lg:block">
-            <h3 className="text-white font-medium text-sm mb-4 relative z-20">Images ({imageFiles.length})</h3>
+            <h3 className="text-white font-medium text-sm mb-4 relative z-20">{imageORImages} ({imageFiles.length})</h3>
             <div className="relative h-full w-full">
               {imageFiles.map((image, index) => {
                 const offset = index - currentIndex

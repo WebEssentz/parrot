@@ -99,7 +99,7 @@ export function Greeting() {
   const displayName = user?.firstName || user?.username || "User";
 
   if (isLoading) {
-    return <div className="h-16 w-80 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded-lg" />; 
+    return <div className="h-16 w-80 bg-zinc-200 dark:bg-zinc-700/40 animate-pulse rounded-lg" />; 
   }
 
   // --- RENDER LOGIC with ANIMATION ---

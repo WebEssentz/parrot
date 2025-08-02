@@ -440,7 +440,7 @@ export async function POST(req: Request) {
     model: languageModel,
     system: systemPrompt,
     messages: messages as UIMessage[],
-    temperature: 0,
+    temperature: 1,
     tools: wrappedTools,
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },

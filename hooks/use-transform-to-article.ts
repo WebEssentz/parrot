@@ -63,8 +63,6 @@ export const useTransformToArticle = () => {
         throw new Error(`API returned ${response.status}: ${errorText}`)
       }
       
-      // ... (The rest of your logic remains largely the same)
-
       const articleId = response.headers.get("X-Article-Id")
       const articleSlug = response.headers.get("X-Article-Temp-Slug")
 

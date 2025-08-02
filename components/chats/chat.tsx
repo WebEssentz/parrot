@@ -230,7 +230,7 @@ export default function Chat() {
       >
         {!hasSentMessage ? (
           <div className="flex-1 flex flex-col justify-center items-center px-4">
-            <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[50rem]">
+            <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[52rem]">
               <ProjectOverview />
               {isDesktop && (
                 <div className="w-full max-w-3xl mx-auto mt-6 mb-4">
@@ -252,7 +252,7 @@ export default function Chat() {
             </div>
           </div>
         ) : (
-          <div className="w-full max-w-[50rem] mx-auto px-4 pt-14">
+          <div className="w-full max-w-[52rem] mx-auto px-4 pt-14">
             <Messages
               messages={messages}
               isLoading={uiIsLoading}

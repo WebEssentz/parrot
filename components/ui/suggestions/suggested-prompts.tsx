@@ -5,7 +5,7 @@ import { Button } from "../button";
 import { memo, useState, useMemo } from "react";
 import {
   Edit3, Terminal, GitForkIcon, Globe, LinkIcon, Zap, MessageSquareHeart,
-  Scale, Lightbulb, Map, HeartPulse, Coffee, Drama, Bot, FileCode, Brain, 
+  Scale, Lightbulb, Map, HeartPulse, Coffee, Drama, Bot, FileCode, Brain,
   Sun, Mic,
 } from "lucide-react";
 
@@ -125,7 +125,7 @@ function PureSuggestedPrompts({ onPromptClick, isDesktop }: SuggestedPromptsProp
 
   // --- MOBILE / TABLET RENDER PATH ---
   return (
-    <div className="w-full overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="w-full overflow-x-auto pb-2 no-scrollbar">
       <motion.div layout className="flex flex-nowrap items-center space-x-2">
         <AnimatePresence>
           {visiblePrompts.map((prompt) => (

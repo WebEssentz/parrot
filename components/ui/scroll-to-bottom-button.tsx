@@ -33,7 +33,7 @@ export function ScrollToBottomButton({ isVisible, onClick }: ScrollToBottomButto
           onClick={onClick}
           aria-label="Scroll to bottom"
           // --- FIX #1: Use 'fixed' positioning so it doesn't scroll with the page ---
-          className="fixed left-1/2 -translate-x-1/2 cursor-pointer z-30 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white/80 text-zinc-600 backdrop-blur-sm hover:bg-zinc-100 dark:border-zinc-700/80 dark:bg-[#1C1C1C] dark:text-zinc-300 dark:hover:bg-zinc-700"
+          className="fixed left-1/2 -translate-x-1/2 cursor-pointer z-30 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white/80 text-zinc-600 backdrop-blur-sm hover:bg-zinc-100 dark:border-zinc-700/80 dark:bg-[#1C1C1C] dark:text-zinc-300 dark:hover:bg-zinc-900/40"
           style={{
             // --- FIX #2: Use '+' to add space ABOVE the input area, not '-' ---
             bottom: `calc(var(--input-area-height, 80px) + ${bottomGap})`

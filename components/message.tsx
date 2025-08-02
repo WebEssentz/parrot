@@ -13,7 +13,7 @@ import TypewriterStream from './TypewriterStream';
 import { useTheme } from "next-themes";
 import { memo, useRef } from "react";
 import { StrategySlate } from "./strategy-slate";
-import { Download, ExternalLink, File as FileIcon, Info, X } from 'lucide-react';
+import { Download, ExternalLink, File as FileIcon, FileText, Info, X } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { GithubWorkflowAggregator } from './ui/github-workflow-aggregator';
 import { toast } from "sonner";
@@ -833,14 +833,17 @@ const UserTextMessagePart = ({ part, isLatestMessage }: { part: any, isLatestMes
   );
 };
 
+// THIS IS THE COMPONENT TO REPLACE
 const CommittedPreview = ({ attachment, onImageClick }: { attachment: any; onImageClick: (url: string) => void; }) => {
   const isImage = attachment.contentType?.startsWith('image/');
+  const isTextFile = attachment.contentType === "text/plain";
 
+  // The image preview logic is perfect, so we keep it.
   if (isImage) {
     return (
       <button
         onClick={() => onImageClick(attachment.url)}
-        className="relative h-20 w-20 hover:cursor-pointer flex-shrink-0 group rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary bg-zinc-100 dark:bg-zinc-800"
+        className="relative h-20 w-20 hover:cursor-pointer flex-shrink-0 group rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800"
       >
         <img
           src={attachment.url}
@@ -852,20 +855,29 @@ const CommittedPreview = ({ attachment, onImageClick }: { attachment: any; onIma
     );
   }
 
+  // --- NEW LOGIC FOR TEXT FILES AND OTHER DOCUMENTS ---
+  // We now render a component that looks exactly like our FilePreview chip,
+  // but it's a simple link that opens the file in a new tab.
   return (
     <a
       href={attachment.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="relative h-20 w-20 flex-shrink-0 group border bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 rounded-xl flex flex-col items-center justify-center p-2 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+      // This className recreates the look of our text file chip
+      className="h-12 w-48 max-w-48 rounded-lg flex items-center gap-2 text-left transition-colors duration-200
+                 bg-zinc-100 border border-zinc-200/80 hover:border-zinc-300 hover:bg-zinc-200 
+                 dark:bg-zinc-900/40 dark:border-zinc-700/40 dark:hover:border-zinc-600/40 dark:hover:bg-zinc-800 
+                 focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-1 px-2.5"
     >
-      <FileIcon className="h-8 w-8 text-zinc-500" />
-      <p className="mt-1 w-full truncate px-1 text-center text-xs text-zinc-600 dark:text-zinc-400">
+      {/* Conditionally render a text icon or a generic file icon */}
+      {isTextFile ? (
+        <FileText className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-500" />
+      ) : (
+        <FileIcon className="h-5 w-5 flex-shrink-0 text-zinc-500" />
+      )}
+      <p className="flex-grow truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
         {attachment.name}
       </p>
-      <div className="mt-1 w-full truncate px-1 text-center text-xs text-blue-500 hover:underline dark:text-blue-400">
-        View File
-      </div>
     </a>
   );
 };
@@ -1081,7 +1093,7 @@ const PurePreviewMessage = ({ chatId, message, isLatestMessage, onAnimationCompl
         )}
       </AnimatePresence>
 
-      <motion.div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[46rem]" initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} key={`message-${message.id}`} data-role={message.role}>
+      <motion.div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[53rem]" initial={{ y: 5, opacity: 0 }} animate={{ y: 0, opacity: 1 }} key={`message-${message.id}`} data-role={message.role}>
         {isAssistant && (
           (images.length > 0 || videos.length > 0) ? (
             <div className="mb-4 w-full">

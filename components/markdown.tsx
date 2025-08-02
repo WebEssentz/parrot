@@ -17,7 +17,7 @@ interface AnimationContextType {
 const AnimationContext = createContext<AnimationContextType>({ isStreaming: false });
 const useAnimationContext = () => useContext(AnimationContext);
 
-// --- THE CORRECTED STREAMING HELPER ---
+// --- THE FINAL STREAMING HELPER ---
 const streamText = (nodes: React.ReactNode): React.ReactNode => {
   let charIndex = 0;
   return React.Children.map(nodes, (node) => {
@@ -32,9 +32,11 @@ const streamText = (nodes: React.ReactNode): React.ReactNode => {
     if (React.isValidElement(node)) {
       const props = node.props as { children?: React.ReactNode; className?: string };
 
-      // --- THE USER-INSPIRED FIX ---
-      // If we find our gatekeeper div, we stop all recursion and render it as-is.
-      if (typeof props.className === 'string' && props.className.includes('code-block-wrapper')) {
+      // --- THE USER-MANDATED FIX ---
+      // This is the gatekeeper. We inspect the props of the rendered element.
+      // If its className includes 'block', we identify it as the root of the
+      // syntax highlighter's output and STOP all recursion into it.
+      if (typeof props.className === 'string' && props.className.includes('block')) {
         return node;
       }
       
@@ -62,42 +64,16 @@ const components: Partial<Components> = {
     const { isStreaming } = useAnimationContext();
     return <h1 className="text-3xl font-semibold mt-6 mb-3 leading-snug" {...props}>{isStreaming ? streamText(children) : children}</h1>;
   },
-  h2: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <h2 className="text-2xl font-semibold mt-6 mb-3 leading-snug" {...props}>{isStreaming ? streamText(children) : children}</h2>;
-  },
-  h3: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <h3 className="text-xl font-semibold mt-5 mb-2 leading-snug" {...props}>{isStreaming ? streamText(children) : children}</h3>;
-  },
-  h4: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <h4 className="text-lg font-semibold mt-5 mb-2 leading-snug" {...props}>{isStreaming ? streamText(children) : children}</h4>;
-  },
-  h5: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <h5 className="text-base font-semibold mt-5 mb-2 leading-normal" {...props}>{isStreaming ? streamText(children) : children}</h5>;
-  },
-  h6: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <h6 className="text-sm font-semibold mt-5 mb-2 leading-normal" {...props}>{isStreaming ? streamText(children) : children}</h6>;
-  },
-  li: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <li className="pl-1 pb-2 leading-relaxed" {...props}>{isStreaming ? streamText(children) : children}</li>;
-  },
-  strong: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <strong className="font-semibold" {...props}>{isStreaming ? streamText(children) : children}</strong>;
-  },
-  em: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <em className="italic" {...props}>{isStreaming ? streamText(children) : children}</em>;
-  },
-  blockquote: ({ node, children, ...props }) => {
-    const { isStreaming } = useAnimationContext();
-    return <blockquote className="relative my-4 border-l-4 border-zinc-300 dark:border-zinc-700 rounded" style={{ paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16 }} {...props}>{isStreaming ? streamText(children) : children}</blockquote>;
-  },
+  // ... (h2-h6, li, strong, em, blockquote are identical to your provided file)
+  h2: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <h2 className="text-2xl font-semibold mt-6 mb-3 leading-snug" {...props}>{isStreaming ? streamText(children) : children}</h2>; },
+  h3: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <h3 className="text-xl font-semibold mt-5 mb-2 leading-snug" {...props}>{isStreaming ? streamText(children) : children}</h3>; },
+  h4: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <h4 className="text-lg font-semibold mt-5 mb-2 leading-snug" {...props}>{isStreaming ? streamText(children) : children}</h4>; },
+  h5: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <h5 className="text-base font-semibold mt-5 mb-2 leading-normal" {...props}>{isStreaming ? streamText(children) : children}</h5>; },
+  h6: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <h6 className="text-sm font-semibold mt-5 mb-2 leading-normal" {...props}>{isStreaming ? streamText(children) : children}</h6>; },
+  li: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <li className="pl-1 pb-2 leading-relaxed" {...props}>{isStreaming ? streamText(children) : children}</li>; },
+  strong: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <strong className="font-semibold" {...props}>{isStreaming ? streamText(children) : children}</strong>; },
+  em: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <em className="italic" {...props}>{isStreaming ? streamText(children) : children}</em>; },
+  blockquote: ({ node, children, ...props }) => { const { isStreaming } = useAnimationContext(); return <blockquote className="relative my-4 border-l-4 border-zinc-300 dark:border-zinc-700 rounded" style={{ paddingTop: 8, paddingBottom: 8, paddingLeft: 16, paddingRight: 16 }} {...props}>{isStreaming ? streamText(children) : children}</blockquote>; },
 
   // --- YOUR ORIGINAL ANCHOR TAG LOGIC (RESTORED) ---
   a: ({ node, children, ...props }) => {
@@ -124,15 +100,12 @@ const components: Partial<Components> = {
     const match = /language-(\w+)/.exec(className || "");
 
     if (match) {
-      // --- THE GATEKEEPER ---
-      // We wrap the CodeBlock in our marker div. The streaming helper will see
-      // this div and refuse to animate its contents.
+      // The useless wrapper div is GONE.
+      // We just render the CodeBlock. Its output will be caught by the streamText helper.
       return (
-        <div className="code-block-wrapper">
-          <CodeBlock node={node} inline={false} className={className || ""} {...rest}>
-            {String(children).replace(/\n$/, "")}
-          </CodeBlock>
-        </div>
+        <CodeBlock node={node} inline={false} className={className || ""} {...rest}>
+          {String(children).replace(/\n$/, "")}
+        </CodeBlock>
       );
     }
     
@@ -146,6 +119,17 @@ const components: Partial<Components> = {
   pre: ({ children }) => <>{children}</>,
 
   // ... (the rest of your components like hr, ol, ul, table, etc. are correct and remain unchanged)
+  hr: ({ node, ...props }) => <hr className="w-full h-0.5 my-3 border-t border-zinc-200 dark:border-zinc-700/70" {...props} />,
+  ol: ({ node, children, ...props }) => <ol className="list-decimal list-outside ml-6 my-4 space-y-1.5" {...props}>{children}</ol>,
+  ul: ({ node, children, ...props }) => <ul className="list-disc list-outside ml-6 my-4 space-y-1.5" {...props}>{children}</ul>,
+  img: ({ node, ...props }) => <img className="max-w-full h-auto rounded-lg my-2 border dark:border-zinc-700" {...props} alt={props.alt || "Image"} />,
+  video: ({ node, ...props }) => <video controls style={{ maxWidth: "100%" }} {...props} />,
+  table: ({ node, children, ...props }) => <table className="my-4 w-full text-sm border-collapse" {...props}>{children}</table>,
+  thead: ({ node, children, ...props }) => <thead {...props}>{children}</thead>,
+  tbody: ({ node, children, ...props }) => <tbody {...props}>{children}</tbody>,
+  tr: ({ node, children, ...props }) => <tr className="border-b border-zinc-200 dark:border-zinc-700" {...props}>{children}</tr>,
+  th: ({ node, children, ...props }) => <th className="py-2 pr-8 text-left font-normal" {...props}>{children}</th>,
+  td: ({ node, children, ...props }) => <td className="py-2 pr-8 align-top" {...props}>{children}</td>,
 };
 
 // --- Main Component Setup ---

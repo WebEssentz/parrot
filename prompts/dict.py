@@ -1,106 +1,139 @@
 # Generated with 💚 by Avurna AI (2025)
 
-import jax
-import jax.numpy as jnp
-import haiku as hk
+def calculate_project_schedule_advanced(tasks_data):
+    """
+    Calculates the earliest start and finish times for tasks in a project
+    using the Principle of Dominance, with robust error handling,
+    input validation, and a true topological sort.
 
-### 🧠 Define Your Neural Network with Haiku
+    Args:
+        tasks_data (dict): A dictionary where keys are task names (str)
+                           and values are dictionaries containing:
+                           - 'duration': int/float (task duration, must be >= 0)
+                           - 'prerequisites': list of str (task names that must complete first)
 
-# Haiku encourages a functional style. We define our network as a function
-# that internally uses hk.Module to manage parameters and state.
-# Here, we're creating a simple Multi-Layer Perceptron (MLP).
-class MLP(hk.Module):
-    def __init__(self, output_size: int, name=None):
-        super().__init__(name=name)
-        self.output_size = output_size
+    Returns:
+        tuple: (dict of task_results, float of total_project_duration)
+               task_results: {'TaskA': {'est': 0, 'eft': 5}, ...}
 
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
-        # Define the layers of our MLP
-        # hk.Linear is Haiku's equivalent of a dense (fully connected) layer
-        x = hk.Linear(256)(x)  # First hidden layer with 256 units
-        x = jax.nn.relu(x)     # ReLU activation function
-        x = hk.Linear(128)(x)  # Second hidden layer with 128 units
-        x = jax.nn.relu(x)     # ReLU activation
-        x = hk.Linear(self.output_size)(x) # Output layer
-        return x
+    Raises:
+        ValueError: If input data is invalid or contains cyclic dependencies.
+    """
+    # --- 1. Input Validation ---
+    if not isinstance(tasks_data, dict):
+        raise ValueError("Input 'tasks_data' must be a dictionary.")
+    if not tasks_data:
+        return {}, 0.0 # Empty project, 0 duration
 
-### 🛠️ Transform Your Network into Callable Functions
+    all_task_names = set(tasks_data.keys())
+    for task_name, data in tasks_data.items():
+        if not isinstance(task_name, str):
+            raise ValueError(f"Task name '{task_name}' must be a string.")
+        if not isinstance(data, dict):
+            raise ValueError(f"Data for task '{task_name}' must be a dictionary.")
+        if 'duration' not in data or not isinstance(data['duration'], (int, float)) or data['duration'] < 0:
+            raise ValueError(f"Task '{task_name}' must have a non-negative 'duration'.")
+        if 'prerequisites' not in data or not isinstance(data['prerequisites'], list):
+            raise ValueError(f"Task '{task_name}' must have a 'prerequisites' list.")
 
-# Haiku's `hk.transform` takes your network definition and turns it into
-# two pure functions: `init` and `apply`.
-# - `init`: Initializes the network's parameters.
-# - `apply`: Performs the forward pass given parameters and input.
-def forward_fn(x):
-    # Instantiate your MLP within this function
-    mlp = MLP(output_size=10) # Let's say we have 10 output classes
-    return mlp(x)
+        for prereq in data['prerequisites']:
+            if not isinstance(prereq, str):
+                raise ValueError(f"Prerequisite '{prereq}' for task '{task_name}' must be a string.")
+            if prereq not in all_task_names:
+                raise ValueError(f"Prerequisite '{prereq}' for task '{task_name}' does not exist.")
 
-# Transform the function to get init and apply
-transformed_mlp = hk.transform(forward_fn)
+    # --- 2. Graph Construction & In-Degree Calculation ---
+    # Adjacency list: task -> list of tasks it's a prerequisite for
+    graph = {task: [] for task in all_task_names}
+    # In-degree: count of prerequisites for each task
+    in_degree = {task: 0 for task in all_task_names}
 
-### 🚀 Initialize Parameters and Perform a Forward Pass
+    for task_name, data in tasks_data.items():
+        for prereq in data['prerequisites']:
+            # Add edge from prerequisite to current task
+            graph[prereq].append(task_name)
+            in_degree[task_name] += 1
 
-# JAX operations require a random key for reproducibility, especially for
-# parameter initialization.
-rng_key = jax.random.PRNGKey(42) # A fixed seed for consistent results
+    # --- 3. Topological Sort (Kahn's Algorithm) with Cycle Detection ---
+    queue = [task for task, degree in in_degree.items() if degree == 0]
+    topological_order = []
+    
+    # Initialize EST and EFT for all tasks
+    est = {task: 0.0 for task in all_task_names}
+    eft = {task: 0.0 for task in all_task_names}
 
-# Create some dummy input data (e.g., a batch of 4 samples, each with 784 features)
-dummy_input = jnp.ones([4, 784])
+    while queue:
+        current_task = queue.pop(0) # Dequeue
+        topological_order.append(current_task)
 
-# 1. Initialize the network's parameters
-# The `init` function takes a random key and a dummy input to infer shapes.
-params = transformed_mlp.init(rng_key, dummy_input)
+        # Calculate EST and EFT for the current_task
+        # Principle of Dominance: EST is max of EFTs of its prerequisites
+        current_prerequisites = tasks_data[current_task]['prerequisites']
+        if current_prerequisites:
+            est[current_task] = max(eft[prereq] for prereq in current_prerequisites)
+        
+        eft[current_task] = est[current_task] + tasks_data[current_task]['duration']
 
-print("--- Initialized Parameters (a peek) ---")
-# You can inspect the structure of the parameters
-for module_name, module_params in params.items():
-    print(f"Module: {module_name}")
-    for param_name, param_value in module_params.items():
-        print(f"  {param_name}: {param_value.shape}")
-print("-" * 40)
+        # For each task that depends on current_task
+        for neighbor_task in graph[current_task]:
+            in_degree[neighbor_task] -= 1
+            if in_degree[neighbor_task] == 0:
+                queue.append(neighbor_task)
 
-# 2. Perform a forward pass (inference)
-# The `apply` function takes the parameters, a random key (if needed by layers like Dropout),
-# and the actual input data.
-output = transformed_mlp.apply(params, rng_key, dummy_input)
+    # --- 4. Cycle Detection ---
+    if len(topological_order) != len(all_task_names):
+        raise ValueError("Project contains cyclic dependencies. Cannot calculate schedule.")
 
-print("\n--- Output Shape ---")
-print(f"Output shape: {output.shape}") # Should be (4, 10) for our example
-print("-" * 40)
+    # --- 5. Final Results & Total Project Duration ---
+    task_results = {}
+    for task_name in all_task_names:
+        task_results[task_name] = {'est': est[task_name], 'eft': eft[task_name]}
 
-### ✨ Leveraging JAX's Power: JIT and Grad
+    total_project_duration = max(eft.values()) if eft else 0.0
 
-# The beauty of JAX + Haiku is how easily you can apply JAX's transformations.
+    return task_results, total_project_duration
 
-# JIT (Just-In-Time Compilation) for speed:
-# We can JIT-compile our `apply` function for significant performance gains.
-# This compiles the Python code into optimized machine code (e.g., for TPUs!).
-jitted_apply = jax.jit(transformed_mlp.apply)
-jitted_output = jitted_apply(params, rng_key, dummy_input)
-print("\n--- JIT-compiled Output Shape ---")
-print(f"JIT-compiled output shape: {jitted_output.shape}")
-print("-" * 40)
+# --- EXAMPLE USAGE ---
+print("--- Running Valid Project Schedule ---")
+try:
+    project_tasks_valid = {
+        'A': {'duration': 5, 'prerequisites': []},
+        'B': {'duration': 3, 'prerequisites': ['A']},
+        'C': {'duration': 7, 'prerequisites': ['A']},
+        'D': {'duration': 4, 'prerequisites': ['B', 'C']}, # D depends on both B and C
+        'E': {'duration': 2, 'prerequisites': ['D']}
+    }
 
-# Grad (Automatic Differentiation) for training:
-# Let's define a simple loss function and then get its gradient.
-def loss_fn(params, rng_key, x, labels):
-    predictions = transformed_mlp.apply(params, rng_key, x)
-    # Simple mean squared error loss for demonstration
-    loss = jnp.mean(jnp.square(predictions - labels))
-    return loss
+    results, total_duration = calculate_project_schedule_advanced(project_tasks_valid)
 
-# Create some dummy labels
-dummy_labels = jnp.zeros([4, 10])
+    print("\n### Task Schedule Results (Valid Project) ###")
+    for task, times in results.items():
+        print(f"Task {task}: EST={times['est']}, EFT={times['eft']}")
 
-# Get the gradient of the loss with respect to the parameters
-# `jax.grad` returns a function that computes the gradient.
-grads_fn = jax.grad(loss_fn)
-gradients = grads_fn(params, rng_key, dummy_input, dummy_labels)
+    print(f"\n### Total Project Duration: {total_duration} ###")
 
-print("\n--- Gradients (a peek) ---")
-# You can inspect the structure of the gradients, which mirrors the parameters
-for module_name, module_grads in gradients.items():
-    print(f"Module: {module_name}")
-    for grad_name, grad_value in module_grads.items():
-        print(f"  {grad_name}: {grad_value.shape}")
-print("-" * 40)
+except ValueError as e:
+    print(f"\nError: {e}")
+
+print("\n--- Running Project with Cyclic Dependency (Expected Error) ---")
+try:
+    project_tasks_cyclic = {
+        'Task1': {'duration': 2, 'prerequisites': ['Task2']},
+        'Task2': {'duration': 3, 'prerequisites': ['Task1']} # Cyclic dependency!
+    }
+    results_cyclic, total_duration_cyclic = calculate_project_schedule_advanced(project_tasks_cyclic)
+    print("This should not be printed if cycle detection works.")
+except ValueError as e:
+    print(f"\nError: {e}")
+
+print("\n--- Running Project with Invalid Prerequisite (Expected Error) ---")
+try:
+    project_tasks_invalid_prereq = {
+        'Start': {'duration': 1, 'prerequisites': []},
+        'Middle': {'duration': 2, 'prerequisites': ['NonExistentTask']}, # Invalid prereq!
+        'End': {'duration': 1, 'prerequisites': ['Middle']}
+    }
+    results_invalid, total_duration_invalid = calculate_project_schedule_advanced(project_tasks_invalid_prereq)
+    print("This should not be printed if input validation works.")
+except ValueError as e:
+    print(f"\nError: {e}")

@@ -51,7 +51,7 @@ export function ScrollToBottomButton({ isVisible, onClick }: ScrollToBottomButto
         <motion.button
           onClick={onClick}
           aria-label="Scroll to bottom"
-          className="absolute left-1/2 -translate-x-1/2 cursor-pointer z-30 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white/80 text-zinc-600 backdrop-blur-sm hover:bg-zinc-100 dark:border-zinc-700/80 dark:bg-[#1C1C1C] dark:text-zinc-300 dark:hover:bg-zinc-700"
+          className="absolute left-1/2 -translate-x-1/2 cursor-pointer z-30 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white/80 text-zinc-600 backdrop-blur-sm hover:bg-zinc-100 dark:border-zinc-700/80 dark:bg-[#1C1C1C] dark:text-zinc-300 dark:hover:bg-zinc-900"
           style={{
             // --- 5. Apply the dynamic gap to the style ---
             // The '+' correctly adds space *above* the input area.

@@ -62,7 +62,7 @@ export const ChatHistoryList = () => {
         <button
           onClick={handleRetry}
           disabled={getRenamingState()}
-          className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-primary dark:hover:bg-zinc-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCcw className="w-3.5 h-3.5" />
           Retry
@@ -84,7 +84,7 @@ export const ChatHistoryList = () => {
   return (
     <div className="flex flex-col">
       <div className="px-2 py-1 mb-1">
-        <span className="text-sm font-semibold tracking-wide text-zinc-900 dark:text-zinc-600/90">Chats</span>
+        <span className="text-sm font-semibold tracking-wide text-zinc-900 dark:text-zinc-300">Chats</span>
       </div>
 
       {/* UPDATED: Changed div to motion.div, added layout, and replaced space-y-1 with gap-1 for smoother animations */}

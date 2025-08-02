@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const model = google("gemini-2.0-flash-lite");
+    const model = google("gemini-2.0-flash");
 
     const { text } = await generateText({
       model,

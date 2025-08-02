@@ -136,7 +136,7 @@ export const Sidebar = () => {
       transition={{ type: "tween", ease: "easeInOut", duration: 0.3 }}
       className={clsx(
         "flex h-full flex-col border-r overflow-x-hidden",
-        isDesktop && !isDesktopSidebarCollapsed ? "bg-[#f9fafb] dark:borber dark:border-zinc-700/40" : "bg-white border-zinc-100",
+        isDesktop && !isDesktopSidebarCollapsed ? "bg-[#f9fafb] dark:bg-[#161717] dark:borber dark:border-zinc-700/40" : "bg-white border-zinc-100",
         "dark:bg-[#1C1C1C] dark:border-zinc-800",
         {
           "fixed top-0 left-0 z-50": isDesktop,
