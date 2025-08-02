@@ -1,66 +1,105 @@
-// FILE: hooks/useTypewriter.ts
-import { useState, useEffect, useRef } from 'react';
+// FILE: hooks/useTypewriter.ts (FINAL, WORKING VERSION)
+
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface UseTypewriterProps {
   fullText: string;
   onComplete: () => void;
   isStopped: boolean;
   speed?: number;
-  chunkSize?: number; // How many characters to add at a time
+  chunkSize?: number;
 }
 
 export const useTypewriter = ({
   fullText,
   onComplete,
   isStopped,
-  speed = 15,      // A more stable interval, e.g., 15ms
-  chunkSize = 4,   // The number of characters to render per interval
+  speed = 15, // Adjusted for a snappier feel
+  chunkSize = 4,
 }: UseTypewriterProps): string => {
   const [displayText, setDisplayText] = useState('');
-  const indexRef = useRef(0);
+
+  // Refs for values that persist across renders without causing them
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
+  const animationFrameId = useRef<number | null>(null);
+  const lastUpdateTime = useRef<number | null>(null);
+  
+  // Use a ref to track the current position in the text.
+  // This is the key to avoiding stale state in the animation loop.
+  const indexRef = useRef(0);
 
-  // Effect to handle manual stop by the user
+  // Keep the onComplete callback fresh
   useEffect(() => {
-    if (isStopped) {
-      // When stopped, immediately show the text that was streamed so far and finish.
-      setDisplayText(fullText);
-      onCompleteRef.current();
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  const animate = useCallback((timestamp: number) => {
+    // If the loop is running for the first time
+    if (lastUpdateTime.current === null) {
+      lastUpdateTime.current = timestamp;
     }
-  }, [isStopped, fullText]);
 
+    const elapsed = timestamp - lastUpdateTime.current;
 
+    let shouldRequestNextFrame = true;
+
+    // If enough time has passed, update the text
+    if (elapsed > speed) {
+      lastUpdateTime.current = timestamp;
+
+      // Get the current index from the ref
+      let currentIndex = indexRef.current;
+      const nextIndex = Math.min(currentIndex + chunkSize, fullText.length);
+
+      // Only update if we have new text to show
+      if (currentIndex < nextIndex) {
+        const newText = fullText.substring(0, nextIndex);
+        setDisplayText(newText);
+        // Update the ref for the next iteration
+        indexRef.current = nextIndex;
+      }
+      
+      // If we've reached the end, stop the animation loop
+      if (nextIndex >= fullText.length) {
+        onCompleteRef.current();
+        shouldRequestNextFrame = false;
+      }
+    }
+
+    // Continue the loop if we are not at the end
+    if (shouldRequestNextFrame) {
+      animationFrameId.current = requestAnimationFrame(animate);
+    }
+  }, [speed, chunkSize, fullText]); // Dependency on fullText is important to restart on change
+
+  // This effect manages starting and stopping the animation loop
   useEffect(() => {
-    // Exit early if the animation was stopped by the user
+    // If user manually stops, kill the animation
     if (isStopped) {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+      setDisplayText(fullText); // Show the final text
       return;
     }
 
-    // Reset the index if a new, shorter message stream begins
-    if (indexRef.current > fullText.length) {
-      indexRef.current = 0;
-      setDisplayText('');
+    // Reset everything when fullText changes
+    indexRef.current = 0;
+    lastUpdateTime.current = null;
+    setDisplayText('');
+
+    // Start the animation if there's text to display
+    if (fullText) {
+      animationFrameId.current = requestAnimationFrame(animate);
     }
 
-    const timer = setInterval(() => {
-      // Calculate the next index by adding the chunk size, ensuring it doesn't exceed the total length
-      const nextIndex = Math.min(indexRef.current + chunkSize, fullText.length);
-
-      // Set the display text to the new, longer substring
-      setDisplayText(fullText.substring(0, nextIndex));
-      indexRef.current = nextIndex;
-
-      // If we have now rendered the entire text, clear the interval and call the onComplete callback
-      if (nextIndex >= fullText.length) {
-        clearInterval(timer);
-        onCompleteRef.current();
+    // Cleanup: cancel the animation frame when the component unmounts or deps change
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
       }
-    }, speed);
-
-    // Cleanup function to clear the interval when the component unmounts or dependencies change
-    return () => clearInterval(timer);
-  }, [fullText, isStopped, speed, chunkSize]);
+    };
+  }, [fullText, isStopped, animate]);
 
   return displayText;
 };

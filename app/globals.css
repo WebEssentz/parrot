@@ -619,7 +619,7 @@ mark[data-color="#e5e7eb"],
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.1); /* --- A very subtle, almost-not-there default state --- */
+  background-color: #a8a8a8; /* --- A very subtle, almost-not-there default state --- */
   border-radius: 10px; /* --- Perfectly rounded for a modern, soft look --- */
   border: 2px solid transparent; /* --- Creates padding around the thumb, making it look even thinner --- */
   background-clip: content-box;
@@ -641,6 +641,25 @@ mark[data-color="#e5e7eb"],
 /* Ensure scrollbar is always visible space */
 html {
   scrollbar-gutter: auto;
+}
+
+/* In your global CSS file */
+@keyframes stream-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The class we will apply to each new character */
+.streaming-char {
+  display: inline-block; /* Ensures transform can be applied */
+  opacity: 1; /* Final state */
+  animation: stream-in 0.4s ease-out forwards;
 }
 
 .scrollbar-spacing {
