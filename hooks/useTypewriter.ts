@@ -1,6 +1,6 @@
-// FILE: hooks/useTypewriter.ts (FINAL, WORKING VERSION)
+// FILE: hooks/useTypewriter.ts (FINAL, STABLE, AND CORRECTED)
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface UseTypewriterProps {
   fullText: string;
@@ -14,92 +14,80 @@ export const useTypewriter = ({
   fullText,
   onComplete,
   isStopped,
-  speed = 15, // Adjusted for a snappier feel
+  speed = 15,
   chunkSize = 4,
 }: UseTypewriterProps): string => {
   const [displayText, setDisplayText] = useState('');
-
-  // Refs for values that persist across renders without causing them
-  const onCompleteRef = useRef(onComplete);
-  const animationFrameId = useRef<number | null>(null);
-  const lastUpdateTime = useRef<number | null>(null);
   
-  // Use a ref to track the current position in the text.
-  // This is the key to avoiding stale state in the animation loop.
-  const indexRef = useRef(0);
+  // Use a ref for the animation frame ID to control the loop.
+  const animationFrameId = useRef<number | null>(null);
 
-  // Keep the onComplete callback fresh
+  // This is the core effect that runs the animation.
+  // It only re-runs if the source text (`fullText`) or the stop flag (`isStopped`) changes.
   useEffect(() => {
-    onCompleteRef.current = onComplete;
-  }, [onComplete]);
-
-  const animate = useCallback((timestamp: number) => {
-    // If the loop is running for the first time
-    if (lastUpdateTime.current === null) {
-      lastUpdateTime.current = timestamp;
-    }
-
-    const elapsed = timestamp - lastUpdateTime.current;
-
-    let shouldRequestNextFrame = true;
-
-    // If enough time has passed, update the text
-    if (elapsed > speed) {
-      lastUpdateTime.current = timestamp;
-
-      // Get the current index from the ref
-      let currentIndex = indexRef.current;
-      const nextIndex = Math.min(currentIndex + chunkSize, fullText.length);
-
-      // Only update if we have new text to show
-      if (currentIndex < nextIndex) {
-        const newText = fullText.substring(0, nextIndex);
-        setDisplayText(newText);
-        // Update the ref for the next iteration
-        indexRef.current = nextIndex;
-      }
-      
-      // If we've reached the end, stop the animation loop
-      if (nextIndex >= fullText.length) {
-        onCompleteRef.current();
-        shouldRequestNextFrame = false;
-      }
-    }
-
-    // Continue the loop if we are not at the end
-    if (shouldRequestNextFrame) {
-      animationFrameId.current = requestAnimationFrame(animate);
-    }
-  }, [speed, chunkSize, fullText]); // Dependency on fullText is important to restart on change
-
-  // This effect manages starting and stopping the animation loop
-  useEffect(() => {
-    // If user manually stops, kill the animation
+    // If the user has requested to stop, clean up and show the final text.
     if (isStopped) {
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
-      setDisplayText(fullText); // Show the final text
+      setDisplayText(fullText);
       return;
     }
 
-    // Reset everything when fullText changes
-    indexRef.current = 0;
-    lastUpdateTime.current = null;
-    setDisplayText('');
-
-    // Start the animation if there's text to display
-    if (fullText) {
-      animationFrameId.current = requestAnimationFrame(animate);
+    // If there's no text, just reset and do nothing.
+    if (!fullText) {
+      setDisplayText('');
+      return;
     }
 
-    // Cleanup: cancel the animation frame when the component unmounts or deps change
+    // --- Animation State ---
+    // These variables live ONLY inside this useEffect. They are reset every time
+    // the effect re-runs (i.e., for a new message).
+    let currentIndex = 0;
+    let lastUpdateTime = 0;
+    setDisplayText(''); // Start with a blank slate for the new message.
+
+    const animate = (timestamp: number) => {
+      // Initialize the timer on the first frame.
+      if (lastUpdateTime === 0) {
+        lastUpdateTime = timestamp;
+      }
+
+      const elapsed = timestamp - lastUpdateTime;
+
+      // Check if enough time has passed to render the next chunk.
+      if (elapsed >= speed) {
+        lastUpdateTime = timestamp;
+        
+        const nextIndex = Math.min(currentIndex + chunkSize, fullText.length);
+        
+        // This is safe because `setDisplayText` will schedule a render, but
+        // this `animate` loop continues independently via requestAnimationFrame.
+        setDisplayText(fullText.substring(0, nextIndex));
+        currentIndex = nextIndex;
+      }
+
+      // If we haven't reached the end, continue the loop.
+      if (currentIndex < fullText.length) {
+        animationFrameId.current = requestAnimationFrame(animate);
+      } else {
+        // We're done. Call the completion callback.
+        onComplete();
+      }
+    };
+
+    // Start the animation loop for the new message.
+    animationFrameId.current = requestAnimationFrame(animate);
+
+    // The cleanup function is critical. It runs when the component unmounts
+    // OR before the effect re-runs for a new message.
     return () => {
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [fullText, isStopped, animate]);
+    
+  }, [fullText, isStopped, speed, chunkSize, onComplete]); // The dependencies are now correct.
 
   return displayText;
 };
