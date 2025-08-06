@@ -7,6 +7,7 @@ import React, { useImperativeHandle, forwardRef, type DragEvent } from "react"
 import { Room, RoomEvent } from "livekit-client"
 import { useUser } from "@clerk/nextjs"
 import { motion, AnimatePresence } from "framer-motion"
+import { SlidePreviewModal } from "./SlidePreviewModal"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { FlowOverlay } from "./FlowOverlay"
 import { v4 as uuidv4 } from "uuid"
@@ -97,11 +98,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     const [isDraggingFileOverApp, setIsDraggingFileOverApp] = React.useState(false)
     const [filmstripImageId, setFilmstripImageId] = React.useState<string | null>(null)
     const [viewingTextFile, setViewingTextFile] = React.useState<StagedFile | null>(null)
-
+    const [viewingSlideFile, setViewingSlideFile] = React.useState<StagedFile | null>(null)
     const scrollContainerRef = React.useRef<HTMLDivElement>(null)
     const [canScrollLeft, setCanScrollLeft] = React.useState(false)
     const [canScrollRight, setCanScrollRight] = React.useState(false)
-
+    
 
     // ... (All your functions like checkScrollability, handleScroll, etc. remain unchanged)
     const checkScrollability = React.useCallback(() => {
@@ -145,7 +146,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
         ".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx",
         ".csv"
       ]
-      
+
       const validFiles = files.filter((file) => {
         const mimeOk = SUPPORTED_MIME_TYPES.has(file.type)
         const extOk = EXTENSION_WHITELIST.some((ext) => file.name.toLowerCase().endsWith(ext))
@@ -164,12 +165,20 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
       if (fileInputRef.current) fileInputRef.current.value = ""
     }
 
+   // UPDATE the handlePreview function to handle PowerPoints
     const handlePreview = (file: StagedFile) => {
-      if (file.file.type.startsWith("image/")) {
-        setFilmstripImageId(file.id)
-      } else if (file.file.type === "text/plain") {
-        setViewingTextFile(file)
+      const fileType = file.file.type;
+
+      if (fileType.startsWith("image/")) {
+        setFilmstripImageId(file.id);
+      } else if (fileType.includes("presentation") || fileType.includes("powerpoint")) {
+        // NEW: Set the state for our slide modal
+        setViewingSlideFile(file);
+      } else if (fileType === "text/plain") {
+        setViewingTextFile(file);
       } else {
+        // Default download for other files like PDF, DOCX, etc. for now
+        toast.info(`Downloading ${file.file.name}...`);
         const url = URL.createObjectURL(file.file);
         const a = document.createElement('a');
         a.href = url;
@@ -178,9 +187,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.info(`Downloading ${file.file.name}...`)
       }
-    }
+    };
 
     const handleRemoveStagedFile = (idToRemove: string) => {
       setStagedFiles((currentFiles) => {
@@ -285,7 +293,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     }
 
     const isActivelyUploadingFiles = stagedFiles.some((f) => f.isUploading)
-    const isDisabled = disabled || offlineState !== "online"
+    const isDisabled = disabled // || offlineState !== "online"
     const hasContent = input.trim().length > 0 || stagedFiles.length > 0
     const textareaStyle = React.useMemo(() => ({ minHeight: 48, maxHeight: 200 }), [])
 
@@ -429,8 +437,20 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
             <TextFileModal
               stagedFile={viewingTextFile}
               onClose={() => setViewingTextFile(null)}
+              isOpen={!!viewingTextFile}
             />
           )}
+        </AnimatePresence>
+        
+        {/* NEW: Render our slide preview modal */}
+        <AnimatePresence>
+            {viewingSlideFile && (
+                <SlidePreviewModal
+                    isOpen={!!viewingSlideFile}
+                    onClose={() => setViewingSlideFile(null)}
+                    stagedFile={viewingSlideFile}
+                />
+            )}
         </AnimatePresence>
       </>
     )

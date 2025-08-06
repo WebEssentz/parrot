@@ -444,17 +444,17 @@ export async function POST(req: Request) {
     tools: wrappedTools,
     toolCallStreaming: true,
     experimental_telemetry: { isEnabled: true },
-    ...(selectedModel === REASON_MODEL_ID && { // Apply thinkingConfig ONLY when REASON_MODEL_ID is selected
-        providerOptions: {
-            google: {
-                thinkingConfig: {
-                    thinkingBudget: 24576, // Adjust as needed
-                    includeThoughts: true,
-                },
-            },
-        },
-      }
-    ),
+    // ...(selectedModel === REASON_MODEL_ID && { // Apply thinkingConfig ONLY when REASON_MODEL_ID is selected
+    //     providerOptions: {
+    //         google: {
+    //             thinkingConfig: {
+    //                 thinkingBudget: 24576, // Adjust as needed
+    //                 includeThoughts: true,
+    //             },
+    //         },
+    //     },
+    //   }
+    // ),
   });
 
   return result.toDataStreamResponse({

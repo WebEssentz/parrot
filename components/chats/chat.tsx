@@ -230,7 +230,7 @@ export default function Chat() {
       >
         {!hasSentMessage ? (
           <div className="flex-1 flex flex-col justify-center items-center px-4">
-            <div className="flex flex-col items-center w-full max-w-xl lg:max-w-[52rem]">
+            <div className="flex flex-col items-center w-full max-w-2xl lg:max-w-[53rem]">
               <ProjectOverview />
               {isDesktop && (
                 <div className="w-full max-w-3xl mx-auto mt-6 mb-4">
@@ -252,7 +252,7 @@ export default function Chat() {
             </div>
           </div>
         ) : (
-          <div className="w-full max-w-[52rem] mx-auto px-4 pt-14">
+          <div className="w-full max-w-[53rem] mx-auto px-4 pt-14">
             <Messages
               messages={messages}
               isLoading={uiIsLoading}
@@ -265,7 +265,7 @@ export default function Chat() {
               onAnimationComplete={() => { /* Can be used for saving chat later */ }}
             />
             {status === 'submitted' && (
-              <div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[46rem]">
+              <div className="w-full mx-auto px-2 sm:px-2 group/message max-w-[97.5%] sm:max-w-[53rem]">
                 <div className="flex flex-row w-full items-start space-x-2 py-4">
                   <div className="flex-shrink-0 h-7 w-7 mr-7 rounded-full flex items-center justify-center font-semibold text-zinc-200 text-sm">
                     <BlinkingCursor />

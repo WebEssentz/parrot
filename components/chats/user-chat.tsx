@@ -51,7 +51,9 @@ export interface StagedFile {
   uploadProgress?: number; // Add uploadProgress to track individual file upload progress
   uploadedAttachment?: AttachmentRecord; // Store the uploaded attachment record here
   isUploading: boolean; // Flag to indicate if this specific file is uploading
-  error?: string; // To store upload errors for a specific file
+  error?: string; // To store upload errors for a specific file// --- ADD THESE TWO OPTIONAL PROPERTIES ---
+  previewImageUrl?: string | null; // For server-generated previews (like slide images)
+  metadata?: Record<string, any> | null; // For extra info like slide count, page count, etc.
 }
 
 // Type definition for what the Vercel AI SDK's `experimental_attachments` field expects

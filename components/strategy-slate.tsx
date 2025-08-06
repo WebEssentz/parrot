@@ -132,7 +132,7 @@ export function StrategySlate({ reasoningParts, isLastPartReasoning }: {
                             Final Thoughts
                         </h3>
                     </div>
-                    <div className="prose prose-sm dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-400 pl-7">
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-100 pl-7">
                         <Markdown>{fullReasoningText}</Markdown>
                     </div>
                 </div>
