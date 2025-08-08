@@ -105,6 +105,7 @@ const Textarea = React.forwardRef<
           height: animatedHeight,
           minHeight: typeof minHeightFromStyle === 'number' ? minHeightFromStyle : 40,
           overflowY: (internalRef.current && typeof maxHeightFromStyle === 'number' && typeof animatedHeight === 'number' && internalRef.current.scrollHeight > animatedHeight) ? 'auto' : 'hidden',
+          scrollbarGutter: 'stable',
         }}
         rows={rows}
         {...props}

@@ -377,7 +377,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
                 )}
               </AnimatePresence>
               <div className="relative">
-                <ShadcnTextarea ref={textareaRef} className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-6 pt-4 text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0" value={input} autoFocus onFocus={onFocus} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onDragLeave={(e) => e.preventDefault()} placeholder={"Ask Avurna..."} disabled={isDisabled} style={textareaStyle} onChange={handleInputChange} onKeyDown={handleKeyDown} onPaste={handlePaste} />
+                <ShadcnTextarea ref={textareaRef} className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-[64px] pt-4 text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0" value={input} autoFocus onFocus={onFocus} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onDragLeave={(e) => e.preventDefault()} placeholder={"Ask Avurna..."} disabled={isDisabled} style={textareaStyle} onChange={handleInputChange} onKeyDown={handleKeyDown} onPaste={handlePaste} />
                 {/* Spacer below the textarea to make room for the fixed action bar */}
                 <div style={{ height: `${ACTION_BAR_HEIGHT}px` }} />
               </div>
