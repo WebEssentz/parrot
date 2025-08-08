@@ -89,6 +89,7 @@ const Textarea = React.forwardRef<
       style={{
         ...style,
         overflowY: (internalRef.current && typeof maxHeightFromStyle === "number" && internalRef.current.scrollHeight > maxHeightFromStyle) ? "auto" : "hidden",
+                scrollbarGutter: "stable both-edges", // reserve space consistently so the scrollbar sits inside without shifting content
       }}
       {...props}
     />
