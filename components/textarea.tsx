@@ -295,6 +295,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     const isActivelyUploadingFiles = stagedFiles.some((f) => f.isUploading)
     const isDisabled = disabled // || offlineState !== "online"
     const hasContent = input.trim().length > 0 || stagedFiles.length > 0
+    
+    // Define constants for layout spacing
+    const ACTION_BAR_HEIGHT = 52
+    const SPACER_HEIGHT = 12
+    
     const textareaStyle = React.useMemo(() => ({ minHeight: 48, maxHeight: 200 }), [])
 
     return (
@@ -374,10 +379,31 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
                   </motion.div>
                 )}
               </AnimatePresence>
-              <div className="relative">
-                <ShadcnTextarea ref={textareaRef} className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-6 pt-4 pb-[2.5rem] text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0" value={input} autoFocus onFocus={onFocus} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onDragLeave={(e) => e.preventDefault()} placeholder={"Ask Avurna..."} disabled={isDisabled} style={textareaStyle} onChange={handleInputChange} onKeyDown={handleKeyDown} onPaste={handlePaste} />
+              {/* Textarea - standalone without bottom padding */}
+              <div className="px-3">
+                <ShadcnTextarea 
+                  ref={textareaRef} 
+                  className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-2 pr-3 pt-4 pb-4 text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0" 
+                  value={input} 
+                  autoFocus 
+                  onFocus={onFocus} 
+                  onDragOver={(e) => e.preventDefault()} 
+                  onDrop={(e) => e.preventDefault()} 
+                  onDragLeave={(e) => e.preventDefault()} 
+                  placeholder={"Ask Avurna..."} 
+                  disabled={isDisabled} 
+                  style={textareaStyle} 
+                  onChange={handleInputChange} 
+                  onKeyDown={handleKeyDown} 
+                  onPaste={handlePaste} 
+                />
               </div>
-              <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-[1.8rem] px-2 pb-2 pt-1">
+              
+              {/* Spacer between textarea and action bar */}
+              <div style={{ height: SPACER_HEIGHT }} />
+              
+              {/* Action bar - positioned outside textarea but visually inside container */}
+              <div className="px-2 pb-2">
                 <div className="flex w-full items-center justify-between">
                   {/* ... Your DropdownMenu and buttons remain unchanged ... */}
                   <DropdownMenu onOpenChange={(isOpen) => { setIsMenuOpen(isOpen); if (isOpen) { setIsTooltipOpen(false) } else { menuJustClosedRef.current = true } }}>
