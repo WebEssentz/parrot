@@ -102,6 +102,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
     const scrollContainerRef = React.useRef<HTMLDivElement>(null)
     const [canScrollLeft, setCanScrollLeft] = React.useState(false)
     const [canScrollRight, setCanScrollRight] = React.useState(false)
+    // Height of the action bar (upload / send buttons). Keep this in sync with the bar styles below.
+    const ACTION_BAR_HEIGHT = 52
     
 
     // ... (All your functions like checkScrollability, handleScroll, etc. remain unchanged)
@@ -375,9 +377,26 @@ export const Textarea = forwardRef<HTMLTextAreaElement, InputProps>(
                 )}
               </AnimatePresence>
               <div className="relative">
-                <ShadcnTextarea ref={textareaRef} className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-6 pt-4 pb-[2.5rem] text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0" value={input} autoFocus onFocus={onFocus} onDragOver={(e) => e.preventDefault()} onDrop={(e) => e.preventDefault()} onDragLeave={(e) => e.preventDefault()} placeholder={"Ask Avurna..."} disabled={isDisabled} style={textareaStyle} onChange={handleInputChange} onKeyDown={handleKeyDown} onPaste={handlePaste} />
+                <ShadcnTextarea
+                  ref={textareaRef}
+                  className="scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-900 dark:scrollbar-thumb-zinc-600 resize-none bg-transparent w-full rounded-3xl pl-5 pr-6 pt-4 text-base md:text-base font-normal placeholder:text-zinc-500 border-none shadow-none focus-visible:ring-0"
+                  value={input}
+                  autoFocus
+                  onFocus={onFocus}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => e.preventDefault()}
+                  onDragLeave={(e) => e.preventDefault()}
+                  placeholder={"Ask Avurna..."}
+                  disabled={isDisabled}
+                  style={textareaStyle}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                />
+                {/* Spacer reserves room so the absolutely-positioned action bar never obscures textarea content */}
+                <div style={{ height: ACTION_BAR_HEIGHT }} />
               </div>
-              <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-[1.8rem] px-2 pb-2 pt-1">
+              <div className="absolute inset-x-0 bottom-0 z-10 rounded-b-[1.8rem] px-2 pb-2 pt-1" style={{ height: ACTION_BAR_HEIGHT }}>
                 <div className="flex w-full items-center justify-between">
                   {/* ... Your DropdownMenu and buttons remain unchanged ... */}
                   <DropdownMenu onOpenChange={(isOpen) => { setIsMenuOpen(isOpen); if (isOpen) { setIsTooltipOpen(false) } else { menuJustClosedRef.current = true } }}>
