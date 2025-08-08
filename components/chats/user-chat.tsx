@@ -4,7 +4,7 @@ import React from "react"
 import { getDefaultModel } from "@/ai/providers"
 import { useChat } from "@ai-sdk/react"
 import { useEffect, useRef, useState } from "react"
-import { Share, MoreHorizontal, Pin, Edit3, Archive, Download, Trash2, MoreVertical } from "lucide-react"
+import { Share, MoreHorizontal, Pin, Edit3, Archive, Download, Trash2, MoreVertical, Paperclip } from "lucide-react"
 import { ThemeToggle } from "../ui/theme-toggle";
 import { useUser } from "@clerk/nextjs"
 import { Messages } from "../messages"
@@ -12,7 +12,7 @@ import { toast } from "sonner"
 import { useLiveSuggestedPrompts } from "@/hooks/use-suggested-prompts"
 import { UserChatHeader } from "../ui/infobar/user-chat-header"
 import { ChatScrollAnchor } from "../chat-scroll-anchor"
-import { useSidebar } from "@/lib/sidebar-context"
+import { FilesInChatSidebar } from "../files-in-chat-sidebar"
 import { motion, AnimatePresence } from "framer-motion"
 import { ScrollToBottomButton } from "../scroll-to-bottom-button"
 import { ChatInputArea } from "../chat-input-area"
@@ -123,6 +123,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const [animatingMessageId, setAnimatingMessageId] = useState<string | null>(null);
   // State to manage staged files and their upload progress
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+  const [chatAttachments, setChatAttachments] = useState<AttachmentRecord[]>(initialChat?.attachments || []);
+  const [isFilesSidebarOpen, setIsFilesSidebarOpen] = useState(false);
+  const [viewingDocFile, setViewingDocFile] = useState<StagedFile | null>(null);
+  const [filmstripImageId, setFilmstripImageId] = useState<string | null>(null);
+  const [viewingTextFile, setViewingTextFile] = useState<StagedFile | null>(null);
 
   useEffect(() => {
     const syncUser = async () => {
@@ -140,6 +145,29 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     }
     syncUser()
   }, [isSignedIn])
+
+  // --- NEW: Fetch chat details including attachments when ID changes ---
+  useEffect(() => {
+    const fetchChatDetails = async () => {
+      if (chatId) {
+        try {
+          const response = await fetch(`/api/chats/${chatId}`);
+          if (!response.ok) throw new Error("Failed to fetch chat details.");
+          const data = await response.json();
+          setChatTitle(data.title || "New Chat");
+          setMessages(data.messages || []);
+          setChatAttachments(data.attachments || []);
+        } catch (error) {
+          console.error("Error fetching chat details:", error);
+          toast.error("Could not load chat details.");
+        }
+      }
+    };
+    // Only fetch if we have a chatId but no initialChat data (or attachments)
+    if (chatId && !initialChat) {
+      fetchChatDetails();
+    }
+  }, [chatId, initialChat]); // Depend on initialChat to avoid re-fetch on first load
 
   useEffect(() => {
     setSelectedModel(getDefaultModel(!!isSignedIn))
@@ -196,6 +224,32 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
   const isAnimationPotentiallyActive = isLastMessageAssistant && !isDataStreaming && !userStoppedAnimation;
   const isPerceivedStreaming = (isDataStreaming || !!animatingMessageId) && !userStoppedAnimation;
   
+  // --- THIS IS THE PREVIEW HANDLER FUNCTION ---
+  // It is now correctly defined in the scope where it will be used.
+  const handlePreview = (file: StagedFile) => {
+    const fileType = file.file?.type || file.uploadedAttachment?.fileType || '';
+    const isWord = fileType.includes("wordprocessingml.document");
+    const isPdf = fileType.includes("pdf");
+    const isPowerPoint = fileType.includes("presentation") || fileType.includes("powerpoint");
+  
+    if (fileType.startsWith("image/")) {
+      setFilmstripImageId(file.id);
+    } else if (isWord || isPdf || isPowerPoint) {
+      setViewingDocFile(file);
+    } else if (fileType === "text/plain") {
+      setViewingTextFile(file);
+    } else {
+      toast.info(`Downloading ${file.file?.name || file.uploadedAttachment?.fileName}...`);
+      const url = file.previewUrl || file.uploadedAttachment!.downloadUrl;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.file?.name || file.uploadedAttachment!.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
   const handleFileStaged = async (newFiles: StagedFile[]) => {
     if (!dbUser?.id) {
       toast.error("User profile not loaded. Please wait a moment.");
@@ -573,6 +627,8 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
     <div className="flex h-dvh flex-col bg-transparent w-screen overflow-x-hidden md:w-full overflow-hidden">
       <Modals />
       <UserChatHeader
+        hasFiles={chatAttachments.length > 0}
+        onShowFilesClick={() => setIsFilesSidebarOpen(true)}
         desktopActions={
           hasSentMessage && (
             <div className="flex items-center gap-1 sm:gap-2">
@@ -602,6 +658,11 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
         }
         mobileActions={
           hasSentMessage && (
+            <div className="flex items-center">
+              {/* NEW: Add button for mobile as well */}
+              {chatAttachments.length > 0 && (
+                <button onClick={() => setIsFilesSidebarOpen(true)} className="p-2"><Paperclip size={18} /></button>
+              )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="p-2">
@@ -618,6 +679,7 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
                 <DropdownMenuItem onSelect={() => setShowDeleteModal(true)} className="flex items-center gap-2 sm:gap-3 cursor-pointer px-2 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg text-red-600 dark:text-red-500 focus:bg-red-500/10 focus:text-red-600 dark:focus:text-red-500"><Trash2 size={14} className="sm:w-[15px] sm:h-[15px] text-red-600 dark:text-red-500" /><span>Delete</span></DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
           )
         }
       >
@@ -674,6 +736,18 @@ export default function UserChat({ initialChat }: { initialChat?: any }) {
           </div>
         </div>
       )}
+      <motion.div>
+       <FilesInChatSidebar 
+        isOpen={isFilesSidebarOpen}
+        onClose={() => setIsFilesSidebarOpen(false)}
+        files={chatAttachments}
+        onPreview={handlePreview}
+      />
+     </motion.div>
     </div>
   )
+}
+
+function setFilmstripImageId(id: string) {
+  throw new Error("Function not implemented.")
 }

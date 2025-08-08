@@ -112,5 +112,5 @@ export const useTypewriter = ({
     };
   }, [fullText, isStopped]); // <-- The dependencies are now correct and stable.
 
-  return displayText;
+return displayText;
 };

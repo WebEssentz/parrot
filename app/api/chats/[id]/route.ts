@@ -1,7 +1,7 @@
 // FILE: app/api/chats/[id]/route.ts
 
 import { db } from "@/lib/db"
-import { chat } from "@/lib/db/schema"
+import { chat, attachment } from "@/lib/db/schema"
 import { auth } from "@clerk/nextjs/server"
 import { eq, and } from "drizzle-orm"
 import { NextResponse } from "next/server"
@@ -120,7 +120,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: "Chat not found or access denied" }, { status: 404 })
     }
 
-    return NextResponse.json(userChat, { status: 200 })
+    // --- NEW: Fetch all attachments associated with this chat ---
+    const chatAttachments = await db
+      .select()
+      .from(attachment)
+      .where(eq(attachment.chatId, chatId))
+
+    // --- MODIFIED: Return the chat data PLUS the attachments ---
+    return NextResponse.json({ ...userChat, attachments: chatAttachments }, { status: 200 })
+
   } catch (error) {
     console.error(`Error fetching chat ${chatId}:`, error)
     return NextResponse.json({ error: "Failed to fetch chat" }, { status: 500 })

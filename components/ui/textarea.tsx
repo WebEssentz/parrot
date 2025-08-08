@@ -3,7 +3,7 @@
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-import { useRef, useLayoutEffect } from "react";
+import { useRef, useLayoutEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Plus } from "lucide-react";
 
@@ -57,42 +57,60 @@ export const AttachButton = React.forwardRef<
 AttachButton.displayName = 'AttachButton';
 
 const Textarea = React.forwardRef<
-  HTMLTextAreaElement,
-  React.TextareaHTMLAttributes<HTMLTextAreaElement>
->(({ className, style, ...props }, ref) => {
-  const internalRef = useRef<HTMLTextAreaElement>(null);
-  React.useImperativeHandle(ref, () => internalRef.current as HTMLTextAreaElement);
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { rows?: number }
+>(({ className, style, rows = 1, ...props }, ref) => {
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  React.useImperativeHandle(ref, () => internalRef.current as HTMLTextAreaElement);
 
-  const value = props.value;
-  const minHeightFromStyle = style?.minHeight;
-  const maxHeightFromStyle = style?.maxHeight;
+  const value = props.value;
+  const minHeightFromStyle = style?.minHeight;
+  const maxHeightFromStyle = style?.maxHeight;
 
-  useLayoutEffect(() => {
-    const textarea = internalRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      const scrollHeight = textarea.scrollHeight;
-      const effectiveMaxHeight = typeof maxHeightFromStyle === 'number' ? maxHeightFromStyle : Infinity;
-      const targetHeight = Math.min(scrollHeight, effectiveMaxHeight);
-      textarea.style.height = `${targetHeight}px`;
-    }
-  }, [value, minHeightFromStyle, maxHeightFromStyle]);
+  const initialMinHeight = typeof minHeightFromStyle === 'number' ? minHeightFromStyle : (rows > 1 ? undefined : 40);
+  const [animatedHeight, setAnimatedHeight] = useState<number | string>(initialMinHeight || 'auto');
 
-  return (
-    <textarea
-      ref={internalRef}
-      className={cn(
-        "border-input placeholder:text-muted-foreground w-full rounded-md border px-3 py-2 text-base outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "resize-none",
-        className
-      )}
-      style={{
-        ...style,
-        overflowY: (internalRef.current && typeof maxHeightFromStyle === "number" && internalRef.current.scrollHeight > maxHeightFromStyle) ? "auto" : "hidden",
-      }}
-      {...props}
-    />
-  );
+  useLayoutEffect(() => {
+    const textarea = internalRef.current;
+    if (!textarea) return;
+    const effectiveMaxHeight = typeof maxHeightFromStyle === 'number' ? maxHeightFromStyle : Infinity;
+    const prevHeight = textarea.style.height;
+    textarea.style.height = 'auto';
+    const scrollHeight = textarea.scrollHeight;
+    let targetHeight = Math.min(scrollHeight, effectiveMaxHeight);
+    if (typeof minHeightFromStyle === 'number') {
+      targetHeight = Math.max(targetHeight, minHeightFromStyle);
+    }
+    if (`${targetHeight}px` !== prevHeight) {
+      setAnimatedHeight(targetHeight);
+      textarea.style.height = `${targetHeight}px`;
+    }
+  }, [value, rows, minHeightFromStyle, maxHeightFromStyle]);
+
+  return (
+    <motion.div
+      animate={{ height: animatedHeight }}
+      transition={{ type: 'tween', duration: 0.2, ease: 'easeInOut' }}
+      style={{ overflow: 'hidden', width: '100%' }}
+    >
+      <textarea
+        ref={internalRef}
+        className={cn(
+          "border-input placeholder:text-muted-foreground w-full rounded-md border px-3 py-2 text-base outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          "resize-none",
+          className
+        )}
+        style={{
+          ...style,
+          height: animatedHeight,
+          minHeight: typeof minHeightFromStyle === 'number' ? minHeightFromStyle : 40,
+          overflowY: (internalRef.current && typeof maxHeightFromStyle === 'number' && typeof animatedHeight === 'number' && internalRef.current.scrollHeight > animatedHeight) ? 'auto' : 'hidden',
+        }}
+        rows={rows}
+        {...props}
+      />
+    </motion.div>
+  );
 });
 Textarea.displayName = 'Textarea';
 

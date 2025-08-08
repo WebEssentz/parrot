@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSidebar } from "@/lib/sidebar-context";
 import { motion } from "framer-motion";
+import { Paperclip } from "lucide-react";
 
 const CustomMenuIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -20,12 +21,29 @@ const CustomMenuIcon = ({ className }: { className?: string }) => (
 export const UserChatHeader = ({ 
   children, 
   mobileActions,
-  desktopActions
+  desktopActions,
+  hasFiles,
+  onShowFilesClick,
 }: { 
   children: React.ReactNode; 
   mobileActions?: React.ReactNode;
   desktopActions?: React.ReactNode;
+  // Make them optional to avoid breaking other parts of the app
+  hasFiles?: boolean;
+  onShowFilesClick?: () => void;
 }) => {
+
+  // Create the button component once to reuse it
+  const FilesInChatButton = hasFiles ? (
+    <button
+      onClick={onShowFilesClick}
+      className="p-1.5 sm:p-2 cursor-pointer rounded-lg text-zinc-600 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+      aria-label="Files in Chat"
+    >
+      <Paperclip size={16} className="sm:w-5 sm:h-5" />
+    </button>
+  ) : null;
+
   const { isDesktopSidebarCollapsed, toggleSidebar } = useSidebar();
   const [isDesktop, setIsDesktop] = useState<boolean | undefined>(undefined);
   // Use a more specific state for mobile phones only
@@ -87,8 +105,9 @@ export const UserChatHeader = ({
           {children}
         </div>
         
-        {/* Right-Side Actions */}
         <div className="flex items-center flex-shrink-0 pl-2">
+           {/* --- NEW: Add the FilesInChatButton here --- */}
+          {FilesInChatButton}
           {isMobilePhone ? mobileActions : desktopActions}
         </div>
       </div>
