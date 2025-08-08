@@ -3,14 +3,14 @@
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-import { useRef, useLayoutEffect } from "react";
+import { useRef, useLayoutEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Plus } from "lucide-react";
 
 /**
- * @license
- * Copyright 2025 Avocado INC. All Rights Reserved.
- */
+ * @license
+ * Copyright 2025 Avocado INC. All Rights Reserved.
+ */
 
 // 👇 MODIFIED: The AttachButton component is simplified to return only a button.
 export const AttachButton = React.forwardRef<
@@ -57,42 +57,52 @@ export const AttachButton = React.forwardRef<
 AttachButton.displayName = 'AttachButton';
 
 const Textarea = React.forwardRef<
-  HTMLTextAreaElement,
-  React.TextareaHTMLAttributes<HTMLTextAreaElement>
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>
 >(({ className, style, ...props }, ref) => {
-  const internalRef = useRef<HTMLTextAreaElement>(null);
-  React.useImperativeHandle(ref, () => internalRef.current as HTMLTextAreaElement);
+  const internalRef = useRef<HTMLTextAreaElement>(null);
+  React.useImperativeHandle(ref, () => internalRef.current as HTMLTextAreaElement);
 
-  const value = props.value;
-  const minHeightFromStyle = style?.minHeight;
-  const maxHeightFromStyle = style?.maxHeight;
+  const value = props.value;
+  const minHeightFromStyle = style?.minHeight;
+  const maxHeightFromStyle = style?.maxHeight;
+  const [isOverflowing, setIsOverflowing] = useState(false);
 
-  useLayoutEffect(() => {
-    const textarea = internalRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      const scrollHeight = textarea.scrollHeight;
-      const effectiveMaxHeight = typeof maxHeightFromStyle === 'number' ? maxHeightFromStyle : Infinity;
-      const targetHeight = Math.min(scrollHeight, effectiveMaxHeight);
-      textarea.style.height = `${targetHeight}px`;
-    }
-  }, [value, minHeightFromStyle, maxHeightFromStyle]);
+  useLayoutEffect(() => {
+    const textarea = internalRef.current;
+    if (!textarea) return;
 
-  return (
-    <textarea
-      ref={internalRef}
-      className={cn(
-        "border-input placeholder:text-muted-foreground w-full rounded-md border px-3 py-2 text-base outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "resize-none",
-        className
-      )}
-      style={{
-        ...style,
-        overflowY: (internalRef.current && typeof maxHeightFromStyle === "number" && internalRef.current.scrollHeight > maxHeightFromStyle) ? "auto" : "hidden",
-      }}
-      {...props}
-    />
-  );
+    // Auto-size to content up to maxHeight
+    textarea.style.height = 'auto';
+    const scrollHeight = textarea.scrollHeight;
+    const effectiveMaxHeight = typeof maxHeightFromStyle === 'number' ? maxHeightFromStyle : Infinity;
+    const targetHeight = Math.min(scrollHeight, effectiveMaxHeight);
+    textarea.style.height = `${targetHeight}px`;
+
+    // After sizing, detect overflow to toggle scrollbar visibility
+    const nowOverflowing = textarea.scrollHeight > textarea.clientHeight;
+    if (nowOverflowing !== isOverflowing) setIsOverflowing(nowOverflowing);
+  }, [value, minHeightFromStyle, maxHeightFromStyle, isOverflowing]);
+
+  return (
+    <textarea
+      ref={internalRef}
+      className={cn(
+        "border-input placeholder:text-muted-foreground w-full rounded-md border px-3 py-2 text-base outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "resize-none",
+        className
+      )}
+      style={{
+        ...style,
+        // Keep the scrollbar inside with reserved gutter so it doesn't overlay content
+        scrollbarGutter: 'stable both-edges',
+        overflowY: isOverflowing ? 'auto' : 'hidden',
+        // Ensure a minimum height fallback for single-row use without rows prop
+        minHeight: typeof minHeightFromStyle === 'number' ? minHeightFromStyle : 40,
+      }}
+      {...props}
+    />
+  );
 });
 Textarea.displayName = 'Textarea';
 
